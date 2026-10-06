@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "component": "cua-owned-windows-menu-helper",
+  "version": 2,
+  "requirements_delta": {
+    "crossover_native_menu": "windows-menu-helper-v1"
+  },
+  "release_files": [
+    {
+      "source": "crossover_menu_helper.py",
+      "target": "PalCraft-Dev/player-tools/launcher/crossover_menu_helper.py",
+      "role": "launcher_crossover_native_menu",
+      "sha256": "17ec929e6cb1b0e7471a25efb7f37d252cb5e60550a947d92519a0b0e900c8ae",
+      "replaces_sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f"
+    },
+    {
+      "source": "native-short-target-v2/PalCraftShellLink-v2.exe",
+      "target": "PalCraft-Dev/player-tools/bin/PalCraftShellLink-v2.exe",
+      "role": "crossover_shelllink_writer",
+      "sha256": "c4169b4276a1f4478917d169ebe63878074d17b889d135326ff87bb8bc96fa07",
+      "architecture": "windows-x64",
+      "bytes": 24576
+    }
+  ],
+  "runtime_delta": {
+    "none": true,
+    "keep_existing_normal_supervisor_journal_v2_wrapper": true,
+    "no_third_core_runtime_slot": true
+  },
+  "vendor_dependency": {
+    "template_sha256": "3eebe821f070f66307ff21e4298bea4f0fb2eba57f8b43394cdd8916e59bed9e",
+    "executable_sha256": "bed23023e0af7e61b2a781728541dc2517ba8a888359aa5a1ee2158546a2d1ba",
+    "files_included": false
+  },
+  "producer": "Only native IShellLinkW/IPersistFile; API-supplied ASCII alias if needed; original/effective/readback file identities must agree",
+  "build": {
+    "source": "native-short-target-v2/shelllink_writer.cpp",
+    "source_sha256": "13a7f03385034780a10baa97734a2046e35097ec80ea4c577c4826b16af0f2cf",
+    "parameterized_entry": "native-short-target-v2/build_shelllink_writer.py",
+    "parameterized_entry_sha256": "e9eea1de899695746ef40488f7c8cd9caae02d183c9f55e7d0a07608e504b933",
+    "compiler": "Zig 0.15.2 on Mac",
+    "nice": 19,
+    "concurrent_compilers": 1,
+    "author_build_evidence_not_exported": true
+  },
+  "actual_file_only_validation": {
+    "returncode": 0,
+    "link_bytes": 1968,
+    "backend_report": {
+      "schema": 1,
+      "backend": "IShellLinkW",
+      "stage": "verified",
+      "hresult": "0x00000000",
+      "link_bytes": 1968,
+      "readback_target": true,
+      "readback_arguments": true,
+      "readback_workdir": true,
+      "readback_description": true,
+      "same_original_file": true,
+      "effective_target_source": "GetShortPathNameW",
+      "GetPath_hresult": "0x00000000",
+      "target_executed": false
+    },
+    "link_exists": true,
+    "target_executed": false,
+    "session_modified": false
+  },
+  "source_validation": {
+    "focused_cases": 6,
+    "path": "validation.json",
+    "entry": "python3 verify_failure_boundary.py",
+    "public_checker_change": "Only original author fixed CrossOver path changed to PALCRAFT_CROSSOVER_APP parameter; original six checks receipt retained."
+  },
+  "pending": {
+    "actual_game_app_registered": null,
+    "actual_window_owner_proven": false,
+    "physical_f5_proven": false
+  },
+  "safe_publication": {
+    "vendor_files_included": false,
+    "private_receipts_included": false,
+    "failed_token_or_arguments_included": false,
+    "source_and_own_binaries_only": true,
+    "private_author_absolute_paths_exported": false
+  },
+  "frozen_source_manifest_sha256": "78823a340ada658e5c896691b2afae4d9b94e8ccbb223e2a15247fdeea38dbd2",
+  "public_files": [
+    {
+      "path": "README.md",
+      "sha256": "4c0a28812fb1bcf3f4607b6fbb7b8198bf41d632fa906af71236d3fcad509b93",
+      "bytes": 2345
+    },
+    {
+      "path": "base-crossover_menu_helper.py",
+      "sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f",
+      "bytes": 16753
+    },
+    {
+      "path": "crossover_menu_helper.py",
+      "sha256": "17ec929e6cb1b0e7471a25efb7f37d252cb5e60550a947d92519a0b0e900c8ae",
+      "bytes": 19482
+    },
+    {
+      "path": "crossover_menu_helper.py.patch",
+      "sha256": "0bcb040762606cadb460a75f8815bb811ca9f29a1e9a1c8bcf419c79f69106dc",
+      "bytes": 11282
+    },
+    {
+      "path": "native-short-target-v2/PalCraftShellLink-v2.exe",
+      "sha256": "c4169b4276a1f4478917d169ebe63878074d17b889d135326ff87bb8bc96fa07",
+      "bytes": 24576
+    },
+    {
+      "path": "native-short-target-v2/build_shelllink_writer.py",
+      "sha256": "e9eea1de899695746ef40488f7c8cd9caae02d183c9f55e7d0a07608e504b933",
+      "bytes": 1891
+    },
+    {
+      "path": "native-short-target-v2/shelllink_writer.cpp",
+      "sha256": "13a7f03385034780a10baa97734a2046e35097ec80ea4c577c4826b16af0f2cf",
+      "bytes": 9181
+    },
+    {
+      "path": "probes/shelllink_path_probe_readonly.cpp",
+      "sha256": "0e500fe85f3e0bd75c97d4e47ee15d0cb6b6df7ab4dff4a5ee264cec364522ba",
+      "bytes": 6370
+    },
+    {
+      "path": "validation.json",
+      "sha256": "5a98226b1ed157cfa12c1fdcbac7af874ba6fd428da831d4c94aaf2c6589673c",
+      "bytes": 2625
+    },
+    {
+      "path": "verify_failure_boundary.py",
+      "sha256": "a3e5f148e3949e617217ab4cf240bd49062534d8b2b7debe12754ba91d7da050",
+      "bytes": 8499
+    }
+  ]
+}

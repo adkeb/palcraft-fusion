@@ -1,0 +1,204 @@
+--- a/launcher/crossover_menu_helper.py
++++ b/launcher/crossover_menu_helper.py
+@@ -2,7 +2,8 @@
+ """Owned CrossOver Windows menu bridge; run only as the normal session client.
+ 
+ No game is launched by plan(), bundle extraction, or the shortcut setup script.
+-run() replaces this process with cxmenu after the supervisor and session checks.
++run() replaces this process with the genuine native vendor Menu Helper after
++the supervisor and session checks.
+ """
+ import argparse
+ import bz2
+@@ -14,6 +15,7 @@
+ import re
+ import shlex
+ import stat
++import struct
+ import subprocess
+ import sys
+ import time
+@@ -21,6 +23,7 @@
+ REQUIREMENT = 'windows-menu-helper-v1'
+ TEMPLATE_SHA256 = '3eebe821f070f66307ff21e4298bea4f0fb2eba57f8b43394cdd8916e59bed9e'
+ HELPER_SHA256 = 'bed23023e0af7e61b2a781728541dc2517ba8a888359aa5a1ee2158546a2d1ba'
++WRITER_SHA256 = 'c4169b4276a1f4478917d169ebe63878074d17b889d135326ff87bb8bc96fa07'
+ LSREGISTER = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
+ 
+ 
+@@ -118,12 +121,11 @@
+     description = 'PalCraft Game ' + owner[:8]
+     menu_script = bottle / 'desktopdata/cxmenu' / menu_script_name(menu)
+     cxmenu = vendor / 'SharedSupport/CrossOver/bin/cxmenu'
+-    launch = [str(cxmenu), '--bottle', profile['bottle_name'], '--start', menu,
+-              '--wait-children', '--enable-alt-loader', '1', '--debugmsg', '-all',
+-              '--dll', 'dwmapi=n,b', '--env', 'SteamAppId=1623730', '--workdir', prefix[-1]]
++    # The observed winewrapper ignores --enable-alt-loader. Start the genuine
++    # native Menu Helper, whose vendor Wine controller supplies its loader.
++    launch = [str(bundle / 'Contents/MacOS/Menu Helper')]
+     # The official menu script accepts the same Wine options before its target.
+-    helper_command = shlex.join([str(menu_script), '--enable-alt-loader', '1',
+-                                '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
++    helper_command = shlex.join([str(menu_script), '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+                                 '--env', 'SteamAppId=1623730', '--workdir', prefix[-1]])
+     return dict(root=root, vendor=vendor, bottle=bottle, home=home, bundle=bundle,
+                 wine=wine, cxmenu=cxmenu, menu=menu, owner=owner, description=description,
+@@ -136,27 +138,62 @@
+                     hashlib.md5(menu.encode('utf-8')).hexdigest().upper())
+ 
+ 
+-def vb_string(value):
+-    if '\r' in value or '\n' in value or '\0' in value:
+-        raise MenuError('Unsupported shortcut text')
+-    return '"' + value.replace('"', '""') + '"'
+-
+-
+-def shortcut_source(spec):
+-    """WScript COM writes a real ShellLink; it never executes its TargetPath."""
+-    return '\r\n'.join([
+-        'Option Explicit', 'Dim fs, shell, link, folder',
+-        'Set fs = CreateObject("Scripting.FileSystemObject")',
+-        'Sub MakeFolder(p)', '  If fs.FolderExists(p) Then Exit Sub',
+-        '  MakeFolder fs.GetParentFolderName(p)', '  fs.CreateFolder p', 'End Sub',
+-        'folder = fs.GetParentFolderName(' + vb_string(spec['link_windows']) + ')',
+-        'MakeFolder folder', 'Set shell = CreateObject("WScript.Shell")',
+-        'Set link = shell.CreateShortcut(' + vb_string(spec['link_windows']) + ')',
+-        'link.TargetPath = ' + vb_string(spec['target']),
+-        'link.Arguments = ' + vb_string(subprocess.list2cmdline(spec['arguments'])),
+-        'link.WorkingDirectory = ' + vb_string(spec['workdir']),
+-        'link.Description = ' + vb_string(spec['description']),
+-        'link.WindowStyle = 1', 'link.Save', 'WScript.Quit 0', ''])
++def native_shortcut_request(spec):
++    fields = [spec['link_windows'], spec['target'],
++              subprocess.list2cmdline(spec['arguments']), spec['workdir'], spec['description']]
++    result = bytearray(b'PCSLNK01' + struct.pack('<I', len(fields)))
++    for value in fields:
++        if '\0' in value or '\r' in value or '\n' in value:
++            raise MenuError('Unsupported ShellLink field')
++        encoded = value.encode('utf-16-le')
++        units = len(encoded) // 2
++        if units > 32767:
++            raise MenuError('ShellLink field exceeds the Windows Unicode limit')
++        result.extend(struct.pack('<I', units))
++        result.extend(encoded)
++    if len(result) > 262144:
++        raise MenuError('ShellLink request exceeds the file tool limit')
++    return bytes(result)
++
++
++def output_text(data, token):
++    if isinstance(data, bytes):
++        if data[:2] in (b'\xff\xfe', b'\xfe\xff'):
++            data = data.decode('utf-16', errors='replace')
++        elif data and data.count(b'\0') > len(data) // 5:
++            data = data.decode('utf-16-le', errors='replace')
++        else:
++            data = data.decode('utf-8', errors='replace')
++    data = str(data or '').replace(token, '<redacted-token>')
++    return re.sub(r'(?i)\b[0-9a-f]{32}\b', '<redacted-token>', data)[-2500:]
++
++
++def step_receipt(spec, stage, completed):
++    exists = spec['link'].is_file()
++    report = dict(schema=1, stage=stage, returncode=completed.returncode,
++                  stdout=output_text(completed.stdout, spec['token']),
++                  stderr=output_text(completed.stderr, spec['token']),
++                  expected_link=spec['link_windows'], link_exists=exists,
++                  link_bytes=spec['link'].stat().st_size if exists else None,
++                  target_executed=False)
++    path = checked_path(spec['home'] / 'setup-diagnostic.json', spec['root'])
++    path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
++    path.chmod(0o600)
++    return json.dumps(report, ensure_ascii=False, separators=(',', ':'))
++
++
++def native_readback(completed, spec):
++    for line in output_text(completed.stdout, spec['token']).splitlines():
++        if line.startswith('{'):
++            try:
++                value = json.loads(line)
++            except json.JSONDecodeError:
++                continue
++            if value.get('backend') == 'IShellLinkW' and value.get('stage') == 'verified':
++                required = ('readback_target', 'readback_arguments', 'readback_workdir', 'readback_description')
++                if value.get('target_executed') is False and value.get('same_original_file') is True and all(value.get(name) is True for name in required):
++                    return value
++    return None
+ 
+ 
+ def bundle_info(spec, profile, template_info, bottle_id):
+@@ -243,36 +280,43 @@
+     checked_path(spec['link'], spec['bottle'])
+     link_anchor.mkdir(parents=True, exist_ok=True)
+     link_anchor.chmod(0o700)
+-    script = checked_path(spec['home'] / 'create-shortcut.vbs', spec['root'])
++    writer = checked_path(spec['writer'], spec['root'])
++    if not writer.is_file() or sha(writer.read_bytes()) != WRITER_SHA256:
++        raise MenuError('The release lacks the exact native Windows ShellLink file tool')
++    request = checked_path(spec['home'] / 'create-shortcut.bin', spec['root'])
+     try:
+-        script.write_bytes(shortcut_source(spec).encode('utf-16'))
+-        script.chmod(0o600)
++        request.write_bytes(native_shortcut_request(spec))
++        request.chmod(0o600)
+         setup = [str(spec['wine']), '--bottle', profile['bottle_name'], '--no-update',
+-                 '--debugmsg', '-all', '--wl-app', 'cscript.exe', '//nologo',
+-                 windows(profile['windows_root'], '.palcraft/native-menu/create-shortcut.vbs')]
++                 '--debugmsg', '-all', '--wait-children', spec['writer_windows'],
++                 windows(profile['windows_root'], '.palcraft/native-menu/create-shortcut.bin')]
+         completed = runner(setup, env=env, timeout=30, capture_output=True)
+-        if completed.returncode != 0 or not spec['link'].is_file():
+-            raise MenuError('The owned Windows ShellLink could not be created')
++        detail = step_receipt(spec, 'native_IShellLinkW_create_and_readback', completed)
++        if completed.returncode != 0 or not spec['link'].is_file() or native_readback(completed, spec) is None:
++            raise MenuError('The owned Windows ShellLink could not be created: ' + detail)
+     finally:
+-        script.unlink(missing_ok=True)
++        request.unlink(missing_ok=True)
+     spec['link'].chmod(0o600)
+     guard(spec)
+     create = [str(spec['cxmenu']), '--bottle', profile['bottle_name'], '--create', spec['menu'],
+               '--type', 'windows', '--description', spec['description'], '--mode', 'install', '--install']
+     completed = runner(create, env=env, timeout=30, capture_output=True)
+     if completed.returncode != 0 or not spec['menu_script'].is_file():
+-        raise MenuError('The vendor did not install the owned Windows menu')
++        raise MenuError('The vendor did not install the owned Windows menu: ' + step_receipt(spec, 'cxmenu_create_install', completed))
+     if sha((spec['bottle'] / 'cxbottle.conf').read_bytes()) != before:
+         raise MenuError('Vendor changed bottle configuration; refuse to launch')
+     write_bundle(spec, profile, bottle_id)
+     guard(spec)
+     registered = runner([LSREGISTER, '-f', str(spec['bundle'])], env=env, timeout=10, capture_output=True)
+     if registered.returncode != 0:
+-        raise MenuError('The owned native helper could not be registered')
++        raise MenuError('The owned native helper could not be registered: ' + step_receipt(spec, 'lsregister_owned_native_bundle', registered))
+     receipt = dict(schema=1, requirement=REQUIREMENT, menu=spec['menu'],
+                    native_bundle=str(spec['bundle']), bundle_identifier=spec['bundle_id'],
+                    target=spec['target'], helper_sha256=HELPER_SHA256,
+                    template_sha256=TEMPLATE_SHA256, bottle_configuration_unchanged=True,
++                   shelllink_producer='native_IShellLinkW_IPersistFile', writer_sha256=WRITER_SHA256,
++                   shelllink_fields_read_back=True,
++                   launch_route='genuine_vendor_Menu_Helper_executable',
+                    actual_game_app_registered=None, actual_window_owner_proven=False,
+                    physical_f5_proven=False)
+     receipt_path = spec['home'] / 'prepared.json'
+@@ -306,6 +350,11 @@
+     owned_path(root, hosts[0]['target'])
+     original = args.original[1:] if args.original[:1] == ['--'] else args.original
+     spec = plan(root, profile, original, hosts[0]['target'])
++    writers = [entry for entry in state['manifest']['files'] if entry.get('role') == 'crossover_shelllink_writer']
++    if len(writers) != 1 or writers[0].get('sha256') != WRITER_SHA256:
++        raise MenuError('The release has no unique exact native ShellLink writer role')
++    spec['writer'] = owned_path(root, writers[0]['target'])
++    spec['writer_windows'] = windows(profile['windows_root'], writers[0]['target'])
+     # spawn() persists its supervisor identity immediately after Popen.
+     deadline = time.monotonic() + 3
+     while True:
+@@ -318,7 +367,7 @@
+             time.sleep(.05)
+     prepare(spec, profile, os.environ.copy())
+     session_guard(spec)
+-    # One replacement, no background ampersand or a second game launch.
++    # One native vendor app replacement; never also run the shortcut/cxmenu here.
+     os.execv(spec['launch'][0], spec['launch'])
+ 
+ 

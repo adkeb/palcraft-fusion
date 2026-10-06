@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "source_checks_passed": 6,
+  "source_checks_scope": "Only new failure outputs/UTF16 request/native app route/strict same-original-file readback/single producer prepare; original ten-case matrix not rerun.",
+  "base_helper_sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f",
+  "candidate7_actual_failure": "WSH returned 0 with no stdout/stderr and no .lnk while actual host file exists; no game started.",
+  "actual_native_COM_v1": "IPersistFile Save produced 2043B; GetPath actual S_OK but target Chinese became ?? under observed ACP1252; exact target readback rejected.",
+  "actual_native_short_path_probe": "Native GetShortPathNameW succeeded with ASCII result and same original target volume/fileindex; existing link not changed. No Save/Resolve/target execution in this probe.",
+  "selected_producer": "Only IShellLinkW/IPersistFile, with API ASCII short target when needed and original/effective/readback native file identities verified.",
+  "new_writer_sha256": "c4169b4276a1f4478917d169ebe63878074d17b889d135326ff87bb8bc96fa07",
+  "native_short_writer_actual_result": {
+    "returncode": 0,
+    "link_bytes": 1968,
+    "backend_report": {
+      "schema": 1,
+      "backend": "IShellLinkW",
+      "stage": "verified",
+      "hresult": "0x00000000",
+      "link_bytes": 1968,
+      "readback_target": true,
+      "readback_arguments": true,
+      "readback_workdir": true,
+      "readback_description": true,
+      "same_original_file": true,
+      "effective_target_source": "GetShortPathNameW",
+      "GetPath_hresult": "0x00000000",
+      "target_executed": false
+    },
+    "link_exists": true,
+    "target_executed": false,
+    "session_modified": false
+  },
+  "native_app_launch_route": "genuine installed vendor Menu Helper executable, original template/machine-code pins unchanged; not raw wine alt flag activation",
+  "actual_game_app_registration_proven": false,
+  "physical_f5_proven": false,
+  "all_target_executions": 0,
+  "live_source_modified": false,
+  "frozen_v1_modified": false,
+  "primary_references": [
+    "https://learn.microsoft.com/en-us/windows/win32/shell/links",
+    "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getshortpathnamew",
+    "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfileinformationbyhandle",
+    "https://raw.githubusercontent.com/wine-mirror/wine/master/dlls/shell32/shelllink.c"
+  ],
+  "reference_scope": "Windows docs support APIs. Upstream Wine ANSI serializer/reader is not proof of selected vendor fork; actual selected-bottle GetPath/probe establishes this failure."
+}
