@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "status": "source candidate; actual runtime stall fix unverified",
+  "source_bundle_sha256": "d6f50653c8a1ef16be4eb665d35636947a036652ed9bf90213ff14cb20ea775c",
+  "files": {
+    "chunk_geometry.lua": {
+      "sha256": "695e8f0fa16e968e6972e48226fab1c92cca4db9250de32eeeb09a33f903fa31",
+      "bytes": 16985,
+      "base_sha256": "61e8747126ef2e6dc24083dc813b28036a80003925772fb7b0fc729288d3bd2d"
+    },
+    "chunk_scheduler.lua": {
+      "sha256": "346493f97f5b80f044e0c28290087f7854d8215173c3d64fbecd5f2f5cbe913a",
+      "bytes": 31906,
+      "base_sha256": "e84bb69c754870387798f135f585de2535e3a3921f4f58ab2d014fd8ca1af595"
+    },
+    "chunk_geometry.lua.patch": {
+      "sha256": "62505c955dbe391236b3b1f717b4ae6763b1bcca35a97a7074423643b6e3874d",
+      "bytes": 850
+    },
+    "chunk_scheduler.lua.patch": {
+      "sha256": "344a24b566f9455703f0f22226897ee7e6be903e2732f85b5587ad307f093b13",
+      "bytes": 2298
+    },
+    "baseline/chunk_geometry.lua": {
+      "sha256": "61e8747126ef2e6dc24083dc813b28036a80003925772fb7b0fc729288d3bd2d",
+      "bytes": 16930
+    },
+    "baseline/chunk_scheduler.lua": {
+      "sha256": "e84bb69c754870387798f135f585de2535e3a3921f4f58ab2d014fd8ca1af595",
+      "bytes": 30962
+    },
+    "sparse-yield-tests.json": {
+      "sha256": "ba852f5f7b5292bc2a44da7dda8f8e023c9299bf5c2b25d5f82ef9f6582a34f9",
+      "bytes": 426
+    },
+    "pending-progress-tests.json": {
+      "sha256": "aa70a57c8d05125f94ab43154eda4c4f82011da4ccc39f90cd502f922d633463",
+      "bytes": 365
+    },
+    "sparse_yield_test.lua": {
+      "sha256": "6474ca63b72d16669bb4e5d1603b12b3fe6c1410f16d20146991a61c303bed93",
+      "bytes": 5099
+    },
+    "pending_progress_test.lua": {
+      "sha256": "87ae5498a7edffb73084a024e0353cf85590183b4f81d09c1739a2340354577e",
+      "bytes": 3534
+    }
+  },
+  "combined_checks": 19,
+  "tests_scope": "existing offline synthetic adapter and clock receipts; test JSON path made portable for public source",
+  "ready_ACK_identity_generation_gates_changed": false,
+  "runtime_stall_fixed": false
+}

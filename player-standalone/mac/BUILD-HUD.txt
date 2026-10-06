@@ -1,0 +1,8 @@
+Final public v5 macOS13 pair
+Source SHA256 0a74168bb83448b515157882e2883db72c17f3773c8a66c39f4e34b0c16d676e /24543B
+Binary SHA256 0cc13814ebdb3a14c7e5792cbcf9e7e539a4fcc8d23195bb4db591a6f0302753 /181520B
+Implementation: hud-overlay-v5-public-macos13
+From this mac directory: nice -n 19 swiftc -O -target arm64-apple-macosx13.0 hud_overlay.swift -lz -o hud-overlay-v5-public-macos13
+Owner actualLC_BUILD_VERSION: minos13.0/sdk27.0, arm64.
+No availability bypass/metadata edit; private1eff and default27/66d are separate historical artifacts.
+ActualmacOS13/physicalHUD remains pending.

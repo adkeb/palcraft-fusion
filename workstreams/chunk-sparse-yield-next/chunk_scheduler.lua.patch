@@ -1,0 +1,33 @@
+--- a/client/chunk_scheduler.lua
++++ b/client/chunk_scheduler.lua
+@@ -226,6 +226,7 @@
+  job.co=coroutine.create(function()
+   for _,index in ipairs(dirty)do
+    tiles[index]=G.build_tile(opts,ch,index,function(...)return self:get(...)end);self.stats.tiles_built=self.stats.tiles_built+1
++   coroutine.yield('tile_build') -- Bound sparse/empty scans to one tile per resume.
+   end
+   return G.assemble(opts,ch,tiles,previous),tiles
+  end);ch.job=job;return job
+@@ -452,7 +453,21 @@
+   result.revision=math.max(result.revision,ch.revision)
+   if ch.error then result.errors[#result.errors+1]=ch.key..': '..ch.error end
+   local ready=not ch.removed and ch.packet and ch.packet.revision==ch.revision and ch.active~=nil and next(ch.dirty)==nil and not ch.job and(ch.count==0 or ch.packet.region_id==ticket.region_id)
+-  if not ready then if ticket.visual then result.visual_pending=result.visual_pending+1 end;if ticket.collision then result.collision_pending=result.collision_pending+1 end end
++  if not ready then
++   if ticket.visual then result.visual_pending=result.visual_pending+1 end
++   if ticket.collision then result.collision_pending=result.collision_pending+1 end
++   -- Real task state in the existing proof; bounded and never used as readiness.
++   result.pending_sections=result.pending_sections or{}
++   if #result.pending_sections<4 then
++    local job=ch.job
++    result.pending_sections[#result.pending_sections+1]={at=G.clone(ch.at),revision=ch.revision,
++     job_revision=job and job.revision,packet_revision=ch.packet and ch.packet.revision,
++     phase=(job or ch.cleanup or ch.removed)and step_phase(ch)or(next(ch.dirty)and'build_init'or'no_job'),
++     last_yield=job and job.last_yield,queued=ch.queued==true,dirty_tiles=count(ch.dirty),
++     active=ch.active~=nil,packet_region_id=ch.packet and ch.packet.region_id,
++     prepared_visual=job and #job.prepared.visual,prepared_collision=job and #job.prepared.collision}
++   else result.pending_sections_truncated=(result.pending_sections_truncated or 0)+1 end
++  end
+  end end
+  result.ready=result.coverage_complete and result.snapshots_pending==0 and result.visual_pending==0 and result.collision_pending==0 and #result.errors==0
+  result.covered_bounds=result.coverage_complete and G.clone(ticket.required_bounds)or nil

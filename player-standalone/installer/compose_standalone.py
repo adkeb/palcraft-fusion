@@ -27,13 +27,25 @@ def compose(base_release, overlay_root, spec_path, output):
         manifest.update(version=spec['version'],platform='crossover',files=sorted(old.values(),key=lambda e:e['target']),
                         classification='ordinary-player-Standalone-candidate',source_revision=spec['source_revision'])
         manifest['requirements'].update(spec.get('requirements',{}))
+        if any(entry.get('role') == 'mac_hud' for entry in changes.values()):
+            from installer.hud_selection import HUD_TARGET, select_v5_public
+            manifest = select_v5_public(manifest, replacements[HUD_TARGET])
+        required_roles = {'minecraft_mod'}
+        if manifest['requirements'].get('session_mode') == 'strict-player':
+            required_roles.add('session_client')
+        if manifest['requirements'].get('sign_text_transport_enabled'):
+            required_roles.add('sign_text_receiver')
+        for role in required_roles:
+            if sum(entry.get('role') == role for entry in manifest['files']) != 1:
+                raise ValueError('Standalone release requires one real source role: ' + role)
         with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED)as result:
             result.writestr('manifest.json',json.dumps(manifest,ensure_ascii=False,indent=2))
             for target in old:
                 data=replacements.get(target)
                 result.writestr('payload/'+target,base.read('payload/'+target)if data is None else data)
     return {'output':str(output),'sha256':hashlib.sha256(output.read_bytes()).hexdigest(),
-            'files':len(old),'unchanged_base_assets_transferred_without_repeatedSHA':True,'gameplay_verified':False}
+            'files':len(old),'unchanged_base_assets_transferred_without_repeatedSHA':True,
+            'required_source_roles_unique':True,'full_bundle_validation_performed':False,'gameplay_verified':False}
 
 if __name__=='__main__':
     p=argparse.ArgumentParser()

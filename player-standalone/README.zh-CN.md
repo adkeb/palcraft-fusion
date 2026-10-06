@@ -1,8 +1,10 @@
-普通玩家 Mac 离线单机候选
+普通玩家 Mac 离线单机安装器源码
 ========================
 
-本候选包含完整 portable base、42 项功能所需源/组件/Model4 资产与 10.6 同组后继；
-仍待实机与像素验收。普通安装继续使用原 install/update/rollback/uninstall 事务。
+本目录提供安装器源码和组合规格。完整 portable base 与 Model4 资产须由自己的合法本地来源准备。
+普通安装继续使用原 install/update/rollback/uninstall 事务。当前模组文件名与 SHA 从发布清单中
+唯一的 minecraft_mod 角色取得；文件名可以保留 10.6，实际内容为清单选择的 10.7。
+实机与像素验收仍待完成。
 没有作者 Saved、世界、SID、私钥、权限或日志卷。当前流程不使用 SSH、5090 或 WindowsTasks。
 
 准备自己的正版 Palworld 文件、合法 Steam-ready CrossOver bottle、CrossOver.app，
@@ -47,7 +49,7 @@ python3 '/你的目录/我的 PalCraft/PalCraft-Dev/player-tools/launcher/palcra
 ```
 
 正常菜单加载自己的世界；standalone/normal-load-copied-SP-world.lua 也通过原 scope 取得自己的
-world 与 Level 路径，不含作者的 4123/账户目录。原 queue_player_operation.py、
+world 与 Level 路径由自己的配置提供。原 queue_player_operation.py、
 observe-owned-SP-integration-context.lua、publish_standalone_permission.py 完成真实当前
 PID/FILETIME/code/loaded-world 观察；之后使用原 SessionEnrollment enroll/verify 与 registry，
 将真正本轮凭据写到本安装 .palcraft/credentials/credential.json。不要复用前一次 SID/授权。
@@ -96,7 +98,26 @@ python3 launcher/install_standalone.py uninstall --root '/你的目录/我的 Pa
 python3 launcher/install_standalone.py uninstall --root '/你的目录/我的 PalCraft'
 ```
 
-复现 10.6 JAR（D04）
+组合公开源码与 macOS 13 HUD
+-------------------------
+
+build/public-standalone/compose-spec.json 明确列出同一冻结实现的 core/standalone 和两个真实模块：
+multiplayer/session_client.py 为 session_client，sign-text/python/receiver.py 为 sign_text_receiver。
+两模块仅依赖 Python 标准库；strict-player 和 sign_text_transport_enabled 保持启用。
+准备原完整 base，并将已发布的 hud-overlay-v5-public-macos13 放到 mac/ 目录后，使用：
+
+```sh
+python3 -m installer.compose_standalone \
+  --base-release '/自己的完整 release.zip' --overlay-root . \
+  --spec build/public-standalone/compose-spec.json --output '/新的输出/public-hud13.zip'
+```
+
+规格绑定公开 Swift 0a74168b 与 macOS 13 arm64 二进制 0cc13814；组合器检查模组和所需代理角色唯一，
+随后由原安装入口执行 Bundle 全量验证。角色检查本身不代表完成安装或授权。
+私有冻结批次已通过原 Bundle 完整加载、当前模组配置、三个受管理后端模组更新和代理模块加载。
+公开源码沿用相同 core/standalone/模块字节；公开 HUD 的 macOS 13 实机运行及像素验证仍待完成。
+
+复现历史 10.6 JAR（D04）
 ------------------
 
 ```sh

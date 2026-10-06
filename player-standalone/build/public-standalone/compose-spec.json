@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "version": "0.4.0-mac-standalone-candidate.3-public-hud13",
+  "source_revision": "ordinary-entry-79d6-58cf+session66e4+sign35ef+HUD5-public-macos13-0cc138",
+  "requirements": {
+    "session_mode": "strict-player",
+    "sign_text_transport_enabled": true,
+    "ordinary_entry_completion": {
+      "managed_roles": [
+        "session_client",
+        "sign_text_receiver"
+      ],
+      "source_dependencies": "Python standard library only",
+      "strict_proxy_enrollment_unchanged": true,
+      "mod_config_source": "current unique minecraft_mod manifest entry",
+      "start_role_SHA_guard_unchanged": true,
+      "backend_update": "only previous managed copies with unchanged recorded bytes"
+    }
+  },
+  "files": [
+    {
+      "target": "PalCraft-Dev/player-tools/installer/core.py",
+      "source": "installer/core.py",
+      "sha256": "79d6deb338e953404b7074943f96e04937387d1b609e7a032ff3525b45e24afd",
+      "role": "player_tool",
+      "executable": false
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/installer/standalone.py",
+      "source": "installer/standalone.py",
+      "sha256": "58cf062947d291c6c8b35f67b3d06a39883c24f7d71bc029159f7c26eabe9855",
+      "role": "standalone_component",
+      "executable": false
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/multiplayer/session_client.py",
+      "source": "multiplayer/session_client.py",
+      "sha256": "66e4115da91db8983b028b55ec7a9e990ab1b76131c00af9fb1954b87329d7af",
+      "role": "session_client",
+      "executable": false
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/sign-text/python/receiver.py",
+      "source": "sign-text/python/receiver.py",
+      "sha256": "35efe38561b75b63a3e57682adc5c177a28eec604909507ec944228c86a4938f",
+      "role": "sign_text_receiver",
+      "executable": false
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/bin/hud-overlay-v4",
+      "source": "mac/hud-overlay-v5-public-macos13",
+      "sha256": "0cc13814ebdb3a14c7e5792cbcf9e7e539a4fcc8d23195bb4db591a6f0302753",
+      "role": "mac_hud",
+      "executable": true
+    }
+  ],
+  "input_scope": "Own complete licensed local base plus separately obtained exact public HUD binary",
+  "unmodified_base_roles_and_assets_preserved": true,
+  "public_base_asset_distribution_authorized": false,
+  "actual_macOS13_or_gameplay_verified": false
+}

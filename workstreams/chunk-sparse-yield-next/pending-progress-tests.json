@@ -1,0 +1,1 @@
+{"actual_runtime_stall_fixed":false,"checks":8,"game_or_RPC_or_DLL_calls":false,"max_pending_details":4,"new_timer_reader_clock_or_native_call":false,"original_ready_ACK_identity_generation_gates_changed":false,"power_mode":"night_low_power","scope":"additive existing-proof fields only, real Scheduler with synthetic coverage and native adapter","status":"passed"}

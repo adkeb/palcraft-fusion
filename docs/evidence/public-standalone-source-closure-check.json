@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "passed": true,
+  "scope": "actual-source subset compose + current-mod configuration + original dynamic proxy module loading",
+  "all_fixture_payload_roles_real": true,
+  "full_bundle_or_8k_asset_validation_repeated": false,
+  "inherited_full_bundle_and_backend_check": "ordinary-entry-dependency-check.json",
+  "public_core_and_standalone_identical_to_frozen_validated_sources": true,
+  "session_client_sha256": "66e4115da91db8983b028b55ec7a9e990ab1b76131c00af9fb1954b87329d7af",
+  "sign_text_receiver_sha256": "35efe38561b75b63a3e57682adc5c177a28eec604909507ec944228c86a4938f",
+  "public_hud_source_sha256": "0a74168bb83448b515157882e2883db72c17f3773c8a66c39f4e34b0c16d676e",
+  "public_hud_binary_sha256": "0cc13814ebdb3a14c7e5792cbcf9e7e539a4fcc8d23195bb4db591a6f0302753",
+  "public_hud_minimum_macos": "13.0",
+  "caller_version_retained": "0.4.0-mac-standalone-candidate.3-public-hud13",
+  "unique_required_proxy_roles": true,
+  "strict_and_sign_transport_flags_kept": true,
+  "mod_filename_retained": "passthrough-0.2.0-integration.10.6-mac.jar",
+  "mod_current_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "real_mod_internal_version": "0.2.0-integration.10.7-respawn",
+  "missing_dependency_refusals": {
+    "session_client": "rejected before output",
+    "sign_text_receiver": "rejected before output"
+  },
+  "python_and_JSON_source_parse_passed": true,
+  "temporary_root_only": true,
+  "new_compile_game_process_GUI_RPC_Git_actions": false,
+  "credential_SID_or_permission_created": false,
+  "actual_auth_gameplay_or_physical_HUD_acceptance": false
+}

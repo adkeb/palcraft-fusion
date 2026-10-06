@@ -1,6 +1,8 @@
-PalCraft 玩家工具 v1
+PalCraft 玩家工具：管理员联机流程
 
-该工具负责个人客户端的安装、连接、更新与关闭。运行组合需使用负责人冻结的正式候选 payload，不能使用旧 PalCraftPrototype v13 ZIP。支持自选目录的新版发布包可安装到任意正常 Windows 盘符或 Mac 个人空目录；Mac 使用专用 PalCraft-Player-* bottle 的标准 Z: 映射，安装器不会更改盘符。安装器不会接管 Steam、PalCraftLab 或已有开发目录。
+Mac 离线单机安装请先阅读包根目录 README.zh-CN.md，使用 install_standalone.py 和自己的本地后端配置。下面保留管理员提供共享后端的联机流程。
+
+该工具负责个人客户端的安装、连接、更新与关闭。运行组合需使用负责人冻结的正式候选 payload，不能使用旧 PalCraftPrototype v13 ZIP。支持自选目录的新版发布包可安装到任意正常 Windows 盘符或 Mac 个人空目录；Mac 使用专用 PalCraft-Player-* bottle 的标准 Z: 映射，安装器不会更改盘符。安装器不会接管 Steam 或已有开发目录。
 
 安装前须取得已验收、明确支持自选目录的完整发布包。目前目录功能处于下一批源码候选阶段，历史候选ZIP不能作为首次玩家安装包。
 
@@ -13,7 +15,7 @@ PalCraft 玩家工具 v1
 1. 解压本版玩家 ZIP。Mac打开 launcher/PalCraft.command，Windows打开 launcher/PalCraft.cmd。也可运行 python launcher/palcraft.py --help。
 2. 管理员提供 profile.json、credential.json、guest.json。profile填本机CrossOver.app和新bottle路径、SSH别名、世界坐标原点；凭据单独导入，不能把host_secret或holder_private粘进profile。先完成管理员提供的SSH密钥登录与主机指纹确认。
 3. 菜单选择“安装”，填独立安装目录与已有Palworld目录。先显示磁盘空间和文件计划，再输入INSTALL。复制游戏时不复制旧Mods、游戏存档、Steam账号数据或原安装中的注入DLL。
-4. Mac安装后自动创建专用win10_64 bottle，核对它已有的标准Z:映射。若缺游戏运行依赖，使用CrossOver在这个新bottle完成正版Steam登录及依赖准备。不能切到原Steam或PalCraftLab bottle。
+4. 管理员联机流程的 Mac 安装创建专用 win10_64 bottle，核对它已有的标准 Z: 映射。若缺游戏运行依赖，使用 CrossOver 在这个新 bottle 完成正版 Steam 登录及依赖准备。Mac 单机的 existing-selected 模式按 README 只读选择自己的既有合法 bottle。
 5. 单独导入凭据：
    python launcher/palcraft.py credential-import --root <独立安装目录> --credential <管理员credential.json> --guest-manifest <管理员guest.json>
    只复制到本安装.palcraft/credentials/credential.json，Mac权限0600。显示的是公开身份检查；证书的权威签名在MC服务器登录时验证，本工具不把解码称作验签。
