@@ -1,0 +1,8 @@
+{
+  "manifest_seed_sha256": "6f7cbd7306b1968f98b78282fc023d2fecbef179acf87f8d4f14fbc620cc4a4d",
+  "state_managed_sha256": "3f516b2e6bf4e22cb47cf4765b6f38f7458e6771cac047c923da99a6b21b025a",
+  "actual_sha256": "3f516b2e6bf4e22cb47cf4765b6f38f7458e6771cac047c923da99a6b21b025a",
+  "original_generator_sha256": "3f516b2e6bf4e22cb47cf4765b6f38f7458e6771cac047c923da99a6b21b025a",
+  "generator_source_sha256": "411ac4431d409371cf34bff462d5bc78a370eea1237d65d63d66eb63b6042a96",
+  "expected_original_generator_matches_registered_and_actual": true
+}

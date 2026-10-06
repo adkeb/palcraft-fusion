@@ -1,0 +1,29 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -144,9 +144,25 @@
+     observing = _validate_launch_mode(p, launch_mode)
+     shipping = owned_path(root, CLIENT + '/Pal/Binaries/Win64/Palworld-Win64-Shipping.exe')
+     add('GAME_VERSION', shipping.is_file() and digest(shipping) == state.get('game_sha256'), '帕鲁版本校验。', '不要在此目录直接覆盖其他帕鲁版本。')
++    generated_mcp = {}
++    if p.get('standalone') is not None:
++        from installer.standalone import generated_files
++        import hashlib
++        generated = generated_files(p, state['manifest'])
++        for target in (DEV + '/mcp/ai-transport.json', DEV + '/mcp/mc-transport.json'):
++            expected = hashlib.sha256(generated[target]).hexdigest()
++            generated_mcp[target] = expected
+     for entry in state['manifest']['files']:
+         path = owned_path(root, entry['target'])
+-        add('FILE_HASH', path.is_file() and digest(path) == entry['sha256'], '组件校验：' + entry['target'], '更新或回退到完整发布包。')
++        expected = generated_mcp.get(entry['target'], entry['sha256'])
++        registered = entry['target'] not in generated_mcp or state.get('files', {}).get(entry['target']) == expected
++        add('FILE_HASH', registered and path.is_file() and digest(path) == expected, '组件校验：' + entry['target'], '更新或回退到完整发布包。')
++    manifest_targets = {entry['target'] for entry in state['manifest']['files']}
++    for target, expected in generated_mcp.items():
++        if target not in manifest_targets:
++            path = owned_path(root, target)
++            add('FILE_HASH', state.get('files', {}).get(target) == expected and path.is_file() and digest(path) == expected,
++                '组件校验：' + target, '重新配置本安装的正常 standalone 传输配置。')
+     settings_entries = [f for f in state['manifest']['files'] if f.get('role') == 'ue4ss_settings']
+     if not settings_entries:
+         add('HOT_RELOAD', False, '缺少禁用热重载的 UE4SS 设置。', '发布者应加入 ue4ss_settings 组件。')

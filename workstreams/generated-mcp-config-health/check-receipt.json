@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "passed": true,
+  "existing_temporary_bootstrap_fixture_reused": true,
+  "original_generator_bytes_and_managed_hash_match_accepted": true,
+  "seed_template_file_rejected": true,
+  "changed_managed_hash_rejected": true,
+  "seed_plus_changed_managed_record_rejected": true,
+  "changed_generated_extra_without_manifest_entry_rejected": true,
+  "non_configuration_binary_remains_exact_manifest_guard_even_if_managed_hash_changed": true,
+  "allowlist_only_ai_and_mc_transport_JSON": true,
+  "actual_game_GUI_RPCS_or_full_Bundle_matrix": false
+}
