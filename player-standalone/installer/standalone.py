@@ -59,8 +59,13 @@ def make_profile(root, resume, *, bottle_name, bottle_root, crossover_app, backe
     return validate_profile(profile, root)
 
 
-def generated_files(profile):
+def generated_files(profile, manifest=None):
     root, win = Path(profile['root']), profile['windows_root']
+    manifest = manifest if manifest is not None else get_state(root)['manifest']
+    mods = [entry for entry in manifest['files'] if entry.get('role') == 'minecraft_mod']
+    if len(mods) != 1 or not mods[0]['target'].startswith(DEV + '/minecraft-mods/'):
+        fail('MC_MOD_ROLE', '当前发布包必须包含唯一受管理的 Minecraft 模组。')
+    mod_filename, mod_sha256 = Path(mods[0]['target']).name, mods[0]['sha256']
     spec = profile['standalone']; identity = profile['connection']['identity']
     backend = Path(spec['backend_root']); bridge = root / DEV / 'bridge'; rpc = root / 'BridgeLab/rpc'
     scripts = 'BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts'
@@ -95,8 +100,8 @@ def generated_files(profile):
         'frame_file': str(bridge / 'mcpt-hud.bin'), 'frame_transport': 'file-map',
         'minecraft_server': '127.0.0.1:25567', 'guest_ws': 25599, 'hud': '127.0.0.1:25603',
         'frontend_proxy': '127.0.0.1:29599', 'assets_dir': str(backend / 'assets'),
-        'mod_filename': 'passthrough-0.2.0-integration.10.6-mac.jar',
-        'mod_sha256': '401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af',
+        'mod_filename': mod_filename,
+        'mod_sha256': mod_sha256,
         'launch_dir': str(root / TOOLS / 'standalone/launch'),
         'hud_relay_script': str(root / TOOLS / 'mac/hud/hud_relay.py'),
         'feature_jvm_public': {'palcraft.exchange.enabled': 'true', 'palcraft.travel.enabled': 'true',
@@ -141,14 +146,24 @@ def prepare_backend(root, dry_run=False):
     if dry_run: return plan
     with operation_lock(root):
         ensure_no_session(root)
+        source_sha = digest(source)
+        if source_sha != cfg['mod_sha256']:
+            fail('BACKEND_MOD_HASH', '本安装的模组与当前发布包配置校验不一致。')
+        previous = read_json(root / '.palcraft/standalone/backend-files.json', {})
+        managed = {entry['path']: entry['sha256'] for entry in previous.get('files', [])} if previous.get('backend_root') == str(backend) else {}
+        # Update only the existing owned copies that still have their recorded bytes.
+        # Complete this preflight before replacing any of the three normal targets.
+        for destination in destinations:
+            if destination.exists():
+                actual = digest(destination)
+                if actual != source_sha and managed.get(str(destination)) != actual:
+                    fail('BACKEND_MOD_EXISTS', '目标同名模组未由本安装管理或内容已更改，未作覆盖。')
         files = []
         for destination in destinations:
-            if destination.exists() and digest(destination) != digest(source):
-                fail('BACKEND_MOD_EXISTS', '目标同名模组已有不同内容，请先用正常维护回退或选择独立后端目录。')
             destination.parent.mkdir(parents=True, exist_ok=True)
             pending = destination.with_suffix('.palcraft-pending')
             shutil.copy2(source, pending); os.replace(pending, destination)
-            files.append({'path': str(destination), 'sha256': digest(source)})
+            files.append({'path': str(destination), 'sha256': source_sha})
         atomic_json(root / '.palcraft/standalone/backend-files.json', {'backend_root': str(backend), 'files': files})
     return plan
 

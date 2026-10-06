@@ -716,7 +716,7 @@ def _bridge_files(profile, manifest=None):
             DEV + '/bridge/personal-performance-request.json': (json.dumps(remote_plan(profile), ensure_ascii=False) + '\n').encode()}
     if profile.get('standalone') is not None:
         from installer.standalone import generated_files
-        files.update(generated_files(profile))
+        files.update(generated_files(profile, manifest))
     return files
 
 

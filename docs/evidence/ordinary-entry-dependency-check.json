@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "scope": "one temporary actual Bundle/config/backend/full-proxy-role chain",
+  "passed": true,
+  "bundle_full_load_passed": true,
+  "generated_from_current_unique_mod_role": {
+    "target": "PalCraft-Dev/minecraft-mods/passthrough-0.2.0-integration.10.6-mac.jar",
+    "sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+    "filename": "passthrough-0.2.0-integration.10.6-mac.jar"
+  },
+  "strict_and_sign_transport_flags_unchanged": true,
+  "original_proxy_role_modules_loaded": {
+    "session_client": "PalCraft-Dev/player-tools/multiplayer/session_client.py",
+    "sign_text_receiver": "PalCraft-Dev/player-tools/sign-text/python/receiver.py",
+    "mac_hud": "PalCraft-Dev/player-tools/bin/hud-overlay-v4"
+  },
+  "project_module_dependency_closure": "session_client.py and receiver.py use Python stdlib only",
+  "normal_backend_targets_updated": 3,
+  "modified_and_unmanaged_refused_without_partial_writes": {
+    "modified_owned": "BACKEND_MOD_EXISTS",
+    "unmanaged": "BACKEND_MOD_EXISTS"
+  },
+  "state_and_recovery_records_preserved": true,
+  "temporary_root_only": true,
+  "actual_auth_or_gameplay_acceptance": false,
+  "source_files": {
+    "installer/core.py": "79d6deb338e953404b7074943f96e04937387d1b609e7a032ff3525b45e24afd",
+    "installer/standalone.py": "58cf062947d291c6c8b35f67b3d06a39883c24f7d71bc029159f7c26eabe9855",
+    "multiplayer/session_client.py": "66e4115da91db8983b028b55ec7a9e990ab1b76131c00af9fb1954b87329d7af",
+    "sign-text/python/receiver.py": "35efe38561b75b63a3e57682adc5c177a28eec604909507ec944228c86a4938f"
+  }
+}

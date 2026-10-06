@@ -44,6 +44,10 @@ nice -n 19 swiftc -O -target arm64-apple-macosx13.0 hud_overlay.swift -lz -o hud
 
 原安装器、启动器和 MCP 源码已公开。便携安装候选仍在整合，使用前确认当前状态和与源码对应的构件版本，不把本仓库当作完成全部实机验收的发行包。
 
+完整普通入口必须包含真实依赖角色：`strict-player` 发布包需要 `session_client`，启用告示牌传输时需要 `sign_text_receiver`。对应标准库模块位于 `player-standalone/multiplayer/session_client.py` 和 `player-standalone/sign-text/python/receiver.py`，由原代理动态加载，不能以空角色或关闭功能代替。
+
+Standalone 配置从当前唯一 `minecraft_mod` 角色读取文件名与 SHA。已有三个后端副本仅在本安装记录的旧哈希与当前文件一致时更新；未管理或被改动的文件保持拒绝。一次临时目录验证已覆盖原 `Bundle` 加载、配置生成、已有后端更新和代理模块加载，见 [原入口检查](evidence/ordinary-entry-dependency-check.json)。它不代表实际认证或游戏内流程通过。
+
 ## 普通玩家 Standalone 入口
 
 `player-standalone/launcher/install_standalone.py` 和 `player-standalone/installer/compose_standalone.py` 复用原安装器，接受自己的游戏、根目录、bottle、CrossOver 和后端参数。详见 `player-standalone/README.zh-CN.md`；公共源码树不包含它需要的游戏本体或本机生成资产。
