@@ -1,0 +1,36 @@
+--- a/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/main.lua
++++ b/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/main.lua
+@@ -24,7 +24,7 @@
+ local function live(x)return x and x:IsValid()end
+ local function discovered(x)return live(x)and not x:GetFullName():find('Default__',1,true)end
+ local function open(path,mode)stats.file_opens=stats.file_opens+1;return io.open(ROOT..path,mode)end
+-local function json(path,v)local f=assert(open(path,'wb'));f:write(J.encode(v));f:close()end
++local function json(path,v)local raw=J.encode(v);local f=assert(open(path,'wb'));f:write(raw);f:close()end
+ local function stage(name,start)
+  local cost=(os.clock()-start)*1000;local s=stats.stages[name]or{count=0,sum_ms=0,max_ms=0}
+  s.count=s.count+1;s.sum_ms=s.sum_ms+cost;s.max_ms=math.max(s.max_ms,cost);stats.stages[name]=s
+@@ -454,7 +454,12 @@
+   if f then
+    local source=f:read('*a');f:close();os.remove(ROOT..'client-op.lua')
+    local ok,result=pcall(function()return assert(load(source,'PalCraft operation','t',_ENV))()end)
+-   json('client-op-result.json',{ok=ok,result=ok and result or tostring(result),unix=os.time()})
++   local published,why=pcall(json,'client-op-result.json',{ok=ok,result=ok and result or tostring(result),unix=os.time()})
++   if not published then
++    local reported,detail=pcall(json,'client-op-result.json',{ok=false,status='operation_result_error',
++     operation_call_succeeded=ok,result=tostring(why),unix=os.time()})
++    if not reported then print('[PalCraft] client operation result write failed: '..tostring(detail)..'\n')end
++   end
+   end
+  end
+  if standalone then standalone:tick(now)end
+--- a/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/standalone_bootstrap.lua
++++ b/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/standalone_bootstrap.lua
+@@ -24,7 +24,7 @@
+   local service=dofile(scripts..'standalone_service.lua').new{scope=s,json=json,readers=readers,
+    durable_dll=scope.durable_dll_windows,credit_dll=scope.credit_dll_windows}
+   local helper=dofile(scripts..'escrow_setup.lua').new{authority_mode='standalone',world_directory=s.world_directory,
+-   scripts_dir=scripts,root=s.exchange_root,json=json,readers=readers,durable_dll=scope.durable_dll_windows,allow_build=true}
++   scripts_dir=scripts,root=s.exchange_root,json=J,readers=readers,durable_dll=scope.durable_dll_windows,allow_build=true}
+   _G.PalCraftStandaloneEscrowSetup=helper
+   local observer={service=service}
+   function observer.tick()

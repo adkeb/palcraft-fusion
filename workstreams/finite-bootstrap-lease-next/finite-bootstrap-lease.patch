@@ -1,0 +1,149 @@
+--- a/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/travel/protocol.lua
++++ b/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/travel/protocol.lua
+@@ -110,16 +110,50 @@
+   or now<tx.initial_prepare_started or now>=tx.initial_prepare_limit then return false end
+  if type(proof)~='table'or proof.world_session~=req.world_session or proof.dim~=req.dim or proof.view~=req.view
+   or proof.region_id~=req.mapping.region_id or proof.generation~=req.generation
+-  or not integer(proof.revision)or proof.revision<0 or type(proof.errors)~='table'or next(proof.errors)~=nil
++  or(proof.renderer_generation~=nil and proof.renderer_generation~=req.generation)
++  or not integer(proof.revision)or proof.revision<0 or type(proof.errors)~='table'
+   or not integer(proof.snapshots_pending)or proof.snapshots_pending<0
+   or not integer(proof.collision_pending)or proof.collision_pending<0
+   or(mode=='client'and(not integer(proof.visual_pending)or proof.visual_pending<0))then return false end
++ local bootstrap=proof.companion_bootstrap
++ if bootstrap~=nil then
++  -- Standalone authority already owns the shared consumer through its native child.
++  local ticket=tx._ticket and(tx._ticket.native or tx._ticket)
++  if type(bootstrap)~='table'or not ticket or bootstrap.ticket_id~=ticket.id
++   or bootstrap.world_session~=req.world_session or bootstrap.dim~=req.dim or bootstrap.view~=req.view
++   or bootstrap.region_id~=req.mapping.region_id or bootstrap.generation~=req.generation
++   or bootstrap.player~=req.player or not uuid(bootstrap.player)
++   or bootstrap.session_id~=req.session_id or not uuid(bootstrap.session_id)
++   or bootstrap.mc_epoch~=req.mc_epoch or not text(bootstrap.mc_epoch)
++   or bootstrap.session_generation~=req.session_generation or not integer(bootstrap.session_generation)or bootstrap.session_generation<1
++   or(proof.session_generation~=nil and proof.session_generation~=req.session_generation)
++   or not integer(bootstrap.base_seq)or bootstrap.base_seq< -1
++   or not integer(bootstrap.total)or bootstrap.total<0 or not integer(bootstrap.scanned)or bootstrap.scanned<0
++   or bootstrap.scanned>bootstrap.total or type(bootstrap.completed)~='boolean'
++   or(bootstrap.completed and bootstrap.scanned~=bootstrap.total)then return false end
++ end
++ local bootstrap_pending=false
++ for _,err in pairs(proof.errors)do
++  if err~='companion_bootstrap_pending'or not bootstrap or bootstrap.completed then return false end
++  bootstrap_pending=true
++ end
++ if bootstrap and(not bootstrap.completed)~=bootstrap_pending
++  or bootstrap_pending and proof.snapshots_pending<1 then return false end
+  local sample={revision=proof.revision,snapshots=proof.snapshots_pending,collision=proof.collision_pending,
+-  visual=mode=='client'and proof.visual_pending or 0,coverage=proof.coverage_complete==true}
++  visual=mode=='client'and proof.visual_pending or 0,coverage=proof.coverage_complete==true,bootstrap=M.copy(bootstrap)}
+  local old=tx._initial_prepare_progress
++ if old and old.bootstrap and bootstrap and(old.bootstrap.ticket_id~=bootstrap.ticket_id
++  or old.bootstrap.base_seq~=bootstrap.base_seq or old.bootstrap.total~=bootstrap.total
++  or bootstrap.scanned<old.bootstrap.scanned or old.bootstrap.completed and not bootstrap.completed)then return false end
++ local bootstrap_advanced=old and old.bootstrap and bootstrap and(bootstrap.scanned>old.bootstrap.scanned
++  or bootstrap.completed and not old.bootstrap.completed)
+  local progress=not old and(sample.revision>0 or sample.snapshots>0 or sample.collision>0 or sample.visual>0 or sample.coverage)
+   or old and(sample.revision>old.revision or sample.snapshots~=old.snapshots or sample.collision<old.collision
+    or sample.visual<old.visual or sample.coverage and not old.coverage)
++ if bootstrap_pending then
++  progress=bootstrap_advanced
++  if not old or not old.bootstrap then tx._initial_prepare_progress_at=nil end
++ elseif bootstrap_advanced then progress=true end
+  if progress then tx._initial_prepare_progress_at=now end
+  tx._initial_prepare_progress=sample
+  if now<tx.deadline then return false end
+--- a/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/companion_chunk_bridge.lua
++++ b/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/companion_chunk_bridge.lua
+@@ -231,6 +231,8 @@
+   if r.committed and r.session==req.world_session and r.dim==req.dim and r.end_seq>=(self.world.last_gap_seq or 0)
+    and(not r.player or not req.player or r.player==req.player)then receipts[#receipts+1]=G.clone(r)end
+  end
++ ticket._companion_bootstrap={session_id=req.session_id,mc_epoch=req.mc_epoch,base_seq=self.world.seq,
++  total=#list,scanned=0,completed=false}
+  self.bootstrap[#self.bootstrap+1]={ticket=ticket,blocks=list,index=1,base_seq=self.world.seq,receipts=receipts}
+  return ticket
+ end
+@@ -250,12 +252,14 @@
+    if current then local transformed=self:_transform({ops={current}}).ops[1];blocks[#blocks+1]=transformed end
+   end
+  end
++ job.ticket._companion_bootstrap.scanned=job.index-1
+  if #blocks>0 then child:apply_blocks(job.ticket.dim,blocks);self.stats.seeded_blocks=self.stats.seeded_blocks+#blocks end
+  if job.index>#job.blocks then
+   -- This is a copy of the authoritative reducer's actual committed receipts,
+   -- not synthetic snapshot_end evidence invented from an empty renderer queue.
+   for _,r in ipairs(job.receipts)do child.coverage[#child.coverage+1]={dim=r.dim,bounds=r.bounds,session=r.session,
+    generation=child.generation,snapshot=r.snapshot,player=r.player,seq=r.end_seq,source='companion_reducer_receipt'}end
++  job.ticket._companion_bootstrap.completed=true
+   table.remove(self.bootstrap,1)
+   local pending=false;for _,other in ipairs(self.bootstrap)do if other.ticket.region==job.ticket.region then pending=true;break end end
+   if not pending then job.ticket.region.commit_hold=nil end
+@@ -341,6 +345,12 @@
+ end
+ function Bridge:readiness(ticket)
+  local proof=self.views:readiness(ticket)
++ if ticket._companion_bootstrap then
++  local progress=G.clone(ticket._companion_bootstrap)
++  progress.ticket_id=ticket.id;progress.world_session=ticket.world_session;progress.dim=ticket.dim;progress.view=ticket.view
++  progress.region_id=ticket.region_id;progress.generation=ticket.generation
++  progress.session_generation=ticket.session_generation;progress.player=ticket.player;proof.companion_bootstrap=progress
++ end
+  if self.error then proof.errors[#proof.errors+1]=self.error end
+  for _,job in ipairs(self.bootstrap)do if job.ticket==ticket then proof.snapshots_pending=proof.snapshots_pending+1;proof.errors[#proof.errors+1]='companion_bootstrap_pending'end end
+  for _,task in pairs(self.retirements)do if task.section.region_id==ticket.region_id then proof.errors[#proof.errors+1]='legacy_retirement_pending: '..tostring(task.error)end end
+--- a/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel/protocol.lua
++++ b/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel/protocol.lua
+@@ -110,16 +110,50 @@
+   or now<tx.initial_prepare_started or now>=tx.initial_prepare_limit then return false end
+  if type(proof)~='table'or proof.world_session~=req.world_session or proof.dim~=req.dim or proof.view~=req.view
+   or proof.region_id~=req.mapping.region_id or proof.generation~=req.generation
+-  or not integer(proof.revision)or proof.revision<0 or type(proof.errors)~='table'or next(proof.errors)~=nil
++  or(proof.renderer_generation~=nil and proof.renderer_generation~=req.generation)
++  or not integer(proof.revision)or proof.revision<0 or type(proof.errors)~='table'
+   or not integer(proof.snapshots_pending)or proof.snapshots_pending<0
+   or not integer(proof.collision_pending)or proof.collision_pending<0
+   or(mode=='client'and(not integer(proof.visual_pending)or proof.visual_pending<0))then return false end
++ local bootstrap=proof.companion_bootstrap
++ if bootstrap~=nil then
++  -- Standalone authority already owns the shared consumer through its native child.
++  local ticket=tx._ticket and(tx._ticket.native or tx._ticket)
++  if type(bootstrap)~='table'or not ticket or bootstrap.ticket_id~=ticket.id
++   or bootstrap.world_session~=req.world_session or bootstrap.dim~=req.dim or bootstrap.view~=req.view
++   or bootstrap.region_id~=req.mapping.region_id or bootstrap.generation~=req.generation
++   or bootstrap.player~=req.player or not uuid(bootstrap.player)
++   or bootstrap.session_id~=req.session_id or not uuid(bootstrap.session_id)
++   or bootstrap.mc_epoch~=req.mc_epoch or not text(bootstrap.mc_epoch)
++   or bootstrap.session_generation~=req.session_generation or not integer(bootstrap.session_generation)or bootstrap.session_generation<1
++   or(proof.session_generation~=nil and proof.session_generation~=req.session_generation)
++   or not integer(bootstrap.base_seq)or bootstrap.base_seq< -1
++   or not integer(bootstrap.total)or bootstrap.total<0 or not integer(bootstrap.scanned)or bootstrap.scanned<0
++   or bootstrap.scanned>bootstrap.total or type(bootstrap.completed)~='boolean'
++   or(bootstrap.completed and bootstrap.scanned~=bootstrap.total)then return false end
++ end
++ local bootstrap_pending=false
++ for _,err in pairs(proof.errors)do
++  if err~='companion_bootstrap_pending'or not bootstrap or bootstrap.completed then return false end
++  bootstrap_pending=true
++ end
++ if bootstrap and(not bootstrap.completed)~=bootstrap_pending
++  or bootstrap_pending and proof.snapshots_pending<1 then return false end
+  local sample={revision=proof.revision,snapshots=proof.snapshots_pending,collision=proof.collision_pending,
+-  visual=mode=='client'and proof.visual_pending or 0,coverage=proof.coverage_complete==true}
++  visual=mode=='client'and proof.visual_pending or 0,coverage=proof.coverage_complete==true,bootstrap=M.copy(bootstrap)}
+  local old=tx._initial_prepare_progress
++ if old and old.bootstrap and bootstrap and(old.bootstrap.ticket_id~=bootstrap.ticket_id
++  or old.bootstrap.base_seq~=bootstrap.base_seq or old.bootstrap.total~=bootstrap.total
++  or bootstrap.scanned<old.bootstrap.scanned or old.bootstrap.completed and not bootstrap.completed)then return false end
++ local bootstrap_advanced=old and old.bootstrap and bootstrap and(bootstrap.scanned>old.bootstrap.scanned
++  or bootstrap.completed and not old.bootstrap.completed)
+  local progress=not old and(sample.revision>0 or sample.snapshots>0 or sample.collision>0 or sample.visual>0 or sample.coverage)
+   or old and(sample.revision>old.revision or sample.snapshots~=old.snapshots or sample.collision<old.collision
+    or sample.visual<old.visual or sample.coverage and not old.coverage)
++ if bootstrap_pending then
++  progress=bootstrap_advanced
++  if not old or not old.bootstrap then tx._initial_prepare_progress_at=nil end
++ elseif bootstrap_advanced then progress=true end
+  if progress then tx._initial_prepare_progress_at=now end
+  tx._initial_prepare_progress=sample
+  if now<tx.deadline then return false end

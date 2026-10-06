@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "status": "independent source candidate; actual gameplay acceptance pending",
+  "files": [
+    {
+      "path": "server/travel.lua",
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel.lua",
+      "before_sha256": "d3be5c736671702380a811231e7470964755561172e98cfa5accba416aef238b",
+      "after_sha256": "b5d3e19875cc2e23550db863fdc6000b37f890ac89ddf8a8618f9d02328c7d91",
+      "before_bytes": 29295,
+      "after_bytes": 29416
+    }
+  ],
+  "patch": {
+    "path": "auth-preparation-wait.patch",
+    "sha256": "0515b279d8633e027bd478ef171b69c7651190de40aec6fc0b4dafeb13efec3c"
+  },
+  "readiness_identity_ACK_gates_overridden": false,
+  "actual_runtime_accepted": false
+}

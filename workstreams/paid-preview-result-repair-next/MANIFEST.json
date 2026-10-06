@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "status": "independent source candidate; actual gameplay acceptance pending",
+  "files": [
+    {
+      "path": "client/main.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/main.lua",
+      "before_sha256": "228bf2c686ad3336df7c08e7658e9d83b80d3e3cdad653e03abc819c40681a9f",
+      "after_sha256": "05ed78fa4938c924cb234bea4ea8698c6bb7daf645cc728a5f1cbb34d089fc98",
+      "before_bytes": 35952,
+      "after_bytes": 36310
+    },
+    {
+      "path": "client/runtime/standalone_bootstrap.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/standalone_bootstrap.lua",
+      "before_sha256": "c79ef05b7e4af406ad2e2983c277b265a8d7388f1b8ef6ef82e5245ac771cd8a",
+      "after_sha256": "1307e72e514ace3fdc52e5229f353df30c2da843734c3a6ebb8610986dd95312",
+      "before_bytes": 4009,
+      "after_bytes": 4006
+    }
+  ],
+  "patch": {
+    "path": "paid-preview-result-repair.patch",
+    "sha256": "da1367c55b6c86d30af02dde66429a19c98f4ff70215f7ae96c4a236b8008abd"
+  },
+  "readiness_identity_ACK_gates_overridden": false,
+  "actual_runtime_accepted": false
+}

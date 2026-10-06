@@ -1,0 +1,23 @@
+--- a/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel.lua
++++ b/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel.lua
+@@ -178,7 +178,7 @@
+  local prepared,ticket=pcall(self.options.view.prepare_view,self.P.request(tx,'server'))
+  if not prepared or not ticket then self:_cancel(tx,'native_target_prepare_failed:'..tostring(ticket));return end
+  tx._ticket=ticket
+- tx.phase='preparing';self:_save();self:_prepare_message(tx)
++ tx.phase='preparing';tx.error=nil;self:_save();self:_prepare_message(tx)
+ end
+ function Server:_resume(tx,b)
+  -- Replay a persisted MOVING intent only after comparing the actual authority pawn, never by the old return value.
+@@ -316,7 +316,10 @@
+  end
+  local b,why=self:_resolve(tx.binding.mc_uuid)
+  if not b then
+-  if tx.phase=='preparing'then return self:_cancel(tx,why)end
++  if tx.phase=='preparing'then
++   if why=='authenticated_player_unavailable'and self.now<tx.deadline then tx._waiting=why;return end
++   return self:_cancel(tx,why)
++  end
+   if tx.phase~='complete'and tx.phase~='recovery_required'then return self:_recovery(tx,why)end;return
+  end
+  if tx._needs_recover or not self.P.same_binding(tx.binding,b)then return self:_resume(tx,b)end

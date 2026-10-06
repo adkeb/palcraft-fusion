@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "status": "independent source candidate; actual gameplay acceptance pending",
+  "files": [
+    {
+      "path": "client/travel/protocol.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/travel/protocol.lua",
+      "before_sha256": "3417069151d3ac383034aa86aed077c04c5cd367cf2c01ebe578984a09bc00c9",
+      "after_sha256": "41f5738fc7a25a713319e5126aec4282f2ea7e582157040fad7a19ecd2ac0e77",
+      "before_bytes": 15022,
+      "after_bytes": 17361
+    },
+    {
+      "path": "client/companion_chunk_bridge.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/companion_chunk_bridge.lua",
+      "before_sha256": "234275c20510e6da201c7ed2d4e3589f031619c7417ea523b4e8193986bbf264",
+      "after_sha256": "2d4890a0b878af0c3c302ae7ae6eee3b76f432fb980fdf11da2a45424662e260",
+      "before_bytes": 23979,
+      "after_bytes": 24643
+    },
+    {
+      "path": "server/travel/protocol.lua",
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel/protocol.lua",
+      "before_sha256": "3417069151d3ac383034aa86aed077c04c5cd367cf2c01ebe578984a09bc00c9",
+      "after_sha256": "41f5738fc7a25a713319e5126aec4282f2ea7e582157040fad7a19ecd2ac0e77",
+      "before_bytes": 15022,
+      "after_bytes": 17361
+    }
+  ],
+  "patch": {
+    "path": "finite-bootstrap-lease.patch",
+    "sha256": "a0f4d6615cc309e3eac979d6ea8dcc21d6e5278643fb4291beea6e1e774ea8ad"
+  },
+  "readiness_identity_ACK_gates_overridden": false,
+  "actual_runtime_accepted": false
+}

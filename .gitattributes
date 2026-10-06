@@ -7,3 +7,4 @@
 *.h text eol=lf
 *.swift text eol=lf
 *.ps1 text eol=crlf
+*.patch whitespace=-blank-at-eol

@@ -1,0 +1,11 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -241,7 +241,7 @@
+     env['SteamAppId'] = '1623730'
+     if p['platform'] == 'crossover':
+         wine = Path(p['crossover_app']) / 'Contents/SharedSupport/CrossOver/bin/wine'
+-        commands['client'] = [str(wine), '--bottle', p['bottle_name'], '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
++        commands['client'] = [str(wine), '--bottle', p['bottle_name'], '--enable-alt-loader', '1', '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+                               '--env', 'SteamAppId=1623730',
+                               '--workdir', windows_path(win_root, CLIENT), host_windows] + args
+         if not observing:
