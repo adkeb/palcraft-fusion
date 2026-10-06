@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "files": [
+    {
+      "path": "client/features.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/features.lua",
+      "before_sha256": "ba7ac5fb1c01f914748cde8f77d21a6dbc3f203c40cea050a0d25f57dcdeab98",
+      "after_sha256": "3d801fc0dd87f56cacc67a3f21675fb90dffe6b6b88f837a308c139d3088054d",
+      "before_bytes": 14342,
+      "after_bytes": 14434
+    },
+    {
+      "path": "client/entities.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/entities.lua",
+      "before_sha256": "1d0ad6f00619c2e7e22fb1bb5712d3d48dde7a648700969731ea085049caeeb7",
+      "after_sha256": "0b5bc738ec470b55b0287a7c65c25f90453cbf64081a87cbdbb537f6263da2a2",
+      "before_bytes": 6747,
+      "after_bytes": 7902
+    },
+    {
+      "path": "client/runtime/client_options.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/client_options.lua",
+      "before_sha256": "2a6a38c1a1f65d2bd1a7b9324cc85c73c0614ca82ceed40766d5adf0019e6571",
+      "after_sha256": "00ab4dc62185ff0c12314817eae6f3452ecda83a3121b3c1d5137182e07f9b94",
+      "before_bytes": 22847,
+      "after_bytes": 22873
+    }
+  ],
+  "patch": {
+    "path": "native-entity-binding.patch",
+    "sha256": "baa5fa3eada383a4027d98e4ce08c0b98f90579e56731a1e136305d5b4dcf6ab"
+  },
+  "original_scalar_local_realm_validation_preserved": true,
+  "network_raw_session_path_preserved": true,
+  "original_fixture_before_failure_and_after_scope_passed": true,
+  "native_body_models_combat_drops_full42_accepted": false
+}

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "source": {
+    "file": "mc_transport.py",
+    "managed_target": "PalCraft-Dev/mcp/mc_transport.py",
+    "base_sha256": "636f19823a37a2554996b34393b2430ece7823145394863766ee27a50e46b9ac",
+    "sha256": "6bfaa0c850f55c7f94e6a811f99548e252560915a910e201cce192d94e50d298",
+    "bytes": 24754,
+    "preserve_existing_manifest_role_and_normal_update_guards": true
+  },
+  "patch_sha256": "72c1a74bc98e60123c42851c54d66899bcf965066d4c963325c3219f7f47515e",
+  "partial_pending_initial_group_waits_inside_original_deadline": true,
+  "submitted_still_current_no_scope_replay_guard_preserved": true,
+  "history_exact_missing_predicate_proven": false,
+  "original_fixture_and_focused_checks_passed": true,
+  "current_actual_collisions_or_all23_tools_passed": false
+}

@@ -1,0 +1,92 @@
+--- a/mcp/mc_transport.py
++++ b/mcp/mc_transport.py
+@@ -12,6 +12,10 @@
+ import ai_client
+ 
+ METHODS = {'block', 'inspect', 'collisions', 'status', 'blocks', 'action', 'slot', 'hud'}
++
++
++class _ScopePending(RuntimeError):
++    """A not-yet-coherent observation, never permission to dispatch or replay."""
+ 
+ 
+ def request_id(value=None):
+@@ -86,7 +90,23 @@
+     def read(self, relative):
+         return ai_client._read_json(self.path(relative))
+ 
+-    def scope(self):
++    def scope(self, deadline=None):
++        # Only a new, unsubmitted operation supplies its existing deadline.
++        # still_current() keeps the original immediate rejection semantics.
++        pending = None
++        while True:
++            if deadline is not None and time.monotonic() >= deadline:
++                raise TimeoutError('Runtime binding observation pending; request not submitted' +
++                                   (': ' + str(pending) if pending else '')) from pending
++            try:
++                return self._scope_once()
++            except (_ScopePending, FileNotFoundError, json.JSONDecodeError) as error:
++                if deadline is None:
++                    raise
++                pending = error
++                time.sleep(min(self.poll, max(0, deadline - time.monotonic())))
++
++    def _scope_once(self):
+         now = time.time()
+         identity = self.read('PalCraft-Dev/bridge/runtime-config.json')['identity']
+         host = self.read('PalCraft-Dev/bridge/session-bind-status.json')
+@@ -99,17 +119,19 @@
+         if any(host.get('identity', {}).get(k) != expected[k] or boot.get('identity', {}).get(k) != expected[k] for k in keys):
+             raise RuntimeError('Actual configured player identity mismatch')
+         if (host.get('state') != 'bound' or host.get('authenticated_host') is not True or boot.get('native_mc_verified') is not True
+-                or boot.get('authenticated_host') is not True or native.get('v') != 2 or native.get('legacy') is not False):
++                or boot.get('authenticated_host') is not True or not native):
++            raise _ScopePending('Actual authenticated HOST/native MC binding unavailable')
++        if native.get('v') != 2 or native.get('legacy') is not False:
+             raise RuntimeError('Actual authenticated HOST/native MC binding unavailable')
+         for value in (host, boot):
+             if not isinstance(value.get('updated_unix'), (int, float)) or not -5 <= now - value['updated_unix'] <= 5:
+-                raise RuntimeError('Runtime binding observation is stale')
++                raise _ScopePending('Runtime binding observation is stale')
+         if any(native.get(k) != expected[k] for k in ('pal_uid', 'mc_uuid', 'world_id')):
+             raise RuntimeError('Native MC identity mismatch')
+         if native.get('server_session_id') != host.get('server_session_id') or native.get('expires_at', 0) <= now or host.get('expires_at', 0) <= now:
+             raise RuntimeError('Runtime binding expired or changed')
+         if host_scope.get('session_id') != host.get('session_id') or host_scope.get('generation') != host.get('generation'):
+-            raise RuntimeError('Bootstrap belongs to a different actual HOST lease')
++            raise _ScopePending('Bootstrap belongs to a different actual HOST lease')
+         for value in (host, native):
+             request_id(value.get('session_id'))
+             if type(value.get('generation')) is not int or value['generation'] < 1:
+@@ -124,7 +146,7 @@
+         if self.scope() != scope:
+             raise RuntimeError('Actual runtime scope changed; outcome unknown, do not resubmit')
+ 
+-    def status(self):
++    def status(self, deadline=None):
+         result = {'environment': 'MacStandalone', 'observed_utc': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                   'production_task': None, 'lab_task': None, 'windows_tasks_applicable': False}
+         for name in ('client-status', 'render-status'):
+@@ -133,8 +155,8 @@
+                 result['last_' + name] = ai_client._read_json(path)
+                 result[name + '-file-utc'] = datetime.datetime.fromtimestamp(path.stat().st_mtime, datetime.timezone.utc).isoformat()
+         try:
+-            result['actual_scope'] = self.scope(); result['guest_running'] = True
+-        except (FileNotFoundError, KeyError, RuntimeError, ValueError) as error:
++            result['actual_scope'] = self.scope(deadline); result['guest_running'] = True
++        except (FileNotFoundError, KeyError, RuntimeError, ValueError, TimeoutError) as error:
+             result['guest_running'] = None; result['scope_error'] = str(error)
+         result['test_client_running'] = None  # A saved status file alone is not process-liveness proof.
+         return result
+@@ -311,8 +333,8 @@
+                 self.still_current(record['scope'])
+             else:
+                 if method == 'status':
+-                    result = self.status(); self.save({'id': operation_id, 'digest': digest, 'state': 'complete', 'result': result}); return result
+-                scope = self.scope(); journal = self.path('BridgeLab/rpc/palcraft-events.ndjson')
++                    result = self.status(deadline); self.save({'id': operation_id, 'digest': digest, 'state': 'complete', 'result': result}); return result
++                scope = self.scope(deadline); journal = self.path('BridgeLab/rpc/palcraft-events.ndjson')
+                 record = {'id': operation_id, 'digest': digest, 'query': query, 'scope': scope, 'state': 'prepared',
+                           'journal_offset': journal.stat().st_size if journal.is_file() else 0}; self.save(record)
+             if method == 'collisions': return self.collisions(record, deadline)

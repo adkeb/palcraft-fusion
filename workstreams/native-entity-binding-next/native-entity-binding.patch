@@ -1,0 +1,62 @@
+--- a/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/features.lua
++++ b/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/features.lua
+@@ -85,6 +85,7 @@
+  C:register('entities',{enabled=o.entities_enabled~=false,depends={'host'},interval_ms=o.entity_interval_ms or 250,
+   factory=function()
+    local worker=load('entities').new{json=J,root=root..'entities/',session=api.binding.server_session_id,now=now,
++    local_realm=o.local_realm,world_id=api.binding.world_id,player_uid=api.binding.pal_uid,
+     read=function(name)
+      local meta=F.read(root..'entities/binding-meta.json');local b=api.binding
+      if not meta or not b or meta.schema~=1 or meta.state~='bound'or meta.stale~=false
+--- a/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/entities.lua
++++ b/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/entities.lua
+@@ -8,6 +8,21 @@
+  assert(IsInGameThread(),'Entity observer must run on game thread')
+  local J=assert(o.json);local root=assert(o.root):gsub('\\','/'):gsub('/?$','/')
+  local now=o.now or os.time
++ local realm=o.local_realm;local realm_scope
++ local function pin_realm(proof)
++  realm_scope={mode=proof.mode,server_session_id=proof.server_session_id,realm_generation=proof.realm_generation,
++   world_address=proof.world_address,world_id=proof.world_id,host_uid=proof.host_uid,
++   world_save_root=proof.world_save_root,process_epoch=proof.process_epoch}
++ end
++ if realm then
++  local proof,why=realm:current()
++  if proof then
++   assert(proof.mode=='standalone'and realm:validate(proof)==true,'Verified entity local realm required: '..tostring(why))
++   assert(proof.server_session_id==o.session and proof.world_id==o.world_id and proof.host_uid==o.player_uid,
++    'Entity host identity differs from actual local realm')
++   pin_realm(proof)
++  end
++ end
+  local M={running=true,views={},revision=-1,pending_models=true,phase='waiting_for_authority'};local actor_bindings={}
+  local function read(name)
+   if o.read then return o.read(name)end
+@@ -15,6 +30,16 @@
+  end
+  local function fresh(q)return q and type(q.unix)=='number'and now()-q.unix>=-5 and now()-q.unix<=3 end
+  local function session(pc)
++  if realm then
++   if not realm_scope then
++    local proof=realm:current()
++    if not proof or proof.mode~='standalone'or proof.server_session_id~=o.session
++     or proof.world_id~=o.world_id or proof.host_uid~=o.player_uid or realm:validate(proof,pc)~=true then return end
++    pin_realm(proof)
++   end
++   if realm:validate(realm_scope,pc)==true then return realm_scope.server_session_id end
++   return
++  end
+   for _,g in ipairs(FindAllOf('PalGameStateInGame')or{})do if live(g)then local id=type(g.ServerSessionId)=='string'and g.ServerSessionId or g.ServerSessionId:ToString();if id==o.session then return id end end end
+  end
+  local function clear_views(context_alive)
+--- a/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/client_options.lua
++++ b/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/client_options.lua
+@@ -46,7 +46,7 @@
+  local commands=Records.commands{json=J,path=bridge_root..'command.json'}
+  local now=o.now or os.time;local current;local early_rows={};local startup_input,TravelP
+  local options={json=J,bridge_root=bridge_root,origin=o.origin,identity=assert(cfg.identity),files=o.files,now=now,
+-  runtime_dir=o.runtime_dir or dir,game_thread=o.game_thread,player_uid=o.player_uid,on_error=o.on_error,
++  runtime_dir=o.runtime_dir or dir,game_thread=o.game_thread,player_uid=o.player_uid,on_error=o.on_error,local_realm=o.local_realm,
+   native_mc_bootstrap_enabled=true,entities_enabled=cfg.entities_enabled~=false,
+   entity_visuals_enabled=cfg.entity_visuals_enabled==true,sign_enabled=cfg.sign_text_enabled==true,
+   fluid_enabled=cfg.fluid_physics_enabled==true,travel_enabled=cfg.travel_enabled==true,
