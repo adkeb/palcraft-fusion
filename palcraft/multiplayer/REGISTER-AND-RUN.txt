@@ -1,0 +1,124 @@
+PalCraft LAN guest registration / identity contract (protocol 2)
+
+One real Pal player has one independent MC guest process, MC profile, bridge directory,
+frame mapping, WS port and HUD port. Guests share the same MC server/world. The Minecraft
+LocalPlayer and GUI are process-local, so another Pal player requires another guest process.
+All existing tests in this branch are offline tests, not proof of two real Pal clients.
+
+Default mode remains legacy for the currently running loopback lab. It has one camera owner; the existing short-lived loopback operator tools keep their
+input/inspection behavior against this same guest. Legacy is not a trusted Pal UID binding. Player gameplay candidates enable strict on server and guests.
+
+The one executable local proxy belongs to player_install/installer.runtime. This branch
+provides multiplayer/session_client.py, a stdlib HMAC challenge/scoping implementation.
+There is no second proxy or background service in this branch.
+
+Operator sequence in an approved BridgeLab deployment window:
+
+1. Load server/session-auth.lua through the full server runtime dispatcher with its existing
+   json/readers modules and a server-owned root, then call api.tick() at its normal cadence.
+   It writes pal-presence.json from authoritative, possessed PalPlayerController objects and
+   saved accounts. Create the root directory before loading. Do not substitute a client UID
+   file or the older server identity probe for a fresh authority presence snapshot.
+
+2. Run the compiled dev.rehan.passthrough.session.SessionEnrollment entry with JDK 25 and
+   Gson on the classpath. The existing candidate mod JAR contains the entry; the current
+   Gson 2.14.0 dependency is available in the existing MC Gradle dependency cache. The
+   Register-Guest.ps1 wrapper performs no server launch, restart or inventory operation.
+
+   Existing actual player import (parameters are also in current-player-registration-plan.json):
+     enroll --root D:/PalworldServer-LAN/BridgeLab/rpc/session-auth
+            --presence D:/PalworldServer-LAN/BridgeLab/rpc/session-auth/pal-presence.json
+            --pal-uid 22222222-0000-0000-0000-000000000000
+            --credential D:/PalworldServer-LAN/PalCraft-Dev/sessions/11111111-1111-1111-1111-111111111111/credential.json
+            --import-name PalCraft --import-uuid 11111111-1111-1111-1111-111111111111
+
+   The local-controller and server exact-UID probes agree on this player, world
+   AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA and Pal boot steam_null_0000000000. Registration has
+   NOT run. The enrollment command still requires a fresh server presence for that UID.
+
+   A second real player: use that player's exact online Pal UID and OMIT import-name and
+   import-uuid. A persistent PC<14 hex> name and its offline MC UUID are allocated once.
+   Re-enrolling the same world/UID retains the profile. A new UID cannot take another
+   player's MC profile. The existing PalCraft offline UUID was independently checked;
+   retaining it preserves the shared server's existing playerdata/inventory key.
+
+3. Copy ONLY the enrolled player's credential securely to the corresponding guest instance
+   and its local installer credentials path. The authority-private.json file stays on the
+   server. Credential host_secret and holder_private do not enter release or diagnostic ZIPs.
+   authority-public.json points at the trusted bindings, presence and authenticated sessions
+   files. It is the server -Dpalcraft.sessions.authority argument.
+
+4. Generate a guest manifest by passing actual port leases, not by choosing ports implicitly:
+     python prepare_guest.py --credential <credential.json> --output <guest-manifest.json>
+       --allocations <server-owned-guest-allocations.json>
+       --mc-ws-port <LEASE_MC_WS> --hud-port <LEASE_HUD>
+       --mc-server-address 127.0.0.1:25567 --max-fps 15 --world-origin <world-origin.json>
+
+   The manifest contains no token or private key. guest.mc_args must REPLACE the old
+   hardcoded PalCraft client args, not be appended a second time. Integration_build owns
+   the conditionally registered runRegisteredGuest task:
+     gradle runRegisteredGuest -PpalcraftGuestManifest=<absolute manifest path>
+       --offline --no-daemon --max-workers=1
+   Execute it only in the operator-approved candidate project and lifecycle window.
+   The manifest sets unique username/UUID/runDir/bridgeDir/frame mapping/WS/HUD and
+   strict mode, muted output and 15 FPS by default. No generator starts a process.
+
+5. Strict MC server: -Dpalcraft.sessions.mode=strict
+   -Dpalcraft.sessions.authority=<authority-public.json>.
+   MC login admission sends a Fabric query before vanilla duplicate-login/world admission.
+   It verifies the authority Ed25519 signature, fresh holder challenge, exact actual MC
+   profile, active Pal UID and world/Pal boot. Verified registrations are added to the
+   normal MC whitelist. No player items are created. Duplicate active identities are
+   rejected, and reconnects retain the persistent UUID with a new session_id/generation.
+
+6. Installer topology: native v15 loopback WS25599 -> its one local HMAC proxy ->
+   SSH loopback25598 -> the player's assigned remote MC WS. HUD maps to that player's
+   relay/frame_mapping. Registration alone does not attest working native rendering;
+   the installer and HUD owners validate their separate runtime components.
+
+Protocol details for the local proxy:
+
+  remote hello: {t:hello,v:2,legacy:false,shm,pid,identity,challenge:{t:challenge,v:2,
+    purpose:host.bind,nonce,endpoint,world_id,server_session_id,mc_uuid}}
+  host_answer(credential,hello) emits {t:bind,v:2,grant,proof}. proof is base64url
+    HMAC-SHA256(host_secret, UTF8(join with newline of:
+    PalCraft/2/host.bind,nonce,endpoint,world_id,server_session_id,mc_uuid,sha256(grant))).
+  bound: {t:bound,session:{v:2,world_id,pal_uid,mc_uuid,mc_name,server_session_id,
+    session_id,generation,expires_at,legacy:false}}.
+  Input: keep the original native JSON (cam, mode, key, GUI, ground, travel_*) and add
+    session object + monotonically increasing integer seq from 1 per WS. Camera stays
+    JSON; the proxy does not parse camera.bin. A legacy primitive world session is moved
+    to world_session so it is not overwritten by the transport scope.
+  Event/reply: original JSON type/fields plus host_session object. HostSession.receive
+    validates this exact identity/session_id/generation and strips only host_session.
+    It preserves the world's primitive session field. A read-only connection may use
+    host_answer(observer=True); it cannot take controller input or GUI.
+  MC connection changes close strict host sockets so v15 replays held-key/mode state on
+    its next WS generation. Keys, mining, pointer drag and local GUI are released.
+  mc_epoch is NOT in the host hello/scope; do not claim it was verified at this layer.
+
+Native MC / Pal authoritative session layer:
+
+  q.session is a v2 transport object; q.seq is per actual MC Fabric connection.
+  q.world_session and q.view belong to the world/dimension state and remain separate.
+  authenticated-sessions.json has v=2,world_id,server_session_id,mc_epoch,updated_unix,
+    sessions=[session handles]. All time fields are Unix seconds. mc_epoch changes on
+    MC process restart; session_id changes on each connection even if generation=1.
+  BridgeSessions.identity(ServerPlayer|UUID) resolves only a current verified connection
+    whose Pal UID is present. Legacy returns null rather than guessing a Pal player.
+  server/session-auth.resolve(mc_uuid,sessions) validates fresh exact world/Pal boot,
+    online Pal UID and live MC generation, returning the binding and MC epoch. The
+    runtime/combat/travel features find the authority PC by that exact Pal UID.
+  After Pal boot/key/path config updates, the server replaces its connection registry.
+    The personal guest accepts renewed credentials only for its fixed persistent identity.
+  Credential renewal uses the same enroll command/UID and current presence; UUID stays
+    stable. The public certificate can be inspected locally, but base64 decoding is NOT
+    signature verification. SessionEnrollment verify --authority <authority-public.json>
+    --credential <credential.json> performs public certificate signature/world/boot checks.
+
+Offline evidence: java-core-tests.json (21 production protocol cases, 50 duplicate races,
+4000 separated input/GUI requests before night mode), python-interop-tests.json (9 cases),
+lua-authority-tests.json (9 cases, authority object mocks), night-default-check.json.
+Latest source-only reconnect/whitelist/travel glue awaits the low-priority, single-worker
+combined candidate build. No formal server/save, existing service or graphical client was
+started/stopped/controlled by this branch. Real two-Pal-client acceptance is still pending.

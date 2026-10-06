@@ -1,0 +1,31 @@
+--- a/client/features.lua
++++ b/client/features.lua
+@@ -42,8 +42,17 @@
+  C:register('commands',{enabled=o.command_bus~=nil,disabled_reason='native_command_sender_not_selected',
+   depends={'host'},interval_ms=0,factory=function()return o.command_bus end,
+   tick=function(bus)bus.tick()end,status=function(bus)return bus.status()end,stop=function(bus)bus.reset()end})
+- C:register('world',{depends={'host'},interval_ms=250,ready=function(ctx)
+-  return ctx and ctx.collisions and ctx.collisions.running==true,'collision_companion_not_running'
++ local client_world
++ if o.client_world then C:register('client_world',{depends={'host','native_mc'},interval_ms=50,
++  key=function()return o.client_world.key(api)end,
++  factory=function(ctx)client_world=o.client_world.new(ctx,api);return client_world end,
++  tick=function(worker,ms,ctx)worker:tick(ms,ctx)end,status=function(worker)return worker:status()end,
++  is_ready=function(s)return s.ready==true end,
++  stop=function(worker,reason,ctx)assert(worker:stop(reason,ctx)==true,'Client world cleanup failed');client_world=nil end})end
++ C:register('world',{depends=o.client_world and{'host','client_world'}or{'host'},interval_ms=250,ready=function(ctx)
++  if not(ctx and ctx.collisions and ctx.collisions.running==true)then return false,'collision_companion_not_running'end
++  if o.client_world then return client_world:ready()end
++  return true
+  end,factory=function(ctx)
+   local companion=ctx.collisions
+   if companion.set_world_observer then
+@@ -173,7 +182,7 @@
+   local s=C:status();s.side='client';s.running=self.running;s.binding_error=self.binding_error;s.world_error=self.world_error;s.last_world=self.last_world
+   if self.world_error then s.ready=false end
+   s.feature_flags={strict_sessions=true,entities_enabled=o.entities_enabled~=false,travel_enabled=o.travel_enabled==true,
+-   exchange_enabled=false,fluid_physics_enabled=o.fluid_enabled==true,entity_visuals_enabled=o.entity_visuals_enabled==true,
++   chunk_enabled=o.chunk_enabled==true,exchange_enabled=false,fluid_physics_enabled=o.fluid_enabled==true,entity_visuals_enabled=o.entity_visuals_enabled==true,
+    sign_text_enabled=o.sign_enabled==true,native_mc_bootstrap_enabled=o.native_mc_bootstrap_enabled==true}
+   return s
+  end

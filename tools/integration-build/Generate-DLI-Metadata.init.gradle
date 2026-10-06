@@ -1,0 +1,91 @@
+// Uses the installed Loom's own argument-file writer. No RunGameTask is executed.
+import groovy.json.JsonOutput
+
+gradle.projectsEvaluated {
+    def project = gradle.rootProject
+    def oldShared = new File(project.property('palcraftSharedServerRunDir').toString())
+    if (!oldShared.isAbsolute() || !new File(oldShared, 'server.properties').isFile()) {
+        throw new GradleException('Require the existing absolute shared run directory')
+    }
+    def manifestFile = project.file(project.property('palcraftGuestManifest'))
+    def manifest = new groovy.json.JsonSlurper().parse(manifestFile)
+    def oldGuest = new File(manifest.guest.run_dir.toString())
+    if (!oldGuest.isAbsolute() || !oldGuest.isDirectory()) {
+        throw new GradleException('Require the existing registered guest run directory')
+    }
+    project.loom.runs.getByName('sharedServer').runDir(oldShared.canonicalPath)
+    project.tasks.register('prepareFrozenDliMetadata') {
+        group = 'verification'
+        dependsOn 'generateDLIConfig', 'generateLog4jConfig'
+        doLast {
+            def output = project.layout.buildDirectory.dir('palcraft-launch-metadata').get().asFile
+            output.mkdirs()
+            def loomRunClass = project.tasks.named('runSharedServer').get().getClass()
+            while (loomRunClass != null && loomRunClass.name != 'net.fabricmc.loom.task.AbstractRunTask') {
+                loomRunClass = loomRunClass.superclass
+            }
+            if (loomRunClass == null) throw new GradleException('Actual Loom run task class unavailable')
+            def writer = loomRunClass.getDeclaredMethod('writeArgFile')
+            writer.setAccessible(true)
+            def property = { task, name ->
+                def method = loomRunClass.getDeclaredMethod(name)
+                method.setAccessible(true)
+                method.invoke(task)
+            }
+            def quote = { String arg -> '"' + arg.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r') + '"' }
+            def records = []
+            ['runSharedServer', 'runRegisteredGuest'].each { name ->
+                def task = project.tasks.named(name).get()
+                if (!loomRunClass.isAssignableFrom(task.getClass())) throw new GradleException('Unexpected run task type')
+                def cwd = property(task, 'getInternalRunDir').get().asFile.canonicalFile
+                def expected = name == 'runSharedServer' ? oldShared : oldGuest
+                if (cwd != expected.canonicalFile) throw new GradleException('Run directory changed: ' + name)
+                if (!property(task, 'getUseArgFile').get()) throw new GradleException('Expected actual Loom classpath arg file')
+                def classpath = property(task, 'getInternalClasspath').files.collect { it.canonicalPath }
+                def missing = classpath.findAll { !new File(it).exists() }
+                if (!missing.isEmpty()) throw new GradleException('Missing already-built classpath entries: ' + missing)
+                writer.invoke(task)
+                def cpArgs = new File(property(task, 'getArgFilePath').get()).canonicalPath
+                def program = ((task.args ?: []) + task.argumentProviders.collectMany { it.asArguments().toList() }).collect { it.toString() }
+                if (name == 'runRegisteredGuest') {
+                    ['--username': manifest.identity.mc_name, '--uuid': manifest.identity.mc_uuid].each { flag, value ->
+                        if (program.count(flag) != 1 || program[program.indexOf(flag) + 1] != value) {
+                            throw new GradleException('Registered guest identity differs from its manifest')
+                        }
+                    }
+                }
+                def jvm = task.allJvmArgs.collect { it.toString() }
+                if (!jvm.contains('@' + cpArgs)) throw new GradleException('JVM arguments omitted the actual Loom classpath file')
+                def main = task.mainClass.get()
+                if (main != 'net.fabricmc.devlaunchinjector.Main') throw new GradleException('Unexpected launch main')
+                def commandArgs = new File(output, name + '.java.args')
+                // Java does not expand an @file nested inside another @file.
+                def flatJvm = jvm.findAll { it != '@' + cpArgs }
+                commandArgs.setText((flatJvm + ['-classpath', classpath.join(File.pathSeparator), main] + program).collect(quote).join('\n') + '\n', 'UTF-8')
+                def record = [task: name, working_directory: cwd.path, classpath_arg_file: cpArgs,
+                    java_command_arg_file: commandArgs.canonicalPath, main_class: main,
+                    jvm_arguments: jvm, program_arguments: program, classpath: classpath,
+                    environment: property(task, 'getInternalEnvironmentVars').get(),
+                    game_started: false, task_executed: false]
+                new File(output, name + '.json').setText(JsonOutput.prettyPrint(JsonOutput.toJson(record)) + '\n', 'UTF-8')
+                records.add([task: name, cwd: cwd.path, classpath_entries: classpath.size(), arg_file: cpArgs,
+                    full_java_args: commandArgs.canonicalPath])
+            }
+            new File(output, 'handoff.json').setText(JsonOutput.prettyPrint(JsonOutput.toJson([
+                generated_by: 'actual cached Loom metadata getters and writeArgFile only',
+                candidate: project.version.toString(), manifest: manifestFile.canonicalPath,
+                manifest_identity: manifest.identity, launches: records, game_started: false,
+                classes_rebuilt: false, services_changed: false])) + '\n', 'UTF-8')
+            println 'FrozenDliMetadata: PASS ' + output.canonicalPath
+            records.each { println it.task + ': cwd=' + it.cwd + ', classpath=' + it.classpath_entries + ', file=' + it.arg_file }
+        }
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def forbidden = graph.allTasks.findAll { task ->
+        task instanceof org.gradle.api.tasks.JavaExec || task instanceof org.gradle.api.tasks.compile.JavaCompile ||
+        task.name in ['build', 'assemble', 'jar', 'clean', 'test', 'check', 'processResources', 'processClientResources']
+    }
+    if (!forbidden.isEmpty()) throw new GradleException('Metadata preparation refuses execution tasks: ' + forbidden*.path)
+}

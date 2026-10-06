@@ -1,0 +1,160 @@
+PalCraft dimension travel v1
+
+Both modules are factories with no scheduled callbacks, service starts, RPC injection,
+native actor creation, or player movement at load time. Only tick/reset/stop touch Unreal,
+and they assert the caller is on the game thread. No free travel menu is registered.
+
+Ownership and authority
+  MC emits vanilla player_view lifecycle events after its actual portal/end/respawn
+  operation. pos/yaw/pitch are the resulting authoritative MC pose. The Nether 8:1
+  rule is already applied by MC; the bridge never divides or multiplies that pose by 8.
+  blocks.session is the MC world lifetime; transport session is a separate identity.
+  Exact identity is mc_uuid, pal_uid, session_id, generation, mc_epoch, world_id,
+  server_session_id. Never derive the authority binding from client fields.
+
+Server construction
+  S = dofile(server/travel.lua).new{
+    protocol=P, config=C, module_dir=absolute_shared_travel_directory,
+    resolve=function(mc_uuid) return authenticated_binding_with_authority_pc end,
+    readers=R, game_thread=actual_game_thread_checker,
+    view=real_scoped_native_view_adapter, journal=real_server_journal,
+    send=function(row) return append_server_event_outbox(row) end,
+    abort_world=optional_publish_trusted_abort,
+    retain_scene=optional_handoff_occupied_scene,
+    recovery_scenes=prior_same_UWorld_stop_handoff
+  }
+  S:observe_world(v2_blocks_row) queues data; S:observe_client(row,authenticated_binding)
+  queues data from the authenticated transport. S:tick(monotonic_milliseconds) performs
+  actual preparation, PalUtility.Teleport, and position checks. S:retry(mc_uuid) is a
+  trusted runtime recovery hook, not a guest free-coordinate operation.
+  check_boundaries is also run by tick on a 500 ms budget. With rebase_supported=true,
+  a completed Nether/End pawn crossing its canonical page is held on its existing
+  floor and emits rebase_required to the trusted MC file consumer. That consumer
+  validates the current identity/world/view, reconciles the authority mc_pos with
+  the same-dimension MC player and calls beginViewTransition(player,'rebase'). Its
+  new vanilla player_view starts the normal two-sided preparation and authority
+  movement. If the hook is absent, report mc_rebase_hook_unavailable and protect
+  the pawn at the actual outer allocation boundary. Never enable auxiliary travel
+  for extended play without that paired MC hook. No client chooses a rebase point.
+
+Client construction
+  C = dofile(client/travel.lua).new{
+    protocol=P,config=Config,module_dir=absolute_shared_travel_directory,
+    identity=function() return the_authenticated_guest_public_binding end,
+    view=real_scoped_native_view_adapter, readers=R,
+    game_thread=actual_game_thread_checker,
+    receive=optional_personal_server_event_reader,
+    send=function(row) return existing_authenticated_native_query_queue(row) end,
+    on_hold=function(pc) form.stop('dimension_travel');return true end,
+    set_mapping=function(mapping,world_session,dim,view)
+      update_private_O(mapping.origin);reset_ground_sampling();return true
+    end,
+    sync_view=function(pc,pal_yaw,pal_pitch,input)
+      form.sync_view(pc,pal_yaw,pal_pitch,input);return true
+    end
+  }
+  C:observe(server_row) is data-only. C:tick(pc,O,now_ms,input) returns status with
+  blocked,phase,mapping,dim,world_session,view. C never teleports its pawn.
+  While blocked, maintain the frozen source-camera heartbeat (native v15 times out
+  after 750 ms) and suspend attack/use/movement and ground publication. Keep source
+  world tokens until cutover. Only replicated pawn arrival after server commit may
+  activate the target view, update O and sync the camera. The server final file,
+  not an ordinary guest ACK, clears the MC gate. Preserve the user's build/form intent.
+
+View adapter
+  prepare_view(req) -> ticket; readiness(ticket) -> proof;
+  activate(ticket) -> true after real activation; release(ticket) -> true;
+  abandon(ticket) -> true with data-only stale-handle abandonment when UWorld died.
+  chunk_views facade activate returns the previous ticket. Its documented successful
+  call must be wrapped to return true; do not interpret a first nil previous ticket
+  as failure. All other missing methods remain explicit dependency errors.
+  request = player,world_session,dim,view,session_id,session_generation,mc_epoch,
+            mapping,required_bounds,mode=client|server,tx.
+  Renderer generation belongs to the native ticket; it is never the login generation.
+  Proof requires actual snapshot_end union coverage even in all-air regions, complete
+  native collision registration and current committed revisions, no queued work/error,
+  and client visual commit. Do not turn verified flags on based on these data tests.
+  Different regions receive separate native instances, including overlapping MC halos.
+  Release is scoped and reference-counted; other players retain their own scenes.
+
+Mapping
+  Actual UE feet = (origin.X+100*MCx, origin.Y-100*MCz,
+                    origin.Z+100*(MCy-64)). Add actual Pal capsule half height for
+  the authority pawn centre. origin has already absorbed mc_anchor, so consumers
+  must not subtract the anchor a second time. region_bounds are actual UE bounds;
+  required_bounds are MC bounds with exclusive maxima. Native Overworld keeps the
+  exact existing O and real Pal low-Z ground throughout the configured Pal envelope,
+  including positions beyond 256 blocks. Its native window is cropped to that
+  envelope. Far Overworld mappings beyond it are marked auxiliary_pending and
+  require explicit allow_aux_overworld after terrain/collision validation. Auxiliary
+  arenas are distinct between dimensions;
+  canonical page stride is 512 MC blocks, preparation window is 656, physical half
+  width is 32768 cm, and the required radius is 64 blocks with 16 below/32 above.
+  High-altitude centres and conservative world_bounds are configuration pending
+  real Lab verification, not proven safe locations. Never change global Pal weather,
+  WorldSettings.KillZ, production bases, saved map objects, or original Steam bottle.
+
+Real Pal adapter
+  PalUtility.Teleport(APalCharacter,FVector,FQuat,false,false)->bool is the default.
+  Both bNoCheck and bAroundCheck are false. Exact SDK declarations are in
+  work/palworld-live/research/sdk-e6632458/PalUtility.h:234; reflected parameter layout
+  is in work/palworld-live/lab/UE4SS_ObjectDump.txt:63854. The optional explicit
+  k2_teleport backend uses Actor.K2_TeleportTo with a bool return; there is no silent
+  fallback. A true return is followed by measured position distance <=50 cm.
+  The native adapter checks HasAuthority, fresh identity/world, actual KillZ and
+  configured region/world bounds, and saved Pal map-object occupancy.
+  WorldPartition tiles have their own WorldSettings. KillZ is selected by
+  World.PersistentLevel == WorldSettings.GetOuter, not by arbitrary first object.
+  A real streaming_ready callback can be supplied; false is a concrete failure. Private persistent
+  native scenes do not require altering global WorldPartition/world/lighting state.
+
+Transport (one existing proxy/native channel)
+  Server-owned root: D:/PalworldServer-LAN/BridgeLab/rpc/travel/
+  state.ndjson: Lua authority state journal.
+  travel-input.ndjson: Java authenticated MC writer; Lua bounded reader. Operations
+  travel_ready/travel_observed/travel_abort map to client_ready/client_observed/
+  client_abort. Java reconstructs identity/epoch; it copies only tx, readiness proof,
+  observed position/region_id, or error. Clients cannot inject a target or restore.
+  travel-events.ndjson: Lua authority writer; Java forwards matching target-player
+  events to the existing Fabric/HostLink/proxy channel and that player's bridge file.
+  travel-acks.ndjson: Lua authority-only complete/applied=true final; Java only reads
+  this configured server path and verifies every identity/world/view token, both
+  revisions, collision/visual flags, 100..15000 ms settlement, and the two <=50 cm
+  distances. File provenance is the trusted host boundary; authority_source in a
+  guest network message is never proof. Guest world_view_ack is rejected.
+  Pre-move error with needs_mc_rollback triggers only WorldCompatibility.rollbackView
+  using MC's privately captured vanilla source. The wire restore data is diagnostic.
+  For a physical rebase, MC stores the authority-aligned same-dimension source in
+  its private rollback record. Lua chooses its previous occupied source mapping
+  for the new rollback view when that mapping can still prepare the full 64 ring.
+  The source origin is not overwritten by the failed target origin, and no MC
+  item/state is duplicated. A moved transaction instead uses forward recovery.
+  Java sends world_view_applied after acknowledging the actual current view.
+  Transport and native verification must be deployed together; travel remains off
+  until the complete combination is ready, so an isolated strict join gate cannot
+  freeze the current Overworld client.
+
+Recovery and stopping
+  Intent is persisted before hold/prepare. MOVING is persisted before the native
+  call. A process crash after the side effect is resolved by actual authority pose,
+  not by replaying an old bool. Recovery rotates the transaction nonce, rejects
+  late ready/observed messages, re-prepares the scene, and skips another teleport
+  when already at target. Complete checkpoints never rewind a walking player.
+  stop(reason,context_alive) releases owned input/movement locks. Pre-move tickets
+  can be retired; occupied target/source floors remain and are returned as handoff
+  scenes. Pass recovery_scenes to a new same-UWorld executor. Context-dead handles
+  are abandoned without UObject reads/destruction. Never silently drop the handoff
+  or globally unload another player's floor. Native releases queued for retirement
+  require the scene owner to confirm physical reclamation before reusing an arena.
+  Lua flush/close plus newline recovery handles process crashes. Supply flush_file
+  for an OS durability flush; power-loss durability has not been validated.
+
+Evidence and remaining acceptance
+  tests/travel_contract.lua: state and fault tests, multiplayer isolation and the
+  real chunk_views/scheduler/reducer with a clearly labelled data native adapter.
+  tests/travel_actor.lua: exact native-call shapes, authority/thread affinity, locks,
+  bounds/KillZ/saved-object refusal, and preserved Pal inventory/HP/speed.
+  tests/travel_journal.lua: actual file tears, corruption, replay and final-only ACK.
+  No live trip, streaming/bounds calibration, End/Nether local-camera ambience or
+  compound collider engine acceptance is claimed. The coordinator owns that Lab
+  window. Night mode prohibits scale benchmarks and extra rendering/game processes.

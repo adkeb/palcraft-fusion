@@ -1,0 +1,92 @@
+--- network-baseline-cc6b/escrow_setup.lua
++++ standalone-successor/escrow_setup.lua
+@@ -1,5 +1,6 @@
+ -- One paid ordinary ItemChest through the real player's normal public RPC.
+--- BridgeLab candidate. No progress writes, actor spawning, grants or service calls.
++-- Source-only successor: explicit local singleplayer authority or unchanged network checks.
++-- No progress writes, actor spawning, grants or service calls.
+ local source=debug.getinfo(1,'S').source:lower():gsub('\\','/')
+ local dir=assert(source:match('^@(.*[/])'))
+ local M={runtime_verified=false}
+@@ -10,7 +11,18 @@
+ local function vec(v)assert(v and finite(v.X)and finite(v.Y)and finite(v.Z),'Actual FVector unavailable');return{x=v.X,y=v.Y,z=v.Z}end
+ local function distance(a,b)return math.sqrt((a.x-b.x)^2+(a.y-b.y)^2)end
+ function M.new(o)
+- assert(source:find('@d:/palworldserver-lan/bridgelab/',1,true)==1,'BridgeLab setup only')
++ local standalone=o.authority_mode=='standalone'
++ assert(o.authority_mode==nil or o.authority_mode=='network'or standalone,'Unknown paid-setup authority mode')
++ if standalone then
++  assert(type(o.scripts_dir)=='string','Runtime-selected private test Scripts directory required')
++  local selected=o.scripts_dir:gsub('\\','/'):lower():gsub('/+$','')..'/'
++  assert(dir==selected,'Standalone helper is outside runtime-selected private test Scripts directory')
++  assert(type(o.world_directory)=='string'and #o.world_directory==32 and o.world_directory:match('^%x+$'),'Actual loaded test-world directory required')
++ else
++  assert(source:find('@d:/palworldserver-lan/bridgelab/',1,true)==1,'BridgeLab setup only')
++ end
++ local Authority=standalone and dofile(dir..'standalone_authority.lua')or nil
++ local bound_world
+  local J,R=assert(o.json),assert(o.readers);local root=assert(o.root):gsub('\\','/'):gsub('/+$','')..'/'
+  local Store=dofile(dir..'exchange_store.lua')
+  local store=Store.new{root=root,json=J,containers={},commit=Store.native_commit(root,assert(o.durable_dll))}
+@@ -23,7 +35,14 @@
+  local function context(uid)
+   assert(IsInGameThread(),'Game thread required');local pc
+   for _,v in ipairs(FindAllOf('PalPlayerController')or{})do if live(v)and v:HasAuthority()and guid(v:GetPlayerUId())==uid then assert(not pc,'Ambiguous real player');pc=v end end
+-  assert(pc and live(pc.NetConnection),'Selected real player is not connected');local state=pc:GetPalPlayerState();assert(live(state))
++  local authority
++  if standalone then
++   authority=Authority.read(pc,o.world_directory)
++   if bound_world then
++    assert(authority.world_directory==bound_world.world_directory and authority.game_state_object==bound_world.game_state_object and authority.server_session_id==bound_world.server_session_id,'Loaded local world instance changed; recreate the helper')
++   else bound_world=authority end
++  else assert(pc and live(pc.NetConnection),'Selected real player is not connected')end
++  local state=pc:GetPalPlayerState();assert(live(state))
+   local guild=state.GuildBelongTo;assert(live(guild)and guild:HasGuildPermission(pc:GetPlayerUId(),4),'Real guild BuildConstruct permission required')
+   local pawn=pc:GetDefaultPlayerCharacter();assert(live(pawn),'Living player character unavailable')
+   local transmitter=pc.Transmitter;assert(live(transmitter)and transmitter:GetOwner():GetFullName()==pc:GetFullName(),'Player-owned transmitter mismatch')
+@@ -40,11 +59,20 @@
+   local recipe={};for i=1,4 do local n=data['Material'..i..'_Count'];if n>0 then recipe[data['Material'..i..'_Id']:ToString()]=n end end
+   assert(recipe.Wood==15 and recipe.Stone==5,'Actual normal ItemChest recipe differs')
+   for k in pairs(recipe)do assert(k=='Wood'or k=='Stone','Unexpected native recipe material')end
++  if standalone then assert(data.RequiredBuildWorkAmount==1000,'Actual normal ItemChest work requirement differs')end
+   local snapshot={player_uid=uid,guild_id=group,source_base_id=source_base,position=pos,bases=bases.bases,
+    wood=inventory:CountItemNum64(FName('Wood')),stone=inventory:CountItemNum64(FName('Stone')),
+    technology_unlocked=tech:IsUnlockBuildObject(FName('ItemChest'))==true and tech:IsDeniedBuildObject(FName('ItemChest'))==false,
+    recipe=recipe,recipe_work=data.RequiredBuildWorkAmount,observed_unix=os.time()}
++  snapshot.authority=authority
+   return snapshot,{pc=pc,pawn=pawn,component=component,transmitter=transmitter}
++ end
++ local function check_saved_scope(op)
++  if standalone then
++   local a=assert(op.before and op.before.authority,'Setup belongs to an earlier authority scope; retain its WAL')
++   assert(a.mode=='standalone'and a.world_directory==o.world_directory:upper(),'Setup belongs to another actual world; retain its WAL')
++   context(op.before.player_uid)
++  end
+  end
+  local function outside(p,bases)
+   for _,b in ipairs(bases)do if distance(p,b.position)<=b.range+1000 then return false end end;return true
+@@ -171,7 +199,7 @@
+  end
+  function api.submit(id)
+   assert(IsInGameThread());assert(o.allow_build==true,'Explicit normal paid-build execution required')
+-  local prefix='escrow-setup-'..id;local old=store.latest(prefix);if old then return old end -- never replay a recorded public build call
++  local prefix='escrow-setup-'..id;local old=store.latest(prefix);if old then check_saved_scope(old);return old end -- never replay a recorded public build call
+   local p=assert(plans[id],'Preview missing in this real worker');assert(os.time()<=p.expires_unix,'Preview expired')
+   local before,c=context(p.before.player_uid);assert(before.guild_id==p.before.guild_id and before.wood>=15 and before.stone>=5 and before.technology_unlocked,'Actual owner/materials changed')
+   assert(outside(p.target.position,before.bases),'A base now overlaps this site')
+@@ -187,6 +215,7 @@
+  end
+  function api.observe(id)
+   assert(IsInGameThread());local prefix='escrow-setup-'..id;local op=assert(store.latest(prefix),'Paid setup intent not found')
++  check_saved_scope(op)
+   if op.status=='ready_for_saved_enrollment'then return op end
+   local after=context(op.before.player_uid);after.chests=boxes(after.guild_id);op.after=after
+   op.material_delta={Wood=after.wood-op.before.wood,Stone=after.stone-op.before.stone}
+@@ -205,6 +234,7 @@
+  function api.start_work(id)
+   assert(IsInGameThread());assert(o.allow_build==true,'Normal work execution must be enabled')
+   local prefix='escrow-setup-'..id;local op=assert(store.latest(prefix));assert(op.paid_cost_observed and op.candidate,'Actual paid construction site required')
++  check_saved_scope(op)
+   if op.work_request then return op end
+   local snapshot,c=context(op.before.player_uid);local model=one('PalMapObjectManager'):FindModel(R.guid_from_string(op.candidate.model_id))
+   assert(live(model)and guid(model.BuildPlayerUId)==snapshot.player_uid,'Actual owned build model changed')

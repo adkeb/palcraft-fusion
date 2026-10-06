@@ -1,0 +1,15 @@
+--- standard10.1/normal-launch-recipe.json
++++ maintenance10.2/normal-launch-recipe.json
+@@ -89,8 +89,10 @@
+     "net/fabricmc/sponge-mixin/0.17.4+mixin.0.8.7/sponge-mixin-0.17.4+mixin.0.8.7.jar",
+     "net/fabricmc/fabric-loader/0.19.5/fabric-loader-0.19.5.jar"
+   ],
+-  "expected_mod_sha256": "5b2c0ce172f3597d2b2388b79eb20c53c39ebc6efb943683dbab4d01d446dc32",
++  "expected_mod_sha256": "3b782bb7308ea9926bd57e330103f2fa07abd323b817a074117101387a65f831",
+   "asset_index": "34",
+   "runtime_accepted": false,
+-  "development": false
++  "development": false,
++  "expected_mod_filename": "passthrough-0.2.0-integration.10.2-maintenance.jar",
++  "mod_version": "0.2.0-integration.10.2-maintenance"
+ }

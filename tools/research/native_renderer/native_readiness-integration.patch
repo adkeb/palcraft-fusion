@@ -1,0 +1,6 @@
+--- a/palcraft/server/main.lua
++++ b/palcraft/server/main.lua
+@@
+ M.models=models
++-- Keep null/array metatables in this exact JSON codec instance.
++M.geometry_signature=function(g)return J.encode(g)end

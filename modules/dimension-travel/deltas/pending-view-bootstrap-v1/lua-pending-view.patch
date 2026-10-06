@@ -1,0 +1,139 @@
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -14,6 +14,12 @@
+ local origin=io.open(SHARED..'world-origin.json','rb');if origin then O=J.decode(origin:read('*a'));origin:close()end
+ local FULL={{0,0,0,1,1,1}}
+ local M={items={},actors={},queue={},queued={},queue_head=1,offset=0,pending='',running=true,changes=0,origin=O}
++local accepted_view_session,accepted_view_rows,accepted_view_count=nil,{},0
++local function clear_accepted_views()accepted_view_session=nil;accepted_view_rows={};accepted_view_count=0 end
++function M.current_player_view_rows()
++ if M.abandoned or not M.world or accepted_view_session~=M.world.session then return{}end
++ return J.decode(J.encode(accepted_view_rows)) -- owned data, never native scene replay
++end
+ M.models=models
+ M.geometry_signature=function(g)return J.encode(g)end
+ local visual_pipeline
+@@ -134,6 +140,7 @@
+  on_upsert=function(g)enqueue('set',g.at[1],g.at[2],g.at[3],g)end,
+  on_remove=function(g)enqueue('clear',g.at[1],g.at[2],g.at[3],g)end,
+  on_lifecycle=function(event)
++  if event.op=='session_reset'then clear_accepted_views()end
+   M.last_lifecycle=event
+   if visual_pipeline then visual_pipeline.on_lifecycle(event)elseif models and models.block_event then models.block_event(event)end
+   observe('on_lifecycle',event,M.ingesting_row,M)
+@@ -275,6 +282,7 @@
+  if models and models.abandon_models then models.abandon_models()end
+  M.running=false;M.actors={};M.items={};M.queue={};M.queued={};M.queue_head=1;M.pending=''
+  M.ingesting_row=nil;M.pending_view=nil;M.world_observer=nil;M.abandoned=true
++ clear_accepted_views()
+  world_observers={};world_observer_order={}
+  bound_context=nil;bound_context_address=nil;bound_world_address=nil
+ end
+@@ -318,6 +326,17 @@
+      M.ingesting_row=row
+      local accepted,reason=M.world:ingest(row)
+      M.ingesting_row=nil
++     if accepted==true and reason=='applied'and row.v==2 and row.session==M.world.session then
++      if accepted_view_session~=row.session then clear_accepted_views();accepted_view_session=row.session end
++      local original
++      for _,event in ipairs(row.lifecycle or{})do if event.op=='player_view'then
++       if not accepted_view_rows[event.player]then
++        assert(accepted_view_count<64,'Accepted player-view cache capacity reached');accepted_view_count=accepted_view_count+1
++       end
++       original=original or J.decode(J.encode(row))
++       accepted_view_rows[event.player]=original
++      end end
++     end
+      if not accepted then M.world_error={reason=reason}end
+      if M.chunk_consumer then
+       local routed,why=M.chunk_consumer.on_row(row,accepted,reason)
+--- a/server/features.lua
++++ b/server/features.lua
+@@ -131,7 +131,17 @@
+   end,factory=function()
+    local options={};for k,v in pairs(o.travel)do options[k]=v end
+    options.resolve=resolve;options.readers=R;options.game_thread=o.game_thread
+-   return load('travel').new(options)
++   local worker=load('travel').new(options)
++   local c=api.companion or(o.companion and o.companion())
++   if c and c.current_player_view_rows then
++    for player,row in pairs(c.current_player_view_rows())do
++     if resolve(player)and c.world and row.session==c.world.session then
++      local ok,why=worker:observe_world(row)
++      assert(ok==true,'Current accepted player-view replay rejected: '..tostring(why))
++     end
++    end
++   end
++   return worker
+   end,tick=function(worker,ms)
+    if o.travel_input then
+     o.travel_input.poll(function(row)
+--- a/runtime/client_options.lua
++++ b/runtime/client_options.lua
+@@ -77,9 +77,17 @@
+    local types={client_ready='travel_ready',client_observed='travel_observed',client_abort='travel_abort'}
+    local query=copy(row);query.t=assert(types[row.phase],'Unknown native travel signal');return commands.send(query)
+   end,poll=function(consume)
++   local function deliver(row)
++    if row.phase=='prepare'and current and not current.stopped then
++     local v=current.features:bootstrap_view()
++     local b=options.native_binding and options.native_binding(current.features.binding)or current.features.mc_binding
++     current:request_target_snapshot(row,b,v)
++    end
++    return consume(row)
++   end
+    local queued=early_rows;early_rows={}
+-   for _,row in ipairs(queued)do consume(row)end
+-   return #queued+input.poll(consume,64)
++   for _,row in ipairs(queued)do deliver(row)end
++   return #queued+input.poll(deliver,64)
+   end}
+   local facade={}
+   for _,name in ipairs({'prepare_view','readiness','release','abandon','can_recycle','retirement_status'})do
+@@ -213,6 +221,26 @@
+     and row.world_id==b.world_id and row.server_session_id==b.server_session_id
+     and row.world_session==v.world_session and row.dim==v.dim and row.view==v.view
+   end
++  function Worker:request_target_snapshot(row,b,v)
++   if not v or row.phase~='prepare'or not native_match(row,b,v)or not TravelP.mapping(row.mapping)
++    or row.mapping.world_session~=v.world_session or row.mapping.dim~=v.dim
++    or row.mapping.scale~=100 or row.mapping.y_origin~=64 or not valid_bounds(row.required_bounds)
++    or not TravelP.vector(row.pos)or not TravelP.ue(row.target_pawn)
++    or not TravelP.contains(row.mapping.region_bounds,row.target_pawn)then return false end
++     -- Hello/auto sync covers 32 blocks. Request the real target ring once per
++     -- authenticated tuple before scene readiness starts the travel feature.
++     -- Issuing this request never asserts snapshot coverage or native readiness.
++     local key=b.mc_epoch..'/'..b.session_id..'/'..b.generation..'/'..v.world_session..'/'..v.dim..'/'..v.view
++     if self.snapshot_requested_tuple~=key then
++      local bounds=row.required_bounds;local x,z=math.floor(row.pos[1]),math.floor(row.pos[3])
++      local radius=math.max(x-bounds[1],bounds[4]-1-x,z-bounds[3],bounds[6]-1-z,1)
++      assert(radius<=64,'Authoritative target ring exceeds public blocksync capacity')
++      assert(commands.send{t='blocksync',r=radius,world_session=v.world_session,dim=v.dim,view=v.view}==true,
++       'Initial authoritative snapshot request failed')
++      self.snapshot_requested_tuple=key;self.snapshot_requested_radius=radius
++     end
++   return true
++  end
+   function Worker:startup_prepare(v)
+    local b=options.native_binding and options.native_binding(self.features.binding)or self.features.mc_binding
+    if not startup_input or not TravelP.binding(b)then return end
+@@ -229,18 +257,7 @@
+      and row.mapping.scale==100 and row.mapping.y_origin==64 and valid_bounds(row.required_bounds)
+      and TravelP.vector(row.pos)and TravelP.ue(row.target_pawn)
+      and TravelP.contains(row.mapping.region_bounds,row.target_pawn)then
+-     -- Hello/auto sync covers 32 blocks. Request the real target ring once per
+-     -- authenticated tuple before scene readiness starts the travel feature.
+-     -- Issuing this request never asserts snapshot coverage or native readiness.
+-     local key=b.mc_epoch..'/'..b.session_id..'/'..b.generation..'/'..v.world_session..'/'..v.dim..'/'..v.view
+-     if self.snapshot_requested_tuple~=key then
+-      local bounds=row.required_bounds;local x,z=math.floor(row.pos[1]),math.floor(row.pos[3])
+-      local radius=math.max(x-bounds[1],bounds[4]-1-x,z-bounds[3],bounds[6]-1-z,1)
+-      assert(radius<=64,'Authoritative target ring exceeds public blocksync capacity')
+-      assert(commands.send{t='blocksync',r=radius,world_session=v.world_session,dim=v.dim,view=v.view}==true,
+-       'Initial authoritative snapshot request failed')
+-      self.snapshot_requested_tuple=key;self.snapshot_requested_radius=radius
+-     end
++     self:request_target_snapshot(row,b,v)
+      return row,b
+     end
+    end

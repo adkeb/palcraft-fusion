@@ -1,0 +1,21 @@
+--- a/src/main/java/dev/rehan/passthrough/WorldBridge.java
++++ b/src/main/java/dev/rehan/passthrough/WorldBridge.java
+@@ -288,12 +288,14 @@
+ 	}
+ 
+ 	/** Loaded chunks in the player's own dimension, streamed in bounded replace snapshots. */
+-    public static void sync(final int radius){
+-        MinecraftServer s=server;if(s==null||s.getPlayerList().getPlayers().isEmpty())return;syncFor(s.getPlayerList().getPlayers().get(0),radius);
++    public static void sync(final int radius){ sync(radius,null); }
++    public static void sync(final int radius,final String requestId){
++        MinecraftServer s=server;if(s==null||s.getPlayerList().getPlayers().isEmpty())return;syncFor(s.getPlayerList().getPlayers().get(0),radius,requestId);
+     }
+-    public static void syncFor(final ServerPlayer player,final int radius){
++    public static void syncFor(final ServerPlayer player,final int radius){ syncFor(player,radius,null); }
++    public static void syncFor(final ServerPlayer player,final int radius,final String requestId){
+         MinecraftServer s=server;if(s==null)return;
+-        s.execute(()->WorldCompatibility.syncFor(player,radius));
++        s.execute(()->WorldCompatibility.syncFor(player,radius,requestId));
+ 	}
+ 
+ 	/** Start vanilla gliding using the player's own equipped gear; stopping never deletes or gives equipment. */

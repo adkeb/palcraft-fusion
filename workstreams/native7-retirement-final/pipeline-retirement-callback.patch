@@ -1,0 +1,11 @@
+--- d8c/native_visual_pipeline.lua
++++ next/native_visual_pipeline.lua
+@@ -92,7 +92,7 @@
+   capture_worker=Capture.new({json=J,png_root=capture_root,models=Models,native_consumer=Native,
+    current_view=assert(options.current_view),verify_host_session=assert(options.verify_host_session),
+    verify_actor=assert(options.verify_actor),now_ms=options.now_ms,send_binding=assert(options.send_binding),
+-   material_supported=material_supported,origin=function()
++   material_supported=material_supported,retire_materials=function(groups)return original_shader:retire(groups)end,origin=function()
+     local view=assert(options.current_view(),'Committed capture origin unavailable');return assert(view.origin)
+    end,context=assert(o.context)})
+   api.capture_worker=capture_worker;api.capture_renderer=capture_worker.renderer;api.entity_renderer=capture_worker.renderer

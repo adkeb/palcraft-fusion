@@ -1,0 +1,27 @@
+--- network-baseline/exchange_v3.lua
++++ standalone-successor/exchange_v3.lua
+@@ -27,8 +27,13 @@
+  local function mailbox(p,v)local f=assert(io.open(p..'.tmp','wb'));assert(f:write(J.encode(v)));assert(f:flush());assert(f:close());os.remove(p);assert(os.rename(p..'.tmp',p))end
+  local config=o.config or assert(read(ROOT..'escrow-config.json'),'One real paid escrow enrollment is required')
+  assert(config.protocol==3 and config.candidate,'Escrow enrollment protocol3 required')
+- local c=config.candidate;local boot=o.boot_certificate or read(ROOT..'escrow-boot-certificate.json');local boot_id=o.boot_id or(boot and boot.boot_id)
+- local epoch=o.epoch or(test and test.epoch)or(boot and boot.epoch)or(tostring(os.time())..':'..tostring({}))
++ local c=config.candidate
++ local standalone=config.runtime_scope and config.runtime_scope.mode=='standalone'
++ local boot=o.boot_certificate or(not standalone and read(ROOT..'escrow-boot-certificate.json'))
++ local binding=standalone and assert(read(ROOT..'escrow-client-process-binding.json'),'Actual standalone client process binding required')or nil
++ if standalone then assert(binding.world_directory==config.runtime_scope.world_directory and binding.pal_uid==config.runtime_scope.pal_uid,'Standalone process binding belongs to another host/world')end
++ local boot_id=o.boot_id or(binding and binding.boot_id)or(boot and boot.boot_id)
++ local epoch=o.epoch or(binding and binding.epoch)or(test and test.epoch)or(boot and boot.epoch)or(tostring(os.time())..':'..tostring({}))
+  if not test then assert(type(boot_id)=='string'and #boot_id==36 and boot_id:match('^[%x%-]+$'),'The lifecycle owner must bind this actual Pal process boot UUID')end
+  local registry=rawget(_G,'PalCraftEscrowExclusions')or{containers={},models={}}
+  registry.containers[c.container_id]=true;registry.models[c.model_id]=true
+@@ -97,7 +102,7 @@
+    local proof=assert(read(ROOT..'escrow-credit-proof-'..lease.owner_tx..'-g'..lease.generation..'-a'..attempt(lease,'credit')..'.json'),'Actual saved MC debit permit is pending')
+    assert(proof.native_request_id==id and proof.lease_generation==lease.generation,'Saved MC debit permit is stale');return proof
+   end}
+- local backend=o.backend or E.game_backend(R,credit)
++ local backend=o.backend or E.game_backend(R,credit,config.runtime_scope)
+  local prior_fence=rawget(_G,'PalCraftEscrowFence')
+  if prior_fence then assert(prior_fence.root==ROOT,'A different escrow root already owns RPC fences')end
+  local rpc=o.rpc or (prior_fence and prior_fence.rpc)or(not test and E.rpc_guard{readers=R,current=store.get})

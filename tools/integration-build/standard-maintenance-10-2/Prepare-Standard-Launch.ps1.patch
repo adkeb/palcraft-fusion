@@ -1,0 +1,28 @@
+--- standard10.1/Prepare-Standard-Launch.ps1
++++ maintenance10.2/Prepare-Standard-Launch.ps1
+@@ -2,7 +2,8 @@
+     [Parameter(Mandatory=$true)][string]$Root,
+     [Parameter(Mandatory=$true)][ValidateSet('server','guest')][string]$Role,
+     [Parameter(Mandatory=$true)][string]$RuntimeConfig,
+-    [string]$GuestManifest
++    [string]$GuestManifest,
++    [string]$MetadataOutputDirectory
+ )
+ $ErrorActionPreference='Stop'
+ $rootPath=(Resolve-Path -LiteralPath $Root).Path
+@@ -59,12 +60,14 @@
+     if($arg -notmatch '^-D(palcraft|passthrough)\.' -or $arg -match '(?i)token|password|private.?key|secret'){throw 'Additional runtime args must be public PalCraft properties'}
+ }
+ if(($jvm+$tail) -match 'fabric\.dli|devlaunchinjector|\.gradle[\\/]|build[\\/]classes|build[\\/]resources'){throw 'Development launch dependency refused'}
+-$out=Join-Path $rootPath 'launch'
++$out=if($MetadataOutputDirectory){[IO.Path]::GetFullPath($MetadataOutputDirectory)}else{Join-Path $rootPath 'launch'}
+ New-Item -ItemType Directory -Force $out | Out-Null
+ $quote={param([string]$x) '"'+$x.Replace('\','\\').Replace('"','\"').Replace("`n",'\n').Replace("`r",'\r')+'"'}
+ $all=@($jvm+$extra+$tail)
+ $argsFile=Join-Path $out ($Role+'.args')
+ [IO.File]::WriteAllText($argsFile, (($all | ForEach-Object { & $quote $_ }) -join "`n")+"`n", [Text.UTF8Encoding]::new($false))
+ $record=@{schema=1;role=$Role;root=$rootPath;cwd=$cwd;main=$main;args_file=$argsFile;java_major=25;minecraft='26.3';loader='0.19.5';development=$false;identity=$identity;auth_mode= $(if($Role -eq 'guest'){'registered BridgeLab identity on existing offline local server; no Microsoft token read'}else{'existing server policy'});runtime_config=(Resolve-Path $RuntimeConfig).Path;configured_for_runtime_batch=($cfg.configured_for_runtime_batch -eq $true);normal_launch_prepared=$true;minecraft_started=$false;runtime_accepted=$false}
++$record.expected_mod_version='0.2.0-integration.10.2-maintenance'
++$record.expected_mod_sha256='3b782bb7308ea9926bd57e330103f2fa07abd323b817a074117101387a65f831'
+ $record | ConvertTo-Json -Depth 7 | Set-Content (Join-Path $out ($Role+'.json')) -Encoding UTF8
+ 'Prepared normal '+$Role+' arguments: '+$argsFile

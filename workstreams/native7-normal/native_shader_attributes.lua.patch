@@ -1,0 +1,41 @@
+--- 387db/native_shader_attributes.lua
++++ next/native_shader_attributes.lua
+@@ -6,6 +6,28 @@
+  assert(type(value)=='number' and value==value and value>=0 and value<=65535 and value%1==0,
+   'Original shader UV must be an integer in the native unsigned-short range')
+  return value
++end
++local function float32(value)
++ return string.unpack('<f',string.pack('<f',value))
++end
++local function normal_component(value)
++ assert(type(value)=='number' and value==value and math.abs(value)<math.huge,
++  'Finite original normal component required')
++ -- MC26.3 BufferBuilder.normalIntValue(float), ENTITY RGBA8_SNORM.
++ -- Clamp and multiply use float32; Java f2i truncates toward zero.
++ local original=float32(value)
++ local product=float32(math.max(-1,math.min(1,original))*127)
++ local signed=product>=0 and math.floor(product) or math.ceil(product)
++ return float32(signed/127)
++end
++function M.normal(group,vertex)
++ if group.actual_renderer_capture~=true then return vertex[4],vertex[5],vertex[6] end
++ -- Invert the existing native basis first, pack/decode original MC XYZ, then
++ -- apply (x,-z,y). Do not normalize the resulting vector.
++ local x=normal_component(vertex[4])
++ local y=normal_component(vertex[6])
++ local z=normal_component(-vertex[5])
++ return x,-z,y
+ end
+ local function channel(group,index,at)
+  local values=index==1 and group.overlay_uvs or group.light_uvs
+@@ -49,6 +71,8 @@
+ end
+ function M.status()
+  return {vertex_bytes=104,raw_uv1=true,raw_uv2=true,linear_color_api=true,
+-  srgb_conversion=false,actual_shader_sampling_verified=false}
++  srgb_conversion=false,normal_format='MC26.3 ENTITY RGBA8_SNORM',
++  original_MC_normal_pack_decode_before_basis=true,normal_unit_applied=false,
++  UE_GPU_normal_packing_parity_verified=false,actual_shader_sampling_verified=false}
+ end
+ return M

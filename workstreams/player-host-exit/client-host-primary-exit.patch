@@ -1,0 +1,69 @@
+--- a/launcher/client_host_v1.cpp
++++ b/launcher/client_host_v1.cpp
+@@ -58,8 +58,11 @@
+     return TRUE;
+ }
+ 
+-static void write_status(const std::wstring& path, const char* phase, DWORD exit_code = 0) {
+-    std::string data = "{\"schema\":1,\"phase\":\"" + std::string(phase) + "\",\"exit_code\":" + std::to_string(exit_code) + "}\n";
++static void write_status(const std::wstring& path, const char* phase, DWORD exit_code = 0,
++                         DWORD primary_pid = 0, bool primary_alive = false, DWORD job_active = 0) {
++    std::string data = "{\"schema\":1,\"phase\":\"" + std::string(phase) + "\",\"exit_code\":" + std::to_string(exit_code) +
++        ",\"primary_pid\":" + std::to_string(primary_pid) + ",\"primary_alive\":" + (primary_alive ? "true" : "false") +
++        ",\"job_active_processes\":" + std::to_string(job_active) + "}\n";
+     const auto temp = path + L".tmp";
+     HANDLE f = CreateFileW(temp.c_str(), GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+     if (f == INVALID_HANDLE_VALUE) return;
+@@ -119,11 +122,23 @@
+         std::cerr << "HOST_JOB: assignment failed; own suspended game cancelled\n"; return 68;
+     }
+     ResumeThread(process.hThread); CloseHandle(process.hThread);
+-    write_status(status, "running");
++    write_status(status, "running", 0, process.dwProcessId, true, 1);
+     std::vector<std::pair<DWORD, HANDLE>> children{{process.dwProcessId, process.hProcess}};
+-    ULONGLONG closing_at = 0, last_close = 0; bool owner_gone = false, forced = false;
++    ULONGLONG closing_at = 0, last_close = 0, last_status = 0; bool owner_gone = false, forced = false;
+     DWORD result = 0;
+     for (;;) {
++        const DWORD primary_wait = WaitForSingleObject(process.hProcess, 0);
++        const bool primary_alive = primary_wait == WAIT_TIMEOUT;
++        if (primary_wait == WAIT_FAILED) {
++            std::cerr << "HOST_PRIMARY_QUERY_FAILED " << GetLastError() << "\n"; result = 72; break;
++        }
++        if (primary_wait == WAIT_OBJECT_0 && shipping) {
++            if (!GetExitCodeProcess(process.hProcess, &result)) result = 72;
++            std::cout << "HOST_PRIMARY_EXIT pid=" << process.dwProcessId << " code=" << result << "\n";
++            // Shipping is the actual game. Wine may retain stale ActiveProcesses
++            // accounting after its handle is signaled; never wait on that ghost.
++            break;
++        }
+         auto pids = job_pids(job);
+         for (DWORD pid : pids) {
+             if (std::any_of(children.begin(), children.end(), [pid](const auto& row) { return row.first == pid; })) continue;
+@@ -139,12 +154,16 @@
+         if (account.ActiveProcesses == 0) break;
+         const auto mode = read_small(request);
+         const auto now = GetTickCount64();
++        if (now - last_status > 1000) {
++            write_status(status, closing_at ? "closing" : "running", 0, process.dwProcessId, primary_alive, account.ActiveProcesses);
++            last_status = now;
++        }
+         owner_gone = owner_gone || !fresh(heartbeat, 15);
+         if (mode.find(L"force") == 0) {
+             TerminateJobObject(job, 70); forced = true; result = 70; break;
+         }
+         if (owner_gone || mode.find(L"close") == 0) {
+-            if (!closing_at) { closing_at = now; write_status(status, "closing"); }
++            if (!closing_at) { closing_at = now; write_status(status, "closing", 0, process.dwProcessId, primary_alive, account.ActiveProcesses); }
+             if (now - last_close > 2000) { EnumWindows(close_window, reinterpret_cast<LPARAM>(&pids)); last_close = now; }
+             // An explicit normal stop waits indefinitely for saving. A dead owner cannot leave an unbounded orphan.
+             if (owner_gone && now - closing_at > 60000) {
+@@ -162,7 +181,7 @@
+     }
+     for (const auto& child : children) CloseHandle(child.second);
+     CloseHandle(job);
+-    write_status(status, result ? "failed" : "stopped", result);
++    write_status(status, result ? "failed" : "stopped", result, process.dwProcessId, false, 0);
+     std::cout << "HOST_EXIT " << result << "\n";
+     return static_cast<int>(result);
+ }

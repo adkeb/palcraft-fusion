@@ -1,0 +1,36 @@
+{
+  "required": true,
+  "package": "dev.rehan.passthrough.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "AbstractClientPlayerMixin",
+    "AvatarRendererMixin",
+    "BlockItemPlacementAccessor",
+    "CameraMixin",
+    "ClientLevelMixin",
+    "EntityPickMixin",
+    "LivingEntityMixin",
+    "FogRendererMixin",
+    "GameRendererMixin",
+    "GlCommandEncoderMixin",
+    "KeyMappingAccessor",
+    "LocalPlayerMixin",
+    "ToastManagerMixin",
+    "MinecraftInputMixin",
+    "MiningAccessor",
+    "PlayOverlayMixin",
+    "PlayHudMixin",
+    "SignFontAccessor",
+    "SignTextGameRendererMixin",
+    "SignLightmapReadbackMixin",
+    "EntityCaptureRenderMixin",
+    "EntityCaptureResourceMixin",
+    "EntityOverlayTextureAccessor",
+    "EntityLightingInputMixin",
+    "EntityDynamicInputMixin",
+    "EntityRenderTypeInputMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

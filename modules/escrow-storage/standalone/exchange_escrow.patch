@@ -1,0 +1,72 @@
+--- network-baseline/exchange_escrow.lua
++++ standalone-successor/exchange_escrow.lua
+@@ -53,8 +53,20 @@
+ 
+ -- Real reflected backend: resolves registered model -> no-force concrete -> module
+ -- -> canonical container on EVERY call, matching the validated storage reader.
+-function M.game_backend(R,credit)
+- require_(SOURCE_PATH:find('@d:/palworldserver-lan/bridgelab/',1,true)==1,'Escrow runtime backend is BridgeLab-only')
++function M.game_backend(R,credit,scope)
++ local standalone=scope and scope.mode=='standalone'
++ if standalone then
++  local expected=assert(scope.scripts_dir):lower():gsub('\\','/'):gsub('/+$','')..'/'
++  require_(SOURCE_PATH:match('^@(.*[/])')==expected,'Standalone escrow source differs from selected private Scripts directory')
++ else require_(SOURCE_PATH:find('@d:/palworldserver-lan/bridgelab/',1,true)==1,'Escrow runtime backend is BridgeLab-only')end
++ local Authority=standalone and dofile(assert(scope.scripts_dir):gsub('/?$','/')..'standalone_authority.lua')or nil
++ local function actual_authority()
++  if standalone then
++   local found
++   for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do if live(pc)and pc:HasAuthority()and R.guid_to_string(pc:GetPlayerUId())==scope.pal_uid then require_(not found,'Ambiguous standalone host');found=pc end end
++   return Authority.read(found,scope.world_directory)
++  end
++ end
+  local function one(class)
+   local out;for _,o in ipairs(FindAllOf(class)or{})do if live(o)then require_(not out,'Ambiguous '..class);out=o end end
+   return require_(out,class..' unavailable')
+@@ -83,6 +95,7 @@
+  end
+  local b={slot=snapshot}
+  function b.chest(candidate)
++  actual_authority()
+   local model=one('PalMapObjectManager'):FindModel(R.guid_from_string(candidate.model_id));require_(live(model),'Escrow model missing')
+   local concrete=model:GetConcreteModel(false);require_(live(concrete),'Escrow concrete unavailable')
+   require_(guid(concrete:GetModelInstanceId())==candidate.model_id,'Escrow model identity changed')
+@@ -112,13 +125,16 @@
+   return {candidate=copy(candidate),slots=slots,access=access}
+  end
+  function b.move(request_id,to,froms)
++  actual_authority()
+   local args={};for _,s in ipairs(froms)do args[#args+1]={SlotId=slot(s.before):GetSlotId(),Num=s.n}end
+   component():RequestMove_ToServer(R.guid_from_string(request_id),slot(to):GetSlotId(),args)
+  end
+  function b.dispose(request_id,ref,n)
++  actual_authority()
+   component():RequestDispose_ToServer(R.guid_from_string(request_id),{SlotId=slot(ref):GetSlotId(),Num=n})
+  end
+  function b.bag(owner,cid)
++  actual_authority()
+   local found
+   for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do if live(pc)and pc:HasAuthority()and guid(pc:GetPlayerUId())==owner then
+    require_(not found,'Ambiguous recipient');found=pc:GetPalPlayerState():GetInventoryData()
+@@ -133,8 +149,9 @@
+   b.credit_verified=credit.runtime_verified==true
+   b.credit_candidate=credit.lab_candidate==true
+   function b.credit(row,request_id,n)
++   actual_authority()
+    require_(credit.runtime_verified==true or credit.lab_candidate==true,'An explicit Lab permit is required for the produce-only candidate')
+-   local utility=StaticFindObject('/Script/Pal.Default__PalItemUtility');require_(live(utility),'Item descriptor utility unavailable')
++   local utility=StaticFindObject('/Script/Pal.Default__PalItemUtility');require_(utility and utility:IsValid(),'Item descriptor utility unavailable')
+    -- This UI/local descriptor is neither an inventory nor a persistent container.
+    -- Only the engine's validated produce transaction writes the REAL escrow slot.
+    local descriptor=utility:CreateLocalItemSlot(one('PalItemContainerManager'),FName(row.tx.item),n)
+@@ -150,7 +167,9 @@
+     pg(R.guid_from_string(request_id))..string.pack('<I8I8I8I8',s:GetAddress(),s:GetClass():GetAddress(),descriptor:GetAddress(),descriptor:GetClass():GetAddress())..
+     pg(s:GetSlotId().ContainerId.ID)..string.pack('<i4i4',row.slot,n)..pg(R.guid_from_string(row.tx.id))..string.pack('<I8',row.generation)..bytes(row.tx.fingerprint)..bytes(proof.mc_receipt_sha256)
+    require_(#wire==208,'Credit wire ABI mismatch')
+-   local p='D:/PalworldServer-LAN/BridgeLab/rpc/escrow-credit.request.bin'
++   local rpc=standalone and assert(scope.rpc_root)or'D:/PalworldServer-LAN/BridgeLab/rpc/'
++   if standalone then require_(rpc:gsub('\\','/'):gsub('/+$',''):lower()==assert(os.getenv('PALCRAFT_RPC_ROOT')):gsub('\\','/'):gsub('/+$',''):lower(),'Credit RPC root differs from trusted startup mapping')end
++   local p=rpc:gsub('\\','/'):gsub('/?$','/')..'escrow-credit.request.bin'
+    local f=assert(io.open(p,'wb'));assert(f:write(wire));assert(f:flush());assert(f:close())
+    local fn,why=package.loadlib(credit.dll_path,'palcraft_escrow_credit_v1');require_(fn,why or'Credit DLL unavailable');fn()
+    -- Caller uses the real escrow read-back. Native JSON/logs are audit evidence,

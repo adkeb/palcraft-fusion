@@ -1,0 +1,168 @@
+--- a/runtime/client_options.lua
++++ b/runtime/client_options.lua
+@@ -1,7 +1,7 @@
+ -- Concrete options driven by features' existing game-thread lifecycle.
+ -- The companion retains its only world journal/reducer/timer. QA is not forged.
+ local dir=assert(debug.getinfo(1,'S').source:match('^@(.*[/\\])'))
+-local M={version=2}
++local M={version=3}
+ local function copy(t)local r={};for k,v in pairs(t or{})do r[k]=v end;return r end
+ local function root(p)return assert(p):gsub('\\','/'):gsub('/?$','/')end
+ local function same_origin(a,b)
+@@ -44,7 +44,7 @@
+  local Session=dofile(dir..'session.lua');local Records=dofile(dir..'records.lua')
+  local home=copy(assert(o.origin));local view_bridge=assert(o.view_bridge)
+  local commands=Records.commands{json=J,path=bridge_root..'command.json'}
+- local now=o.now or os.time;local current
++ local now=o.now or os.time;local current;local early_rows={};local startup_input,TravelP
+  local options={json=J,bridge_root=bridge_root,origin=o.origin,identity=assert(cfg.identity),files=o.files,now=now,
+   runtime_dir=o.runtime_dir or dir,game_thread=o.game_thread,player_uid=o.player_uid,on_error=o.on_error,
+   native_mc_bootstrap_enabled=true,entities_enabled=cfg.entities_enabled~=false,
+@@ -62,11 +62,15 @@
+   -- The authenticated proxy mirrors BridgeTravelGate's unchanged travel rows
+   -- locally. A client on another machine never reads the server's D: journal.
+   local events=o.travel_events_path or cfg.travel_events_path or(bridge_root..'travel-events.ndjson')
+-  local input=Records.tail{json=J,path=events}
++  local input=Records.tail{json=J,path=events};startup_input=input;TravelP=dofile(travel_dir..'protocol.lua')
+   options.travel_transport={send=function(row)
+    local types={client_ready='travel_ready',client_observed='travel_observed',client_abort='travel_abort'}
+    local query=copy(row);query.t=assert(types[row.phase],'Unknown native travel signal');return commands.send(query)
+-  end,poll=function(consume)return input.poll(consume,64)end}
++  end,poll=function(consume)
++   local queued=early_rows;early_rows={}
++   for _,row in ipairs(queued)do consume(row)end
++   return #queued+input.poll(consume,64)
++  end}
+   local facade={}
+   for _,name in ipairs({'prepare_view','readiness','release','abandon','can_recycle','retirement_status'})do
+    facade[name]=function(...)return assert(require_worker().chunks,'Native chunk views not installed').view[name](...)end
+@@ -98,7 +102,8 @@
+   for k,v in pairs(o.fluid_options or{})do options.fluid[k]=v end
+   options.fluid.resolve_participants=options.fluid.resolve_participants or function(ctx)
+    -- Prediction cannot push a pawn while travel waits for target replication.
+-   if view_bridge.status().held then return{}end
++   local scope=view_bridge.status();local mapping=scope.mapping
++   if scope.held or not mapping or not mapping.world_session or not mapping.view then return{}end
+    local w=require_worker();local pc=assert(ctx.pc);local h=w.features.binding
+    assert(h and pc:IsValid()and pc.Pawn and pc.Pawn:IsValid()and uid(pc)==h.pal_uid,'Authenticated local fluid pawn required')
+    return{{id='player:'..h.pal_uid,actor=pc.Pawn,dim=w.companion.world.dimension,
+@@ -169,33 +174,67 @@
+    current=setmetatable({features=features,companion=assert(ctx.collisions),ctx=ctx,
+     started=false,reason='initial_native_scene_pending'},Worker);return current
+   end}
++  local function native_match(row,b,v)
++   return TravelP.envelope(row)and TravelP.binding(b)and row.player==b.mc_uuid and row.pal_uid==b.pal_uid
++    and row.session_id==b.session_id and row.session_generation==b.generation and row.mc_epoch==b.mc_epoch
++    and row.world_id==b.world_id and row.server_session_id==b.server_session_id
++    and row.world_session==v.world_session and row.dim==v.dim and row.view==v.view
++  end
++  function Worker:startup_prepare(v)
++   local b=options.native_binding and options.native_binding(self.features.binding)or self.features.mc_binding
++   if not startup_input or not TravelP.binding(b)then return end
++   -- Pump the SAME bounded travel tail while the world feature is waiting.
++   -- This is control data already accepted by HostSession, not a world reader.
++   startup_input.poll(function(row)
++    if native_match(row,b,v)then
++     assert(#early_rows<256,'Cold travel startup queue full');early_rows[#early_rows+1]=TravelP.copy(row)
++    else self.startup_rejected=(self.startup_rejected or 0)+1 end
++   end,64)
++   for _,row in ipairs(early_rows)do
++    if row.phase=='prepare'and native_match(row,b,v)and TravelP.mapping(row.mapping)
++     and row.mapping.world_session==v.world_session and row.mapping.dim==v.dim
++     and row.mapping.scale==100 and row.mapping.y_origin==64 and valid_bounds(row.required_bounds)
++     and TravelP.vector(row.pos)and TravelP.ue(row.target_pawn)
++     and TravelP.contains(row.mapping.region_bounds,row.target_pawn)then return row,b end
++   end
++  end
+   function Worker:tick(_,ctx)
+    thread();self.ctx=ctx;local c=self.companion
+    assert(ctx.collisions==c,'Client companion changed without lifecycle reset')
+    assert(c.running==true and not c.error and not c.world_error and not c.observer_error,'Client companion failed')
+    local v,why=self.features:bootstrap_view()
+    if not v then self.reason=why;return end
++   local prepared,binding
++   if not self.started and options.travel_enabled then prepared,binding=self:startup_prepare(v)end
+    if c.world.session~=v.world_session then self.reason='native_scene_world_session_pending';return end
+    if self.started then self.reason=nil;return end
+    if not self.chunks then
+-    -- Initial join with travel enabled deliberately waits for its real camera
+-    -- ACK. Prepare geometry from the trusted tuple while ACK is pending so the
+-    -- existing travel transaction can start and publish that target frame.
+-    if v.dim~='minecraft:overworld'or(v.waiting_ack and not options.travel_enabled)then self.reason='initial_native_overworld_authority_pending';return end
+-    assert(same_origin(c.origin,home)and same_origin(o.origin,home),'Initial companion must use actual home origin')
+-    local receipt,at=current_receipt(c,v,ctx.pc,home)
+-    if not receipt or c.world.needs_resync then self.reason='initial_committed_snapshot_pending';return end
+-    if not options.chunk_enabled then
+-     if #c.queue-(c.queue_head or 1)+1>0 then self.reason='initial_native_scene_queue_pending';return end
+-     c.set_view(v.dim,v.player);self.started=true;self.reason=nil;return
++    local P=TravelP or dofile(travel_dir..'protocol.lua');local initial,mapping
++    local native_home=v.dim=='minecraft:overworld'and same_origin(c.origin,home)and same_origin(o.origin,home)
++    if not native_home then
++     if not options.travel_enabled or not prepared then self.reason='initial_authoritative_prepare_pending';return end
++     -- Cold Nether/End/reconnect: use the actual server prepare's mapping/bounds.
++     -- Do not choose an arena from config or stamp an applied camera view here.
++     mapping=P.copy(prepared.mapping);self.initial_from_prepare=true
++     initial={player=prepared.player,world_session=prepared.world_session,dim=prepared.dim,view=prepared.view,
++      session_id=binding.session_id,session_generation=binding.generation,mc_epoch=binding.mc_epoch,
++      mapping=mapping,required_bounds=P.copy(prepared.required_bounds),mode='client'}
++    else
++     if v.waiting_ack and not options.travel_enabled then self.reason='initial_native_overworld_authority_pending';return end
++     local receipt,at=current_receipt(c,v,ctx.pc,home)
++     if not receipt or c.world.needs_resync then self.reason='initial_committed_snapshot_pending';return end
++     if not options.chunk_enabled then
++      if #c.queue-(c.queue_head or 1)+1>0 then self.reason='initial_native_scene_queue_pending';return end
++      c.set_view(v.dim,v.player);self.started=true;self.reason=nil;return
++     end
++     local config=P.copy(o.travel_config or dofile(travel_dir..'config.lua'));config.home_origin=P.copy(home)
++     mapping=assert(P.registry(config):acquire(v.world_session,v.dim,at,'initial_client_scene'))
++     assert(mapping.native_overworld==true and same_origin(mapping.origin,home),'Initial scene cannot use auxiliary Overworld')
++     local b=assert(self.features.mc_binding)
++     initial={player=v.player,world_session=v.world_session,dim=v.dim,view=v.view,
++      session_id=b.session_id,session_generation=b.generation,mc_epoch=b.mc_epoch,mapping=mapping,
++      required_bounds={table.unpack(receipt.bounds)},mode='client'}
+     end
+-    local P=dofile(travel_dir..'protocol.lua');local config=P.copy(o.travel_config or dofile(travel_dir..'config.lua'))
+-    config.home_origin=P.copy(home)
+-    local mapping=assert(P.registry(config):acquire(v.world_session,v.dim,at,'initial_client_scene'))
+-    assert(mapping.native_overworld==true and same_origin(mapping.origin,home),'Initial scene cannot use auxiliary Overworld')
+-    local b=assert(self.features.mc_binding);local initial={player=v.player,world_session=v.world_session,dim=v.dim,view=v.view,
+-     session_id=b.session_id,session_generation=b.generation,mc_epoch=b.mc_epoch,mapping=mapping,
+-     required_bounds={table.unpack(receipt.bounds)},mode='client'}
+     local models=assert(c.models,'server/main.lua must expose actual companion Models')
+     local info=assert(models.status(),'Actual Models status required')
+     local chunk=copy(o.chunk_options)
+@@ -212,8 +251,13 @@
+    end
+    local proof=self.chunks.view.readiness(self.chunks.initial_ticket);self.initial_proof=proof
+    if proof.ready~=true then self.reason='initial_native_scene_commit_pending';return end
+-   assert(self.chunks.view.activate(self.chunks.initial_ticket)==true,'Initial native scene activation failed')
+-   c.set_view(v.dim,v.player);self.started=true;self.reason=nil
++   if not self.initial_from_prepare then
++    assert(self.chunks.view.activate(self.chunks.initial_ticket)==true,'Initial native scene activation failed')
++    c.set_view(v.dim,v.player)
++   end
++   -- Target readiness opens only the travel lifecycle. Actual activation,
++   -- origin/camera commit and final ACK remain the existing travel transaction.
++   self.started=true;self.reason=nil
+   end
+   function Worker:ready()
+    if self.stopped or not self.started then return false,self.reason or'initial_native_scene_pending'end
+@@ -228,7 +272,8 @@
+   function Worker:status()
+    local ready,reason=self:ready()
+    return{version=M.version,ready=ready,reason=reason,started=self.started,companion_driven=true,
+-    initial_proof=self.initial_proof,chunks=self.chunks and self.chunks.status(),in_game_verified=false}
++    initial_proof=self.initial_proof,initial_from_prepare=self.initial_from_prepare==true,startup_rejected=self.startup_rejected or 0,
++    chunks=self.chunks and self.chunks.status(),in_game_verified=false}
+   end
+   function Worker:stop(_,ctx)
+    thread();local c=self.companion;local alive=not ctx or ctx.context_alive~=false
+@@ -236,7 +281,7 @@
+     assert(self.chunks.stop(alive)==true,'Client chunk cleanup failed')
+     if c.chunk_consumer==self.chunks.bridge.binding then c.chunk_consumer=nil end
+    end
+-   self.stopped=true;self.started=false;if current==self then current=nil end;return true
++   self.stopped=true;self.started=false;early_rows={};if current==self then current=nil end;return true
+   end
+  end
+  return options

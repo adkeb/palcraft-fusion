@@ -1,0 +1,32 @@
+PalCraft 自选安装目录增量 — windows-root-v1
+
+交付状态：已实现隔离 candidate 与精确基底补丁；尚未应用活跃 owner 源，尚未链接/重建任何游戏 DLL，尚未装入真实 Windows/Wine 游戏。正式服、frozen、当前 camera16/models5rev2/Java9.2 组合均未操作。
+
+契约：profile 新增 windows_root，由 installer 根据真实 root 推导。Windows 例 C:/Games/玩家 PalCraft；CrossOver 将个人宿主 root 转成 Z:/Users/...，只核对专用 bottle 原有 dosdevices/z: -> /。不创建、改写或要求 D:；已有 D: 指向别的目录时保持原样。PALCRAFT_WINDOWS_ROOT 仅传给本安装创建的进程；Win32 host 再设置给个人游戏子树。
+
+三个共享入口：installer/paths.py、runtime/paths.lua、launcher/windows_paths.hpp。Lua 模型/客户端/BridgeLab，native model/mesh/chunk/fluid、render 相机/输入，以及 launcher/host 已对齐。native 保留完整当前 exe 与所选 root 下 Client/BridgeLab 对应 exe 的比较；不是删除白名单。空格、中文和大小写/斜杠均保留合理处理。旧 Lab 未提供环境变量时仍缺省 D:/PalworldServer-LAN。
+
+PALCRAFT_BRIDGE_DIR：个人 Wine client 得到逻辑 Windows 路径；原生 Mac HUD 得到宿主路径。宿主 /Users 路径不作为 DLL 的运行根。相机 legacy96/live112+scope 及模型线格式不改。
+
+发布依赖：新发行 requirements 必须声明 path_contract=windows-root-v1、lua_path_encoding=utf-8-win32-v1，文件清单加入 role=runtime_paths 的 runtime/paths.lua；native 和 host 全部采用同批编译产物。不能对现有冻结包只加标记。旧 D-only 包在自选目录 install/update/rollback/launch 阶段拒绝；保留原有 manifest 事务与 owned 文件卸载逻辑。
+
+Unicode 依赖：当前 pinned UE4SS 2281fa31 的 LuaRaw 仍使用 narrow fopen/LoadLibraryExA。附 patches/ue4ss-2281fa31-utf8-paths-v1.patch，覆盖 io.open/lines、dofile、os.remove/rename/getenv、模块查找/loadlib 与 ! 程序目录。它使用 UTF8<->UTF16 + Win32 W 接口，不修改系统代码页。下一批由依赖/build owner 在同一 UE4SS 来源应用并重建；若已有等价 Unicode IO 则可复用，但必须有对应产物证据。
+
+检查：仅一条现有 PlayerTests 夹具上的安装->bottle->启动参数/环境（Popen mock）->保留存档卸载流程；带空格/Unicode/没有 D:，并确认别人的已有 D: 不变、原游戏/原存档/玩家存档/未登记文件保留、旧 D 包写入前拒绝。Python/Lua 语法、Lua 角色边界、portable C++ helper 均过；两个 Windows helper 与四个 LuaRaw 翻译单元作了约秒级 object-only 短编译，无链接/无游戏进程。真实 NTFS/Wine Unicode IO、完整 DLL 链接/游戏运行待下一批验收。
+
+应用：优先按 owner 单文件 patches；完整补丁为 patches/palcraft-windows-root-v1.patch。在 palcraft 工作目录可用 patch --dry-run -p1 -i ../path-portability/patches/palcraft-windows-root-v1.patch 核对。只有对上 manifest 的基底或人工 rebase 后才合并；不要用 candidate/main.lua 覆盖活跃源。
+
+当前漂移：client/main.lua 的 owner 已加入 bootstrap/epoch 增量。此补丁只有顶部两处路径改动，已对当前源 dry-run 通过；基底仍明确记在 manifest，当前哈希记在 evidence/live-patch-check.json。所有 frozen 与本轮运行状态保持原样。
+
+精确基底 sha256：
+installer/core.py 59cc90f80f962bab0e7a1ba06b93144279462f75f53dfbc8dfee9811a917e2c8
+launcher/runtime.py 808bc6384d9b0b6818d5a05d6016b67deab038a0dbadd57e6d477f40f7e711e8
+launcher/client_host_v1.cpp 4b69d1f0626cfa297ff75d885918ac919a2ef001af355aedba732fbf185fe168
+client/main.lua bceb1b437c569d754ba89e2f3f2eb567d7d1b8174ba9cd8484690399fc35ecc0
+native/procedural_mesh.cpp c4dade7e0c93ad8edf778faf4b46353a38fde302c81c1988437b4db34248d0b1
+render/palcraft.cpp ecc56092aea5c54e16c176da11f5cb578109c686494f6650e2bf78b4da4e5b0b
+render/controls.cpp 4ef1d77091943e8dea570796b4ed234dd45930606b2ab2afabbf10181532a8d0
+
+复查入口：python3 check.py（单条离线流程）；python3 check-windows.py（可选、现有交叉编译器、仅小对象）。不要因此启动游戏、重编本轮组合或重复压力测试。
+
+Unicode 来源：https://github.com/UE4SS-RE/RE-UE4SS/tree/2281fa31/deps/first/LuaRaw/src；保留上游 Lua/UE4SS 许可。

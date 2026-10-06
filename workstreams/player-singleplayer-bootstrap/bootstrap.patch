@@ -1,0 +1,250 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -22,6 +22,18 @@
+ 
+ 
+ HOST_PROXY_PORT_ENV = 'PALCRAFT_HOST_PROXY_PORT'
++BOOTSTRAP_MODE = 'singleplayer-bootstrap'
++BOOTSTRAP_PENDING = ['real_pal_uid_and_authority', 'mc_shared_and_guest', 'authenticated_proxy', 'hud', 'ai', 'full_game_ready']
++
++
++def _validate_launch_mode(profile, launch_mode):
++    if launch_mode not in ('full', BOOTSTRAP_MODE):
++        fail('LAUNCH_MODE', '不支持的启动阶段。')
++    if launch_mode == BOOTSTRAP_MODE and (profile.get('pal_entry_mode') != 'singleplayer' or
++            profile['connection']['transport'] != 'local' or profile['connection'].get('mode') != 'strict-player'):
++        fail('BOOTSTRAP_SCOPE', '单机观察阶段需要 singleplayer、本地连接和 strict-player 配置。',
++             '先配置实际的本地单机入口；观察完成后使用完整 start。')
++    return launch_mode == BOOTSTRAP_MODE
+ 
+ 
+ def _require_proxy_port_runtime(state, profile):
+@@ -117,7 +129,7 @@
+         return False
+ 
+ 
+-def health(root, check_ports=False, require_models=True):
++def health(root, check_ports=False, require_models=True, launch_mode='full'):
+     root = Path(root).absolute()
+     state = get_state(root)
+     checks = []
+@@ -129,6 +141,7 @@
+         add('NOT_INSTALLED', False, '尚未完成安装。', '运行安装向导。')
+         return {'ok': False, 'checks': checks}
+     p = validate_profile(state['profile'], root)
++    observing = _validate_launch_mode(p, launch_mode)
+     shipping = owned_path(root, CLIENT + '/Pal/Binaries/Win64/Palworld-Win64-Shipping.exe')
+     add('GAME_VERSION', shipping.is_file() and digest(shipping) == state.get('game_sha256'), '帕鲁版本校验。', '不要在此目录直接覆盖其他帕鲁版本。')
+     for entry in state['manifest']['files']:
+@@ -169,7 +182,7 @@
+         model_info = read_json(model_manifest, {})
+         add('MODELS_MISSING', model_info.get('schema') in (2, 4) and model_info.get('models', 0) > 0 and model_info.get('textures', 0) > 0,
+             '本安装的模型与纹理清单已就绪。', '取得同批资源或运行本版规定的个人 Minecraft 资源转换入口。')
+-    if p['connection'].get('mode') == 'strict-player':
++    if p['connection'].get('mode') == 'strict-player' and not observing:
+         from installer.credentials import inspect_credential
+         try:
+             public = inspect_credential(p['connection']['credential_path'])
+@@ -179,7 +192,7 @@
+             add('PROXY_COMPONENT', True, '严格会话协议与唯一代理已安装。')
+         except PlayerError as exc:
+             add(exc.code, False, exc.message, exc.action)
+-    if check_ports:
++    if check_ports and not observing:
+         bindings = p['local_ports'] if p['connection']['transport'] == 'ssh' else {'mc_ws': p['local_ports']['mc_ws']}
+         for name, port in bindings.items():
+             add('PORT_BUSY', _port_free(port), '本地端口：' + name + ' ' + str(port), '先关闭另一个个人 PalCraft 客户端；启动器不会结束占用端口的程序。')
+@@ -187,13 +200,15 @@
+             if p['connection'].get('mode') == 'strict-player':
+                 add('PORT_BUSY', _port_free(p['proxy_upstream_port']), '严格代理上游 SSH 端口：' + str(p['proxy_upstream_port']), '关闭另一个个人客户端。')
+             add('PORT_BUSY', _port_free(8321, udp=True), '本地 Palworld UDP 8321。', '关闭占用端口的个人程序。')
+-    return {'ok': all(x['ok'] for x in checks), 'version': state['current'], 'checks': checks, 'network_probed': False}
+-
+-
+-def command_plan(root, token):
++    return {'ok': all(x['ok'] for x in checks), 'version': state['current'], 'checks': checks, 'network_probed': False,
++            'launch_mode': launch_mode, 'deferred': BOOTSTRAP_PENDING[:] if observing else []}
++
++
++def command_plan(root, token, launch_mode='full'):
+     root = Path(root).absolute()
+     state = get_state(root)
+     p = validate_profile(state['profile'], root)
++    observing = _validate_launch_mode(p, launch_mode)
+     _require_proxy_port_runtime(state, p)
+     ssh = shutil.which('ssh') or 'ssh'
+     strict = p['connection'].get('mode') == 'strict-player'
+@@ -219,7 +234,7 @@
+         commands.update(ssh=command,
+                         udp=[sys.executable, str(tools / 'launcher/udp_tunnel_player.py'), '--tcp-port', str(p['local_ports']['udp_tcp']), '--udp-port', '8321',
+                              '--status-file', str(root / '.palcraft/transport/udp-status.json')])
+-    if strict:
++    if strict and not observing:
+         executable_role(root, state, 'session_client')
+         commands['proxy'] = [sys.executable, str(tools / 'launcher/palcraft.py'), '_proxy', '--root', str(root), '--token', token]
+     env = os.environ.copy()
+@@ -229,13 +244,16 @@
+         commands['client'] = [str(wine), '--bottle', p['bottle_name'], '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+                               '--env', 'SteamAppId=1623730',
+                               '--workdir', windows_path(win_root, CLIENT), host_windows] + args
+-        hud = executable_role(root, state, 'mac_hud')
+-        commands['hud'] = [str(hud)]
++        if not observing:
++            hud = executable_role(root, state, 'mac_hud')
++            commands['hud'] = [str(hud)]
+         env = crossover_environment(p)
+     else:
+         commands['client'] = [str(host)] + args
+     return {'ok': True, 'dry_run': True, 'root': str(root), 'commands': commands, 'stop_order': ['client', 'hud', 'proxy', 'udp', 'ssh'],
+             'servers_started_or_stopped': [], 'transport': p['connection']['transport'],
++            'launch_mode': launch_mode, 'game_ready': False, 'mc_actions_authorized': False,
++            'pending': BOOTSTRAP_PENDING[:] if observing else [],
+             'environment': {'SteamAppId': '1623730', 'PALCRAFT_WINDOWS_ROOT': win_root,
+                 HOST_PROXY_PORT_ENV: str(p['local_ports']['mc_ws']),
+                 'CX_BOTTLE_PATH': env.get('CX_BOTTLE_PATH')}}
+@@ -276,6 +294,7 @@
+     p = validate_profile(state['profile'], root) if state.get('profile') else None
+     direct = p is not None and p['connection']['transport'] == 'local'
+     session = read_json(root / '.palcraft/session.json', {})
++    observing = session.get('launch_mode') == BOOTSTRAP_MODE
+     alive = process_matches(session.get('supervisor', {}))
+     binding = read_json(owned_path(root, DEV + '/bridge/session-bind-status.json'), {}) if state.get('profile', {}).get('connection', {}).get('mode') == 'strict-player' else {'state': 'legacy-lab'}
+     udp = read_json(owned_path(root, '.palcraft/transport/udp-status.json'), {})
+@@ -320,14 +339,17 @@
+     if state.get('profile', {}).get('platform') == 'crossover':
+         required.add('hud')
+     components_ready = all(process_matches(session.get('components', {}).get(name, {})) for name in required)
+-    game_ready = alive and components_ready and session.get('phase') == 'running' and bound and transport_ready and local_gate
++    game_ready = not observing and alive and components_ready and session.get('phase') == 'running' and bound and transport_ready and local_gate
+     return {'ok': True, 'installed': state.get('installed', False), 'version': state.get('current'),
+             'phase': session.get('phase', 'stopped'), 'supervisor_alive': alive,
+             'components': {k: {'pid': v.get('pid'), 'alive': process_matches(v)} for k, v in session.get('components', {}).items()},
+             'binding': binding, 'udp_transport': udp if not direct else {'mode': 'direct', 'tunnel_started': False},
+             'native_mc': bootstrap, 'transport': p['connection']['transport'] if p is not None else None,
+-            'transport_ready': transport_ready, 'game_ready': game_ready,
+-            'ready_definition': ('fresh strict binding + real local Pal UID gate + accepted matching native MC bootstrap + living managed session'
++            'transport_ready': False if observing else transport_ready, 'game_ready': game_ready,
++            'launch_mode': session.get('launch_mode', 'full'), 'mc_actions_authorized': game_ready,
++            'pending': BOOTSTRAP_PENDING[:] if observing else [],
++            'ready_definition': ('singleplayer bootstrap observation; full readiness and MC actions pending' if observing else
++                                'fresh strict binding + real local Pal UID gate + accepted matching native MC bootstrap + living managed session'
+                                  if direct else 'fresh strict binding + real local Pal UID gate + responding personal UDP + living managed session'),
+             'code': session.get('code'), 'message': session.get('message'), 'servers_started_or_stopped': []}
+ 
+@@ -342,19 +364,22 @@
+     os.replace(temp, path)
+ 
+ 
+-def start(root, dry_run=False, timeout=20):
+-    root = Path(root).absolute()
++def start(root, dry_run=False, timeout=20, boot_singleplayer=False):
++    root = Path(root).absolute()
++    launch_mode = BOOTSTRAP_MODE if boot_singleplayer else 'full'
+     if dry_run:
+-        return command_plan(root, '0' * 32)
++        return command_plan(root, '0' * 32, launch_mode)
+     with operation_lock(root):
+         ensure_no_session(root)
+-        checks = health(root, check_ports=True)
++        checks = health(root, check_ports=True, launch_mode=launch_mode)
+         if not checks['ok']:
+             bad = next(x for x in checks['checks'] if not x['ok'])
+             fail(bad['code'], bad['message'], bad['action'])
+         token = uuid.uuid4().hex
+         state = get_state(root)
+-        session = {'schema': 1, 'token': token, 'phase': 'starting', 'components': {}, 'started_unix': time.time()}
++        session = {'schema': 1, 'token': token, 'phase': 'starting', 'components': {}, 'started_unix': time.time(),
++                   'launch_mode': launch_mode, 'game_ready': False,
++                   'pending': BOOTSTRAP_PENDING[:] if boot_singleplayer else []}
+         atomic_json(root / '.palcraft/session.json', session)
+         logs = owned_path(root, '.palcraft/logs')
+         logs.mkdir(exist_ok=True)
+@@ -374,8 +399,12 @@
+         session = read_json(root / '.palcraft/session.json')
+         if session['token'] != token:
+             fail('SESSION_REPLACED', '启动期间会话被更换，已停止等待。')
+-        if session['phase'] == 'running':
+-            return {'ok': True, 'phase': 'running', 'game_ready': False, 'message': '个人客户端进程已启动；真实入服/身份/UDP状态见 status。', 'servers_started_or_stopped': []}
++        if session['phase'] in ('running', 'bootstrap'):
++            return {'ok': True, 'phase': session['phase'], 'launch_mode': launch_mode, 'game_ready': False,
++                    'mc_actions_authorized': False, 'pending': session.get('pending', []),
++                    'message': ('单机观察进程已启动；正常加载实际存档后观察真实 Pal UID 和 authority，完整 MC/HUD/AI 尚待启动。'
++                                if boot_singleplayer else '个人客户端进程已启动；真实入服/身份/传输状态见 status。'),
++                    'servers_started_or_stopped': []}
+         if session['phase'] in ('failed', 'stopped'):
+             fail(session.get('code', 'CLIENT_START'), session.get('message', '客户端启动失败。'), '运行 diagnostics，按错误提示处理后重试。')
+         if process.poll() is not None:
+@@ -465,13 +494,17 @@
+     def __init__(self, root, token, commands=None, probe=None, poll_seconds=0.15):
+         self.root, self.token = Path(root).absolute(), token
+         self.state = get_state(root)
+-        self.commands = commands or command_plan(root, token)['commands']
+         self.probe = probe or _connect_probe
+         self.poll_seconds = poll_seconds
+         self.children, self.outputs = {}, []
+         self.session = read_json(self.root / '.palcraft/session.json')
+         if self.session.get('token') != token:
+             fail('SESSION_TOKEN', '后台会话标识不一致。')
++        self.launch_mode = self.session.get('launch_mode', 'full')
++        self.observing = _validate_launch_mode(validate_profile(self.state['profile'], self.root), self.launch_mode)
++        self.commands = commands if commands is not None else command_plan(root, token, self.launch_mode)['commands']
++        if self.observing and set(self.commands) != {'client'}:
++            fail('BOOTSTRAP_COMPONENTS', '单机观察阶段仅允许本安装的 Host/Game。')
+         self.session['supervisor'] = {'pid': os.getpid(), 'identity': process_identity(os.getpid())}
+         self.control = owned_path(root, '.palcraft/control')
+         self.control.mkdir(exist_ok=True)
+@@ -525,7 +558,7 @@
+             if 'ssh' in self.commands:
+                 self.spawn('ssh')
+             deadline = time.monotonic() + startup_timeout
+-            services = ('mc_ws', 'mc_server') if p['connection']['transport'] == 'local' and p['platform'] == 'windows' else ('mc_ws', 'hud', 'mc_server')
++            services = () if self.observing else (('mc_ws', 'mc_server') if p['connection']['transport'] == 'local' and p['platform'] == 'windows' else ('mc_ws', 'hud', 'mc_server'))
+             for name in services:
+                 while True:
+                     self.beat()
+@@ -552,7 +585,8 @@
+                 time.sleep(self.poll_seconds)
+                 if any(child.poll() is not None for child in self.children.values()):
+                     fail('COMPONENT_START', '某个个人组件在启动时退出。', '运行 diagnostics 查看组件日志。')
+-            self.save('running')
++            self.save('bootstrap' if self.observing else 'running', game_ready=False,
++                      pending=BOOTSTRAP_PENDING[:] if self.observing else [])
+             while True:
+                 self.beat()
+                 if self.should_close():
+--- a/installer/cli.py
++++ b/installer/cli.py
+@@ -120,6 +120,9 @@
+             sub.add_argument('--resource-pack', action='append', default=[])
+         if name == 'doctor':
+             sub.add_argument('--check-ports', action='store_true')
++        if name == 'start':
++            sub.add_argument('--boot-singleplayer', action='store_true',
++                             help='仅以 bootstrap 阶段启动本地单机 Host/Game，观察真实 UID/authority；MC/HUD/AI 和动作授权仍待完整启动')
+         if name == 'stop':
+             sub.add_argument('--force', action='store_true', help='仅强制结束本次个人客户端；可能丢失未保存进度')
+         if name == 'uninstall':
+@@ -182,7 +185,7 @@
+         elif command == 'doctor':
+             result = health(root, args.check_ports)
+         elif command == 'start':
+-            result = start(root, dry)
++            result = start(root, dry, boot_singleplayer=args.boot_singleplayer)
+         elif command == 'stop':
+             result = stop(root, args.force, dry)
+         elif command == 'status':
+--- a/installer/core.py
++++ b/installer/core.py
+@@ -428,7 +428,11 @@
+     p['local_ports'] = local_ports
+     p['proxy_upstream_port'] = upstream
+     p['service_ports'] = service_ports
+-    p['game_endpoint'] = {'host': '127.0.0.1', 'port': 8321}
++    pal_entry = p.get('pal_entry_mode', 'dedicated')
++    if pal_entry not in ('dedicated', 'singleplayer'):
++        fail('PAL_ENTRY_MODE', '帕鲁入口只能为 dedicated 或 singleplayer。')
++    p['pal_entry_mode'] = pal_entry
++    p['game_endpoint'] = None if pal_entry == 'singleplayer' else {'host': '127.0.0.1', 'port': 8321}
+     p.setdefault('fps', 15)
+     p.setdefault('mute', True)
+     return p

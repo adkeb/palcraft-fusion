@@ -1,0 +1,27 @@
+--- network-baseline/exchange_v3.py
++++ standalone-successor/exchange_v3.py
+@@ -62,13 +62,14 @@
+ 
+ 
+ class Runner:
+-    def __init__(self, root, level, vendor=None, save=None, rpc_root=None, verify_boot=None):
++    def __init__(self, root, level, vendor=None, save=None, rpc_root=None, verify_boot=None, boot_path=None):
+         self.root, self.level, self.vendor, self.save = Path(root), Path(level), vendor, save
+         self.rpc_root = Path(rpc_root) if rpc_root else None
+         self.cache_key = self.saved = None
+         self.save_attempts, self.save_successes = {}, set()
+         self.decode_count = 0
+         self.verify_boot = verify_boot
++        self.boot_path = Path(boot_path) if boot_path else self.root / 'escrow-boot-certificate.json'
+ 
+     def decoder(self, data, vendor):
+         key = hashlib.sha256(data).digest()
+@@ -127,7 +128,7 @@
+                 if stage == 'full_saved' and lease['tx']['action'] == 'debit':
+                     self.mc_proof(lease, 'credit')
+                 if stage in {'needs_recovery', 'moving_in', 'crediting', 'disposing', 'delivering', 'full', 'empty'}:
+-                    boot_path = self.root / 'escrow-boot-certificate.json'
++                    boot_path = self.boot_path
+                     if boot_path.exists():
+                         import escrow_rehydrate
+                         boot = read(boot_path)

@@ -1,0 +1,11 @@
+--- 68e/capture_runtime_binding.lua
++++ next/capture_runtime_binding.lua
+@@ -9,7 +9,7 @@
+   verify_actor=o.verify_actor,now_ms=o.now_ms,send_binding=assert(o.send_binding)})
+  Captured.configure({json=o.json,root=o.png_root,texture_index={},resolve_texture=cache.resolve_texture})
+  local renderer=assert(o.native_consumer).new({models=assert(o.models),capture=Captured,read_visual=cache.read_visual,
+-  verify_visual=cache.verify_visual,material_supported=assert(o.material_supported),origin=assert(o.origin),context=assert(o.context)})
++  verify_visual=cache.verify_visual,material_supported=assert(o.material_supported),retire_materials=o.retire_materials,origin=assert(o.origin),context=assert(o.context)})
+  local api={renderer=renderer,cache=cache}
+  function api.receive(message)
+   if message.t~='entity_visual_asset'and message.t~='entity_visual_cache'and message.t~='entity_visual_cache_chunk'then return false,'not_capture_event'end

@@ -1,0 +1,136 @@
+--- a/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
++++ b/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
+@@ -96,6 +96,7 @@
+         final int chunkX, chunkZ, minX, minY, minZ, maxX, maxY, maxZ;
+         int x, y, z;
+         boolean begun;
++        String requestId;
+         Snapshot(ServerLevel level, UUID owner, int cx, int cz, int minX, int minY, int minZ,
+                  int maxX, int maxY, int maxZ) {
+             this.id = session + ":" + (++snapshotSequence);
+@@ -112,6 +113,7 @@
+         JsonObject event(String operation) {
+             JsonObject result = lifecycle(operation);
+             result.addProperty("snapshot", id);
++            if (requestId != null) result.addProperty("request_id", requestId);
+             result.addProperty("player", owner.toString());
+             JsonArray chunk = new JsonArray(); chunk.add(chunkX); chunk.add(chunkZ); result.add("at", chunk);
+             JsonArray bounds = new JsonArray();
+@@ -176,7 +178,7 @@
+             emitLifecycle(removed, lifecycle("world_unload")); worlds.remove(removed);
+             changes.removeIf(pos -> pos.dimension().equals(removed));
+             moving.removeIf(pos -> pos.dimension().equals(removed));
+-            snapshots.removeIf(job -> job.dimension.equals(removed));
++            snapshots.removeIf(job -> removeSnapshot(job,job.dimension.equals(removed)));
+         }
+     }
+ 
+@@ -298,8 +300,10 @@
+         return result;
+     }
+ 
+-    private static void emitOps(String dimension, JsonArray operations) {
++    private static void emitOps(String dimension, JsonArray operations) { emitOps(dimension,operations,null); }
++    private static void emitOps(String dimension, JsonArray operations, String requestId) {
+         JsonObject message = envelope(dimension); message.add("ops", operations);
++        if (requestId != null) message.addProperty("request_id", requestId);
+         if (dimension.equals(OVERWORLD)) for (var operation : operations) {
+             JsonObject block = operation.getAsJsonObject();
+             boolean solid = block.get("op").getAsString().equals("upsert") && block.get("solid").getAsBoolean();
+@@ -313,21 +317,28 @@
+     private static void emitLifecycle(String dimension, JsonObject event) {
+         if (server == null) return;
+         JsonObject message = envelope(dimension); JsonArray events = new JsonArray(); events.add(event);
++        if (event.has("request_id")) message.add("request_id", event.get("request_id"));
+         message.add("lifecycle", events); message.add("ops", new JsonArray());
+         Passthrough.events.accept(message.toString());
+     }
+ 
++    private static boolean removeSnapshot(Snapshot job, boolean remove) {
++        if (remove && job.requestId != null) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
++        return remove;
++    }
+     private static void cancelSnapshots(UUID owner) {
+         var iterator = snapshots.iterator();
+         while (iterator.hasNext()) {
+             Snapshot job = iterator.next();
+             if (!job.owner.equals(owner)) continue;
+-            if (job.begun) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
++            if (job.begun || job.requestId != null) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
+             iterator.remove();
+         }
+     }
+ 
+-    public static void syncFor(ServerPlayer player, int requestedRadius) {
++    public static void syncFor(ServerPlayer player, int requestedRadius) { syncFor(player,requestedRadius,null); }
++    public static void syncFor(ServerPlayer player, int requestedRadius, String requestId) {
++        if (requestId != null && !UUID.fromString(requestId).toString().equals(requestId)) throw new IllegalArgumentException("Invalid request_id");
+         if (server == null || player.level().getServer() != server) return;
+         ServerLevel level = player.level(); String dimension = dimension(level);
+         worlds.putIfAbsent(dimension, level); View view = observeView(player);
+@@ -341,26 +352,34 @@
+         for (int cx = minX >> 4; cx <= (maxX-1) >> 4; cx++) for (int cz = minZ >> 4; cz <= (maxZ-1) >> 4; cz++) {
+             if (level.getChunkSource().getChunkNow(cx, cz) == null) continue;
+             if (enqueueSnapshot(level, player.getUUID(), cx, cz, Math.max(minX,cx*16), minY, Math.max(minZ,cz*16),
+-                                Math.min(maxX,cx*16+16), maxY, Math.min(maxZ,cz*16+16))) accepted++;
++                                Math.min(maxX,cx*16+16), maxY, Math.min(maxZ,cz*16+16),requestId)) accepted++;
+         }
+         resyncRequired.remove(dimension);
+         JsonObject event = lifecycle("sync_requested"); event.addProperty("player", player.getUUID().toString());
+         event.addProperty("radius", radius); event.addProperty("chunks", accepted);
++        if (requestId != null) event.addProperty("request_id", requestId);
+         event.addProperty("vertical_below", 24); event.addProperty("vertical_above", 40);
+         event.addProperty("loaded_only", true); emitLifecycle(dimension, event);
+     }
+ 
+     private static boolean enqueueSnapshot(ServerLevel level, UUID owner, int cx, int cz, int minX, int minY, int minZ,
+                                            int maxX, int maxY, int maxZ) {
++        return enqueueSnapshot(level,owner,cx,cz,minX,minY,minZ,maxX,maxY,maxZ,null);
++    }
++    private static boolean enqueueSnapshot(ServerLevel level, UUID owner, int cx, int cz, int minX, int minY, int minZ,
++                                           int maxX, int maxY, int maxZ, String requestId) {
+         if (minY >= maxY) return false;
+         for (Snapshot queued : snapshots) if (queued.owner.equals(owner) && queued.dimension.equals(dimension(level))
+                 && queued.chunkX == cx && queued.chunkZ == cz && queued.minX == minX && queued.minY == minY
+                 && queued.minZ == minZ && queued.maxX == maxX && queued.maxY == maxY && queued.maxZ == maxZ) return true;
+         if (snapshots.size() >= MAX_SNAPSHOT_JOBS) {
+             JsonObject event = lifecycle("resync_required"); event.addProperty("player", owner.toString());
+-            event.addProperty("reason", "snapshot_capacity"); emitLifecycle(dimension(level), event); return false;
+-        }
+-        snapshots.addLast(new Snapshot(level, owner, cx, cz, minX, minY, minZ, maxX, maxY, maxZ)); return true;
++            event.addProperty("reason", "snapshot_capacity");
++            if (requestId != null) event.addProperty("request_id", requestId);
++            emitLifecycle(dimension(level), event); return false;
++        }
++        Snapshot job=new Snapshot(level, owner, cx, cz, minX, minY, minZ, maxX, maxY, maxZ);job.requestId=requestId;
++        snapshots.addLast(job); return true;
+     }
+ 
+     private static void scanSnapshots() {
+@@ -371,7 +390,7 @@
+             Snapshot job = snapshots.removeFirst();
+             LevelChunk chunk = job.level.getChunkSource().getChunkNow(job.chunkX, job.chunkZ);
+             if (chunk == null || worlds.get(job.dimension) != job.level) {
+-                if (job.begun) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
++                if (job.begun || job.requestId != null) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
+                 continue;
+             }
+             if (!job.begun) { job.begun = true; emitLifecycle(job.dimension, job.event("snapshot_begin")); }
+@@ -384,7 +403,7 @@
+                 batch.add(block); operations++;
+                 if (chunk.getBlockState(pos).is(Blocks.MOVING_PISTON)) moving.add(position(job.level, pos));
+             }
+-            if (!batch.isEmpty()) emitOps(job.dimension, batch);
++            if (!batch.isEmpty()) emitOps(job.dimension, batch,job.requestId);
+             if (job.complete()) emitLifecycle(job.dimension, job.event("snapshot_end"));
+             else snapshots.addLast(job);
+         }
+@@ -408,7 +427,7 @@
+         String dimension = dimension(level); int cx = chunk.getPos().x(), cz = chunk.getPos().z();
+         changes.removeIf(pos -> pos.dimension().equals(dimension) && pos.x() >> 4 == cx && pos.z() >> 4 == cz);
+         moving.removeIf(pos -> pos.dimension().equals(dimension) && pos.x() >> 4 == cx && pos.z() >> 4 == cz);
+-        snapshots.removeIf(job -> job.dimension.equals(dimension) && job.chunkX == cx && job.chunkZ == cz);
++        snapshots.removeIf(job -> removeSnapshot(job,job.dimension.equals(dimension) && job.chunkX == cx && job.chunkZ == cz));
+         JsonObject event = lifecycle("chunk_unload"); JsonArray at = new JsonArray(); at.add(cx); at.add(cz); event.add("at", at);
+         emitLifecycle(dimension, event);
+     }

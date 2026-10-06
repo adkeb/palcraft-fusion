@@ -1,0 +1,37 @@
+--- a/capture_shader_mid_bindings.lua
++++ b/capture_shader_mid_bindings.lua
+@@ -16,6 +16,14 @@
+  local create=o.create_material or function(ctx,p,label)return StaticFindObject('/Script/Engine.Default__KismetMaterialLibrary'):CreateDynamicMaterialInstance(ctx,p,name(label),0)end
+  local import=o.import_texture or function(ctx,p)return StaticFindObject('/Script/Engine.Default__KismetRenderingLibrary'):ImportFileAsTexture2D(ctx,p)end
+  local self={materials={},textures={},stats={created=0,updates=0,imports=0}}
++ local function collect_textures()
++  -- Every material here belongs to a retained native row. Explicit retirement
++  -- removes row entries first, so this operation never dereferences UObjects.
++  local used={};for _,retained in pairs(self.materials)do
++   for _,texture in pairs(retained.textures)do used[texture]=true end
++  end
++  for key,texture in pairs(self.textures)do if not used[texture]then self.textures[key]=nil end end
++ end
+  function self:resolve(ctx,g)
+   if IsInGameThread then assert(IsInGameThread(),'Original shader MID inputs require game thread')end
+   if not valid(ctx)or g.actual_renderer_capture~=true then return nil,'original_shader_capture_required'end
+@@ -84,8 +92,19 @@
+   end
+   for parameter,v in pairs(vectors)do value.material:SetVectorParameterValue(name(parameter),color(v))end
+   for parameter,v in pairs(scalars)do value.material:SetScalarParameterValue(name(parameter),v)end
++  value.retirement={ctx=tostring(ctx:GetAddress()),entity=g.capture_entity_id,producer_epoch=g.capture_producer_epoch}
+   value.group=g;value.original_shader_inputs=g.mc_shader_inputs;value.vertex_rgba=g.vertex_colors;value.overlay_uvs=g.overlay_uvs;value.light_uvs=g.light_uvs
++  collect_textures()
+   value.shader_verified=contract.actual_game_image==true;self.stats.updates=self.stats.updates+1;return value
++ end
++ function self:retire_entity(ctx,entity_id,producer_epoch)
++  -- Called only after the native consumer confirms release/retirement of this
++  -- exact authoritative entity row. No native destroy and no file deletion.
++  local address=type(ctx)=='string'and ctx or tostring(ctx:GetAddress())
++  for key,value in pairs(self.materials)do local row=value.retirement
++   if row and row.ctx==address and row.entity==entity_id and row.producer_epoch==producer_epoch then self.materials[key]=nil end
++  end
++  collect_textures();return true
+  end
+  function self:reset()self.materials={};self.textures={}end
+  return self

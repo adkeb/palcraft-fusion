@@ -1,0 +1,135 @@
+
+/path/to/workspace/work/minecraft-fusion/escrow-storage/palcraft_escrow_credit_v1.dll:	file format coff-x86-64
+Characteristics 0x2022
+	executable
+	large address aware
+	DLL
+
+Time/Date               Thu Dec 22 10:01:24 2078
+Magic                   020b	(PE32+)
+MajorLinkerVersion      14
+MinorLinkerVersion      0
+SizeOfCode              0000000000002e00
+SizeOfInitializedData   0000000000003c00
+SizeOfUninitializedData 0000000000000000
+AddressOfEntryPoint     0000000000002828
+BaseOfCode              0000000000001000
+ImageBase               0000000180000000
+SectionAlignment        00001000
+FileAlignment           00000200
+MajorOSystemVersion     6
+MinorOSystemVersion     0
+MajorImageVersion       0
+MinorImageVersion       0
+MajorSubsystemVersion   6
+MinorSubsystemVersion   0
+Win32Version            00000000
+SizeOfImage             0000d000
+SizeOfHeaders           00000400
+CheckSum                00000000
+Subsystem               00000002	(Windows GUI)
+DllCharacteristics      00000160
+					HIGH_ENTROPY_VA
+					DYNAMIC_BASE
+					NX_COMPAT
+SizeOfStackReserve      0000000000100000
+SizeOfStackCommit       0000000000001000
+SizeOfHeapReserve       0000000000100000
+SizeOfHeapCommit        0000000000001000
+LoaderFlags             00000000
+NumberOfRvaAndSizes     00000010
+
+The Data Directory
+Entry 0 00000000000067a0 0000006a Export Directory [.edata (or where ever we found it)]
+Entry 1 000000000000680c 00000078 Import Directory [parts of .idata]
+Entry 2 0000000000000000 00000000 Resource Directory [.rsrc]
+Entry 3 000000000000a000 000001e0 Exception Directory [.pdata]
+Entry 4 0000000000000000 00000000 Security Directory
+Entry 5 000000000000c000 00000048 Base Relocation Directory [.reloc]
+Entry 6 0000000000008000 0000001c Debug Directory
+Entry 7 0000000000000000 00000000 Description Directory
+Entry 8 0000000000000000 00000000 Special Directory
+Entry 9 0000000000005278 00000028 Thread Storage Directory [.tls]
+Entry a 0000000000000000 00000000 Load Configuration Directory
+Entry b 0000000000000000 00000000 Bound Import Directory
+Entry c 00000000000069d0 00000148 Import Address Table Directory
+Entry d 0000000000000000 00000000 Delay Import Directory
+Entry e 0000000000000000 00000000 CLR Runtime Header
+Entry f 0000000000000000 00000000 Reserved
+TLS directory:
+  StartAddressOfRawData: 0x0000018000b000
+  EndAddressOfRawData: 0x0000018000b008
+  AddressOfIndex: 0x00000180009050
+  AddressOfCallBacks: 0x00000180006768
+  SizeOfZeroFill: 0
+  Characteristics: 4194304
+  Alignment: 8
+
+
+The Import Tables:
+  lookup 00006888 time 00000000 fwd 00000000 name 00006d82 addr 000069d0
+
+    DLL Name: KERNEL32.dll
+    Hint/Ord  Name
+           0  CloseHandle
+           0  CreateFileW
+           0  DeleteCriticalSection
+           0  EnterCriticalSection
+           0  FlushFileBuffers
+           0  GetCurrentProcess
+           0  GetCurrentThreadId
+           0  GetFileSizeEx
+           0  GetLastError
+           0  GetModuleFileNameW
+           0  GetModuleHandleW
+           0  GetSystemTimeAsFileTime
+           0  InitializeCriticalSection
+           0  LeaveCriticalSection
+           0  MoveFileExW
+           0  ReadFile
+           0  ReadProcessMemory
+           0  Sleep
+           0  TlsGetValue
+           0  VirtualProtect
+           0  VirtualQuery
+           0  WriteFile
+
+  lookup 00006940 time 00000000 fwd 00000000 name 00006d8f addr 00006a88
+
+    DLL Name: api-ms-win-crt-runtime-l1-1-0.dll
+    Hint/Ord  Name
+           0  _execute_onexit_table
+           0  _exit
+           0  _initialize_onexit_table
+           0  _initterm
+           0  _initterm_e
+           0  _register_onexit_function
+           0  abort
+
+  lookup 00006980 time 00000000 fwd 00000000 name 00006db1 addr 00006ac8
+
+    DLL Name: api-ms-win-crt-stdio-l1-1-0.dll
+    Hint/Ord  Name
+           0  __acrt_iob_func
+           0  __stdio_common_vfprintf
+           0  fwrite
+
+  lookup 000069a0 time 00000000 fwd 00000000 name 00006dd1 addr 00006ae8
+
+    DLL Name: api-ms-win-crt-heap-l1-1-0.dll
+    Hint/Ord  Name
+           0  calloc
+           0  free
+
+  lookup 000069b8 time 00000000 fwd 00000000 name 00006df0 addr 00006b00
+
+    DLL Name: api-ms-win-crt-string-l1-1-0.dll
+    Hint/Ord  Name
+           0  strlen
+           0  strncmp
+
+Export Table:
+ DLL name: palcraft_escrow_credit_v1.dll
+ Ordinal base: 1
+ Ordinal      RVA  Name
+       1   0x1000  palcraft_escrow_credit_v1

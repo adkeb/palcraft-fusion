@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "transport": "localStandalone",
+  "root_environment": "PALCRAFT_WINDOWS_ROOT",
+  "timeout_seconds": 40,
+  "mc_bridge_directory": "PalCraft-Dev/bridge",
+  "lab_rpc_directory": "BridgeLab/rpc",
+  "same_ai_root_and_windows_root": true,
+  "normal_query_correlation": "Java10.4Mac optional request_id required; no synthetic response or first-type match"
+}

@@ -1,0 +1,26 @@
+UE4SS 模块范围早期 UTF8 shim 候选
+
+结论：无需私有 Unreal 源码的独立实验候选已实现并通过 Windows 与 CrossOver 加载流程探针；当前9.2/next10、正式服、游戏exe、已装Core均未写入。尚未在真实 Core/游戏中初始化，不可宣称普通玩家完整路径验收通过。
+
+候选以已授权 Core sha21b691...的独立拷贝为基底，仅在 PE header/新.pcu8 中复制原导入描述符并加 PalCraftUE4SSUtf8.dll dependency marker。原 six section 原始字节与 RVA、原导入槽、entrypoint、exports 全不变；不是重编 Core。candidate SHA0bb2b3fc6664257bf264ab5d21311d2c333407720652e5c335aac6e0e888f5e4，20,080,128 bytes。
+
+纯C shim 只导入KERNEL32，9216B SHAa6ddbc39cf6d6668d8ace4f6149301fd14262ef6643ed6147aff5c6a90ff7837。它在dependency DllMain中只查已映射 target 与原fopen的CRT provider、修改该UE4SS.dll自己的命名IAT槽；不读注册表/账户/令牌，不开线程，不在DllMain调用LoadLibrary/外部CRT，不改CRT代码或其他模块IAT/系统locale。目标没有dependency marker（如现9.2）时拒绝手工加载，尚未写任何IAT。
+
+FILE*全为opaque pointer，_wfopen/_wfreopen/_wfreopen_s来自原 target fopen 所属的同一 CRT provider，read/write/close仍由原Core操作，避免跨CRT stream布局。getenv缓存为shim线程本地WinHeap缓冲；其余Wide转换用WinHeap。没有UE/C++/Lua私有结构ABI依赖。
+
+接口覆盖：fopen/freeopen路径覆盖最初loadfile、io.open/input/output/lines、dofile文本和bytecode、require/searchpath readability；os.rename/remove/getenv；package.loadlib/!exe path；另提供stock的freopen_s、system、_popen、tmpnam入口。不做全局CRT hook。
+
+真实探针：同源pin2281fa311e417b1dfddedbcd49972d764fddb244 pristine33C LuaRaw，模块attach内openlibs并首次载入中文/空格/emoji脚本，再返回host后执行全IO模块流。unpatched control在最初加载失败6，candidate两平台early0/flow0。Win CP936、Wine CP1252，没有修改地区设置；宿主全部IAT与CRT/K32 export代码hash前后完全相同。tmpname只验证UTF8返回，不在不属于probe的路径创建文件。实际UE4SS engine未运行。
+
+初始化证据纠正：pin LuaMod::start_mod的on_lua_start是在prepare_mod/open_all_libs后、main.lua前；不能根据头文件“started after”注释认定已执行main.lua。Cpp mods本身更早start，但公开CppUserModBase接口仍要求同MSVC STL/CRT配置；当前pureC依赖方案完全不使用该C++ABI。
+
+加载布局：shim放Shipping exe的Win64目录，Core放其ue4ss子目录，便于现有wide proxy LoadLibrary的默认依赖搜索；不能只放shim在ue4ss子目录然后假设能被找到。独立probe正是该布局。installer仍通过owned清单管理两个文件，不新起daemon/框架。
+
+未完成界限：stock实际多一freopen_s槽（fixture没有），需runtime窗口核其Wide provider与Core后续自身IAT行为；module narrow-string UTF8策略可能影响非Lua Core消费者，实际游戏仍需接受。还有stock loadlib.setprogdir的char[MAX_PATH+1]调用者限制：UTF8 exe路径过长时shim不能扩大调用者栈缓冲，不能为此暗降普通玩家路径要求；完整合法源重建方案仍保留。
+
+同本次Wine实际CLI发现的安装器修正：CrossOver --env只能指定一次。next/launcher-crossover-env-once.patch删除原路径增量的第二CLI env，root继续通过Session.spawn进程env和host --root/SetEnvironmentVariableW传入。已交installer owner，未改其活跃文件。
+
+来源：https://github.com/Okaetsu/RE-UE4SS/tree/2281fa311e417b1dfddedbcd49972d764fddb244
+PE/初始化说明：https://learn.microsoft.com/en-us/windows/win32/debug/pe-format ; https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-entry-point-function
+
+下一步仅由runtime持窗口配套两个候选文件做一次真实Core/Game必要加载验收，未通过前不加入9.2/next10或标新玩家包ready。

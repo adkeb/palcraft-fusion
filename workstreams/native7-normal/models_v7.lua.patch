@@ -1,0 +1,22 @@
+--- 387db/models_v7.lua
++++ next/models_v7.lua
+@@ -87,7 +87,8 @@
+    local color=g.vertex_colors and g.vertex_colors[vertex_index]or{1,1,1,1}
+    local function byte(value)assert(type(value)=='number'and value>=0 and value<=1,'Vertex RGBA outside original normalized range');return math.floor(value*255+.5)end
+    local rgba=(byte(color[4])<<24)|(byte(color[1])<<16)|(byte(color[2])<<8)|byte(color[3])
+-   f:write(string.pack('<ddddddddI4I4',v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],rgba,0))
++   local nx,ny,nz=ShaderAttributes.normal(g,v)
++   f:write(string.pack('<ddddddddI4I4',v[1],v[2],v[3],nx,ny,nz,v[7],v[8],rgba,0))
+    f:write(string.pack('<dddd',ShaderAttributes.vertex(g,vertex_index)))
+   end
+   for _,index in ipairs(g.indices)do f:write(string.pack('<I4',index))end
+@@ -150,7 +151,8 @@
+    local color=g.vertex_colors and g.vertex_colors[vertex_index]or{1,1,1,1}
+    local function byte(value)assert(type(value)=='number'and value>=0 and value<=1,'Vertex RGBA outside original normalized range');return math.floor(value*255+.5)end
+    local rgba=(byte(color[4])<<24)|(byte(color[1])<<16)|(byte(color[2])<<8)|byte(color[3])
+-   f:write(string.pack('<ddddddddI4I4',v[1],v[2],v[3],v[4],v[5],v[6],v[7],v[8],rgba,0))
++   local nx,ny,nz=ShaderAttributes.normal(g,v)
++   f:write(string.pack('<ddddddddI4I4',v[1],v[2],v[3],nx,ny,nz,v[7],v[8],rgba,0))
+    f:write(string.pack('<dddd',ShaderAttributes.vertex(g,vertex_index)))
+   end
+   for _,index in ipairs(g.indices)do f:write(string.pack('<I4',index))end

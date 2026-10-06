@@ -1,0 +1,20 @@
+--- a/client/companion_chunk_bridge.lua
++++ b/client/companion_chunk_bridge.lua
+@@ -118,8 +118,15 @@
+   else
+    local transaction
+    if #fresh.collision+#old.collision>0 then
+-    a.collision_preflight(fresh.collision,old.collision,packet.fence)
+-    transaction={adapter=o.collision or a.collision_adapter,prepared=fresh.collision,previous=old.collision,expected_fence=packet.fence}
++    -- Models.commit_transaction validates prospective Actors/fence and then
++    -- performs the authoritative collision preflight immediately before commit.
++    -- Avoid a duplicate file/DLL/result round-trip for the identical lists here.
++    local collision=o.collision or a.collision_adapter
++    local expected_fence=packet.fence
++    transaction={adapter={
++     preflight=function(new,previous)return collision.preflight(new,previous,expected_fence)end,
++     commit=function(new,previous)return collision.commit(new,previous,expected_fence)end},
++     prepared=fresh.collision,previous=old.collision,expected_fence=expected_fence}
+    end
+    result=models.commit_transaction(model_list(fresh),model_list(old),transaction)
+   end

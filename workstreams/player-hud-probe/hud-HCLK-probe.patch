@@ -1,0 +1,35 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -5,6 +5,7 @@
+ import shutil
+ import signal
+ import socket
++import struct
+ import subprocess
+ import sys
+ import time
+@@ -415,10 +416,20 @@
+             if not data.startswith(b'HTTP/1.1 101'):
+                 fail('MC_WS_UNAVAILABLE', '个人 MC 桥接服务未提供 WebSocket 握手。')
+         elif kind == 'hud':
+-            # The HUD owns protocol validation. EOF means SSH cannot reach the remote relay.
+-            data = sock.recv(1)
+-            if not data:
+-                fail('HUD_UNAVAILABLE', '个人 HUD 服务无法连接。')
++            # The relay's existing clock handshake works before any game frame.
++            # Validate its exact nonce response instead of waiting for video.
++            nonce = os.urandom(8)
++            sock.sendall(b'TIME\n' + nonce)
++            data = bytearray()
++            while len(data) < 32:
++                part = sock.recv(32 - len(data))
++                if not part:
++                    fail('HUD_UNAVAILABLE', '个人 HUD 服务连接已关闭。')
++                data.extend(part)
++            magic, version, size, echoed, received_ns, sent_ns = struct.unpack('!4sHHQQQ', data)
++            if (magic != b'HCLK' or version != 1 or size != 32 or
++                    echoed != int.from_bytes(nonce, 'big') or received_ns <= 0 or sent_ns < received_ns):
++                fail('HUD_UNAVAILABLE', '个人 HUD 服务的时钟握手不匹配。')
+         elif kind == 'mc_server':
+             # TCP reachability only; the MC guest owns login/authentication.
+             pass

@@ -1,0 +1,55 @@
+--- a/client/capture/captured_native_consumer.lua
++++ b/client/capture/captured_native_consumer.lua
+@@ -26,18 +26,20 @@
+   if effects.missing_textures and #effects.missing_textures>0 then return nil,'capture_resources_incomplete'end
+   if frame.unsupported_submissions and next(frame.unsupported_submissions)then return nil,'capture_submissions_not_consumed'end
+   for _,g in ipairs(result)do
+-   local accepted,reason=o.material_supported and o.material_supported(g)
++   local accepted,reason;if o.material_supported then accepted,reason=o.material_supported(g)end
+    if accepted~=true then return nil,reason or'capture_material_layer_not_supported'end
+   end
+   return result,frame
+  end
+- local function location(row)local O=o.origin;return{X=O.X+row.x*100,Y=O.Y-row.z*100,Z=O.Z+(row.y-(O.y_origin or 64))*100}end
++ local function origin()return type(o.origin)=='function'and o.origin()or o.origin end
++ local function location(row,O)return{X=O.X+row.x*100,Y=O.Y-row.z*100,Z=O.Z+(row.y-(O.y_origin or 64))*100}end
+  local function create(row,actor,data,binding)
+   assert(valid(actor),'Exact authoritative Actor unavailable')
+   local mesh=binding and binding.mesh or actor:GetMainMesh();assert(valid(mesh),'Actual body visual mesh unavailable')
+   local b=binding or{actor=actor,actor_address=actor:GetAddress(),mesh=mesh,was_visible=mesh:IsVisible()}
+-  local model=Models.spawn_groups(o.context(),o.origin,data,{row.x,row.y,row.z},{hidden=true})
+-  Models.set_actor_pose(model,location(row),0);Models.set_visible(model,true)
++  local O=assert(origin(),'Committed capture origin required')
++  local model=Models.spawn_groups(o.context(),O,data,{row.x,row.y,row.z},{hidden=true})
++  Models.set_actor_pose(model,location(row,O),0);Models.set_visible(model,true)
+   b.mesh:SetVisibility(false,false)
+   local h={model=model,binding=b,row_id=row.id,groups=data};retained[h]=true;stats.created=stats.created+1;return h
+  end
+@@ -61,16 +63,22 @@
+    end
+    h.groups=data;h.capture_seq=frame.seq;stats.updates=stats.updates+1
+   end
+-  Models.set_actor_pose(h.model,location(row),0);Models.set_visible(h.model,true);h.binding.mesh:SetVisibility(false,false)
++  Models.set_actor_pose(h.model,location(row,origin()),0);Models.set_visible(h.model,true);h.binding.mesh:SetVisibility(false,false)
+   return true
+  end
+- function A.remove(h)
++ function A.suspend()
++  for h in pairs(retained)do
++   Models.set_visible(h.model,false)
++   if valid(h.binding.mesh)then h.binding.mesh:SetVisibility(h.binding.was_visible,false)end
++  end
++ end
++ function A.remove(h,context_alive)
+   if not retained[h]then return end
+-  Models.release_model(h.model,true)
+-  if valid(h.binding.mesh)then h.binding.mesh:SetVisibility(h.binding.was_visible,false)end
++  Models.release_model(h.model,context_alive~=false)
++  if context_alive~=false and valid(h.binding.mesh)then h.binding.mesh:SetVisibility(h.binding.was_visible,false)end
+   retained[h]=nil;stats.removed=stats.removed+1
+  end
+- function A.stop()local handles={};for h in pairs(retained)do handles[#handles+1]=h end;for _,h in ipairs(handles)do A.remove(h)end end
++ function A.stop(context_alive)local handles={};for h in pairs(retained)do handles[#handles+1]=h end;for _,h in ipairs(handles)do A.remove(h,context_alive)end end
+  function A.status()return{version=1,stats=stats,diagnostic=diagnostic,authority='visual_only',vertex_rgba_consumed=true,world_orientation_baked=true,native_yaw=0,engine_verified=false}end
+  return A
+ end

@@ -1,0 +1,95 @@
+--- integration.8/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
++++ world-next/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
+@@ -35,7 +35,8 @@
+     public static final int PROTOCOL_VERSION = 2;
+     private static final boolean TRAVEL_ENABLED = Boolean.getBoolean("palcraft.travel.enabled");
+     private static final String OVERWORLD = "minecraft:overworld";
+-    private static final int BATCH_OPS = 128;
++    // A block entity's 16 KiB update tag is duplicated by legacy geometry, then escaped by the transport wrapper.
++    private static final int BATCH_OPS = 32;
+     private static final int DELTAS_PER_TICK = 2048;
+     private static final int SNAPSHOT_CELLS_PER_TICK = 4096;
+     private static final int SNAPSHOT_OPS_PER_TICK = 256;
+@@ -454,6 +455,43 @@
+         return server != null && player.level().getServer() == server && observeView(player).waitingAck;
+     }
+ 
++    /** Trusted Pal-server file consumer only. The gateway authenticates its transaction and outer identity first. */
++    public static JsonObject beginRebaseTransition(ServerPlayer player, Vec3 authoritativeMcPos) {
++        View current = views.get(player.getUUID());
++        if (current == null) return transitionError("world_view_missing");
++        return beginRebaseTransition(player, session, current.dimension, current.generation, authoritativeMcPos);
++    }
++
++    /** No guest operation may call this with client-selected coordinates. No dimension, items, or original O changes. */
++    public static JsonObject beginRebaseTransition(ServerPlayer player, String worldSession, String requestedDimension,
++                                                   long generation, Vec3 authoritativeMcPos) {
++        if (server == null || player.level().getServer() != server || !server.isSameThread())
++            return transitionError("authority_thread_required");
++        View current = views.get(player.getUUID());
++        ServerLevel level = player.level();
++        if (current == null || current.identity != player || current.waitingAck || !session.equals(worldSession)
++                || current.generation != generation || !current.dimension.equals(requestedDimension)
++                || !dimension(level).equals(requestedDimension)) return transitionError("stale_or_unapplied_world_view");
++        if (authoritativeMcPos == null || !Double.isFinite(authoritativeMcPos.x) || !Double.isFinite(authoritativeMcPos.y)
++                || !Double.isFinite(authoritativeMcPos.z) || Math.abs(authoritativeMcPos.x) > 29999900
++                || Math.abs(authoritativeMcPos.z) > 29999900) return transitionError("invalid_authoritative_feet");
++        BlockPos source = BlockPos.containing(authoritativeMcPos);
++        if (!level.isInWorldBounds(source) || !level.getWorldBorder().isWithinBounds(source))
++            return transitionError("authoritative_feet_out_of_world");
++        // Prior MC coordinates may be wrong because the old physical page O was wrong. The trusted Pal inverse
++        // mapping is the real source, including for rollback; never restore the stale logical position.
++        float yaw = player.getYRot(), pitch = player.getXRot();
++        player.setPos(authoritativeMcPos.x,authoritativeMcPos.y,authoritativeMcPos.z);
++        View rebased = observeView(player,"rebase",true);
++        rollbackSources.put(player.getUUID(),new Restore(requestedDimension,authoritativeMcPos,yaw,pitch,rebased.generation));
++        JsonObject result = new JsonObject(); result.addProperty("ok",true); result.add("world_view",playerView(player));
++        return result;
++    }
++
++    private static JsonObject transitionError(String reason) {
++        JsonObject result = new JsonObject(); result.addProperty("ok",false); result.addProperty("error",reason); return result;
++    }
++
+     public static JsonObject playerView(ServerPlayer player) {
+         View view = observeView(player); JsonObject result = new JsonObject();
+         result.addProperty("world_session", session); result.addProperty("dim", view.dimension);
+--- integration.8/src/main/java/dev/rehan/passthrough/mixin/WorldInteractionGateMixin.java
++++ world-next/src/main/java/dev/rehan/passthrough/mixin/WorldInteractionGateMixin.java
+@@ -8,6 +8,8 @@
+ import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+ import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
+ import net.minecraft.network.protocol.game.ServerboundUseItemPacket;
++import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
++import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
+ import net.minecraft.server.level.ServerPlayer;
+ import net.minecraft.server.network.ServerGamePacketListenerImpl;
+ import org.spongepowered.asm.mixin.Mixin;
+@@ -37,4 +39,8 @@
+     private void passthrough$container(ServerboundContainerClickPacket packet,CallbackInfo ci) { if(passthrough$viewBlocked())ci.cancel(); }
+     @Inject(method="handleContainerButtonClick",at=@At("HEAD"),cancellable=true)
+     private void passthrough$containerButton(ServerboundContainerButtonClickPacket packet,CallbackInfo ci) { if(passthrough$viewBlocked())ci.cancel(); }
++    @Inject(method="handleMovePlayer",at=@At("HEAD"),cancellable=true)
++    private void passthrough$movement(ServerboundMovePlayerPacket packet,CallbackInfo ci) { if(passthrough$viewBlocked())ci.cancel(); }
++    @Inject(method="handleMoveVehicle",at=@At("HEAD"),cancellable=true)
++    private void passthrough$vehicleMovement(ServerboundMoveVehiclePacket packet,CallbackInfo ci) { if(passthrough$viewBlocked())ci.cancel(); }
+ }
+--- integration.8/src/main/java/dev/rehan/passthrough/world/WorldStateCodec.java
++++ world-next/src/main/java/dev/rehan/passthrough/world/WorldStateCodec.java
+@@ -28,6 +28,7 @@
+ import net.minecraft.world.level.block.state.properties.Property;
+ import net.minecraft.world.level.material.FluidState;
+ import net.minecraft.world.level.material.Fluids;
++import net.minecraft.world.level.material.FlowingFluid;
+ import net.minecraft.world.phys.AABB;
+ import net.minecraft.world.phys.Vec3;
+ 
+@@ -76,6 +77,8 @@
+         FluidState fluid = block.getFluidState();
+         JsonObject result = new JsonObject();
+         result.addProperty("id", BuiltInRegistries.FLUID.getKey(fluid.getType()).toString());
++        result.addProperty("family", BuiltInRegistries.FLUID.getKey(fluid.getType() instanceof FlowingFluid flowing
++            ? flowing.getSource() : fluid.getType()).toString());
+         result.addProperty("kind", fluid.isEmpty() ? "none" : fluid.is(FluidTags.WATER) || fluid.getType().isSame(Fluids.WATER) ? "water"
+             : fluid.is(FluidTags.LAVA) || fluid.getType().isSame(Fluids.LAVA) ? "lava" : "other");
+         result.addProperty("empty", fluid.isEmpty());

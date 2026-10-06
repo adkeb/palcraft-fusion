@@ -1,0 +1,147 @@
+--- a/palcraft/server/exchange_bootstrap.lua
++++ b/palcraft/server/exchange_bootstrap.lua
+@@ -1,8 +1,9 @@
+ -- Actual normal-startup observation. Call tick on the existing GAME THREAD,
+--- before exchange mutations. No item/save/actor/lifecycle calls are made.
++-- before exchange mutations. No item/actor/save writes or lifecycle actions.
+ local SOURCE=debug.getinfo(1,'S').source:lower():gsub('\\','/')
+ local M={}
+-local function live(o)return o and o:IsValid()and not o:GetFullName():find('Default__',1,true)end
++local function valid(o)return o and o:IsValid()end
++local function live(o)return valid(o)and not o:GetFullName():find('Default__',1,true)end
+ local function str(v)return type(v)=='string'and v or v:ToString()end
+ local function exists(p)local f=io.open(p,'rb');if not f then return false end;f:close();return true end
+ function M.new(o)
+@@ -82,30 +83,73 @@
+   local fn,why=package.loadlib(o.process_dll or(dir..'PalCraftEscrowBoot-v1.dll'),'palcraft_escrow_process_identity_v1');assert(fn,why);fn()
+   return assert(read(p),'Actual in-process identity helper did not publish')
+  end
++ local captured,loader_manager
++ local function capture(pre)
++  if not live(loader_manager)then loader_manager=one('PalSaveGameManager')end
++  local mgr=loader_manager;assert(mgr:IsLoadedWorldData()==true,'World save not loaded')
++  local loaded=mgr:GetLoadedWorldSaveData();assert(live(loaded),'Loaded world save unavailable')
++  local field=mgr.LoadedWorldSaveData;assert(live(field)and field:GetAddress()==loaded:GetAddress(),'Loader property and getter differ')
++  local date_math=StaticFindObject('/Script/Engine.Default__KismetMathLibrary');assert(valid(date_math),'Date library unavailable')
++  local date=loaded.Timestamp
++  local header={version=loaded.Version,revision=loaded.Revision,timestamp=J.array{date_math:GetYear(date),date_math:GetMonth(date),date_math:GetDay(date),date_math:GetHour(date),date_math:GetMinute(date),date_math:GetSecond(date),date_math:GetMillisecond(date)}}
++  local world=loaded.worldSaveData
++  -- This build reflects FPalGameTimeSaveData as two Int64 properties, not
++  -- RawData. Copy the actual value before the loader object is released.
++  local real_ticks=val(world.GameTimeSaveData.RealDateTimeTicks)
++  assert(type(real_ticks)=='number'and math.type(real_ticks)=='integer','Loaded RealDateTimeTicks Int64 unavailable')
++  header.real_date_time_ticks=string.format('%d',real_ticks)
++  -- Copy only plain values while the actual manager still owns this loader
++  -- object. Never keep a raw save UObject/UScriptStruct across ticks or root it.
++  local containers=loaded_containers(world)
++  captured={boot_id=pre.boot_id,epoch=pre.epoch,header=header,containers=containers,
++   process_identity=process_identity(pre),uses_backup=mgr.bIsUseBackupSaveData,
++   load_failed_directory=str(mgr.WorldSaveDataLoadFailedDirectoryName),
++   manager_address=string.format('0x%x',mgr:GetAddress()),
++   save_address=string.format('0x%x',loaded:GetAddress()),save_object=loaded:GetFullName(),
++   save_class=loaded:GetClass():GetFullName(),observed_unix=os.time()}
++  state.loader_captured=true;state.loader_observed_unix=captured.observed_unix
++ end
+  local function sample(pre)
++  if not captured or captured.boot_id~=pre.boot_id or captured.epoch~=pre.epoch then capture(pre)end
+   local mgr=one('PalSaveGameManager');assert(mgr:IsLoadedWorldData()==true,'World save not loaded')
+-  local loaded=mgr:GetLoadedWorldSaveData();assert(live(loaded),'Loaded world save unavailable')
++  assert(string.format('0x%x',mgr:GetAddress())==captured.manager_address,'Loaded save manager changed')
++  assert(str(mgr.WorldSaveDataLoadFailedDirectoryName)==captured.load_failed_directory,'World loader failure state changed')
+   local gs=one('PalGameStateInGame');assert(gs:HasAuthority(),'Server authority required')
+-  local utility=StaticFindObject('/Script/Pal.Default__PalUtility');assert(live(utility))
++  local utility=StaticFindObject('/Script/Pal.Default__PalUtility');assert(valid(utility),'World utility unavailable')
+   assert(utility:IsAllLevelLoaded(gs)==true,'World levels not ready')
+-  local math=StaticFindObject('/Script/Engine.Default__KismetMathLibrary');assert(live(math))
+-  local date=loaded.Timestamp
+-  local header={version=loaded.Version,revision=loaded.Revision,timestamp=J.array{math:GetYear(date),math:GetMonth(date),math:GetDay(date),math:GetHour(date),math:GetMinute(date),math:GetSecond(date),math:GetMillisecond(date)}}
+-  local world=loaded.worldSaveData
+-  local ticks_ok,real_ticks=pcall(function()
+-   local b=raw_bytes(world.GameTimeSaveData.RawData)
+-   if #b>=16 then local _,ticks=string.unpack('<i8i8',b);return string.format('%d',ticks)end
+-   return string.format('%d',world.GameTimeSaveData.RealDateTimeTicks)
+-  end)
+-  if ticks_ok then header.real_date_time_ticks=real_ticks end
+   return {protocol=3,kind='palworld_loaded_checkpoint_observation',boot_id=pre.boot_id,epoch=pre.epoch,
+-   observed_unix=os.time(),process_identity=process_identity(pre),loaded_world_data=mgr:IsLoadedWorldData()==true,
++   observed_unix=os.time(),process_identity=captured.process_identity,loaded_world_data=mgr:IsLoadedWorldData()==true,
+    all_levels_loaded=utility:IsAllLevelLoaded(gs)==true,uses_backup=mgr.bIsUseBackupSaveData,
+    load_failed_directory=str(mgr.WorldSaveDataLoadFailedDirectoryName),world_directory=str(gs:GetWorldSaveDirectoryName()),
+-   world_name=str(gs:GetWorldName()),server_session_id=str(gs.ServerSessionId),header=header,
+-   containers=loaded_containers(world),transaction_slots=actual_slots(pre.targets.slot_refs)}
++   world_name=str(gs:GetWorldName()),server_session_id=str(gs.ServerSessionId),header=captured.header,
++   containers=captured.containers,transaction_slots=actual_slots(pre.targets.slot_refs),
++   loader_observation={method='early_game_thread_manager_getter_and_property',observed_unix=captured.observed_unix,
++    manager_address=captured.manager_address,save_address=captured.save_address,
++    save_object=captured.save_object,save_class=captured.save_class,uses_backup_at_capture=captured.uses_backup}}
+  end
+  local api={}
++ function api.start_early()
++  if state.early_started then return api end
++  assert(type(ExecuteInGameThreadAfterFrames)=='function','Actual frame scheduler unavailable')
++  state.early_started=true;local deadline=os.time()+60
++  local function step()
++   if state.early_stopped or captured then state.early_sampling_active=false;return end
++   state.early_sampling_active=true
++   local ok,why=pcall(function()
++    assert(o.test_mode or IsInGameThread(),'Game thread required')
++    local pre=assert(read(ROOT..'escrow-boot-prelaunch.json'),'Stopped-boot checkpoint missing')
++    assert(pre.protocol==3 and pre.kind=='palworld_prelaunch_checkpoint','Invalid stopped-boot checkpoint envelope')
++    capture(pre)
++   end)
++   if ok then state.early_sampling_active=false;state.early_error=nil;return end
++   state.early_error=tostring(why)
++   if os.time()>=deadline then state.early_sampling_active=false;state.phase='early_loader_capture_missed';return end
++   ExecuteInGameThreadAfterFrames(1,step)
++  end
++  ExecuteInGameThreadAfterFrames(1,step)
++  return api
++ end
++ function api.stop()state.early_stopped=true;state.early_sampling_active=false end
+  function api.tick()
+   assert(o.test_mode or IsInGameThread(),'Game thread required')
+   local pre=read(ROOT..'escrow-boot-prelaunch.json');if not pre then return state end
+--- a/palcraft/server/features.lua
++++ b/palcraft/server/features.lua
+@@ -64,10 +64,10 @@
+   end,
+   factory=function()
+    local options={};for k,v in pairs(o.bootstrap)do options[k]=v end;options.json=J;options.readers=R
+-   local worker=load('exchange_bootstrap').new(options);api.boot_observer=worker;return worker
++   local worker=options.early_observer or load('exchange_bootstrap').new(options);api.boot_observer=worker;return worker
+   end,tick=function(worker)worker.tick()end,status=function(worker)return worker.status()end,
+   is_ready=function(status)return status.ready==true end,
+-  stop=function()api.boot_observer=nil end})
++  stop=function(worker)if worker.stop then worker.stop()end;api.boot_observer=nil end})
+  C:register('exchange',{enabled=o.exchange_enabled==true,disabled_reason='exchange_escrow_and_save_witness_not_ready',
+   depends={'presence'},interval_ms=500,ready=function()
+    if o.exchange then return true end -- Constructor restores held guards before admission.
+--- a/server/bridge-main.lua
++++ b/server/bridge-main.lua
+@@ -30,6 +30,18 @@
+ local exchange
+ local function exchange_api()if not exchange then exchange=dofile(dir..'palcraft-exchange.lua')end;return exchange end
+ local SHARED='D:/PalworldServer-LAN/PalCraft-Dev/bridge/'
++local early_boot_observer
++-- Begin the read-only loader copy before the normal 30-second dispatcher
++-- delay. The existing game feature lifecycle still starts at its own time.
++do
++ local cfg=exists(SHARED..'runtime-config.json')and read(SHARED..'runtime-config.json')or{}
++ if cfg.profile=='lab-next9-test'and(cfg.boot_observer_enabled~=false or cfg.exchange_enabled==true)
++  and cfg.bootstrap_sampling_hold~=true then
++  early_boot_observer=dofile(dir..'exchange_bootstrap.lua').new{json=J,readers=R,
++   root=assert(cfg.exchange_root),rpc_root=ROOT,process_dll=dir..'PalCraftEscrowBoot-v1.dll'}
++  early_boot_observer.start_early()
++ end
++end
+ local features,next_runtime_status,next_control_tick
+ local clock_context,clock_lib
+ local function runtime_time_ms()
+@@ -54,6 +66,7 @@
+    options={json=J,readers=R,bridge_root=SHARED,origin=origin,companion=function()return palcraft end,
+     exchange_factory=exchange_api,entities_enabled=cfg.entities_enabled~=false,exchange_enabled=false,travel_enabled=false,fluid_enabled=false}
+   end
++  if early_boot_observer and options.bootstrap then options.bootstrap.early_observer=early_boot_observer end
+   features=dofile(dir..'features.lua').new(options)
+   _G.PalCraftServerFeatures=features
+  end

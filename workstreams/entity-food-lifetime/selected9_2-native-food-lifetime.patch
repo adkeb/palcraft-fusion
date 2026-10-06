@@ -1,0 +1,207 @@
+--- a/server/entities.lua
++++ b/server/entities.lua
+@@ -109,12 +109,16 @@
+    error('Native damage guard failed for '..e.id)
+   end
+  end
+- local function authenticated_player(mc_uuid,proof)
++ local function authenticated_sessions()
+   local table=read(o.sessions_file or'../auth/authenticated-sessions.json');if not table then return nil,'missing_authenticated_sessions'end
+   local age=now()-(table.updated_unix or 0)
+   if table.v~=2 or age< -5 or age>5 or table.server_session_id~=session then return nil,'stale_authenticated_sessions'end
+   local world_id=o.world_id or str(gs:GetWorldSaveDirectoryName())
+   if table.world_id~=world_id then return nil,'world_identity_mismatch'end
++  return table
++ end
++ local function authenticated_player(mc_uuid,proof)
++  local table,why=authenticated_sessions();if not table then return nil,why end
+   for _,r in ipairs(table.sessions or{})do
+    if r.mc_uuid==mc_uuid and not r.legacy and P.uuid(r.pal_uid)and (r.expires_at or 0)>now()then
+     if not proof or proof.mc_uuid~=r.mc_uuid or proof.pal_uid~=r.pal_uid or proof.world_id~=table.world_id
+@@ -187,18 +191,31 @@
+  end}
+  M.protocol=protocol
+  local food_native,food_protocol,food_error
++ local function native_food()
++  assert(o.food_enabled~=false,'MC food disabled')
++  if not food_native then food_native=dofile(dir..'food_native.lua').new{game_state=gs,epoch=epoch,fixed=fp,now=now}end
++  return food_native
++ end
++ local function fresh_food_mc()
++  local state=read('mc-state.json')
++  if not state or state.v~=1 or state.t~='entity_snapshot'or state.authority~='mc_server'or state.session~=session
++    or not protocol.source_epoch or state.epoch~=protocol.source_epoch or not P.finite(state.unix)
++    or now()-state.unix< -5 or now()-state.unix>3 then return nil end
++  return state
++ end
+  if o.food_enabled~=false then
+-  local good,worker=pcall(function()return dofile(dir..'food_native.lua').new{game_state=gs,epoch=epoch,fixed=fp,now=now}end)
+-  if good then
+-   food_native=worker
+    food_protocol=dofile(dir..'food_protocol.lua').new{protocol=P,session=session,epoch=epoch,source_epoch=function()return protocol.source_epoch end,
+     read=read,write=write,apply=function(q)
++     local state=assert(fresh_food_mc(),'Fresh MC food authority required')
++     local present=false
++     for _,v in ipairs(state.player_vitals or{})do if v.mc_uuid==q.source:sub(4)and v.pal_uid==q.player_session.pal_uid then present=true;break end end
++     assert(present,'Food consumer absent from current MC authority')
+      local target=assert(M.native[q.target],'Food target not in native authority snapshot')
+      local a,b=authenticated_player(q.source:sub(4),q.player_session)
+      assert(a and target.player and a:GetAddress()==target.actor:GetAddress(),'Food consumer identity mismatch')
+-     return food_native.apply(q,target)
++     assert(a:IsInitialized(),'Native food consumer not initialized')
++     return native_food().apply(q,target)
+     end}
+-  else food_error=tostring(worker)end
+  end
+  local function native_damage(context,damage_param)
+   local cp=unwrap(context);if not live(cp)then return end
+@@ -286,14 +303,32 @@
+     end
+    end
+   end
+-  local food={v=1,enabled=food_native~=nil,ready_players=J.array(),confirmed_native_effects=food_native and food_native.confirmed or 0,error=food_error}
+-  if food_native then
+-   if M.food_cap_unix~=now()then
+-    M.food_cap_unix=now();M.food_ready={}
+-    for id,e in pairs(M.native)do e.id=id;if e.player and not e.cp:IsDead()and not e.cp:IsDying()and food_native.readiness(e)then M.food_ready[id]=true end end
+-   end
+-   for id in pairs(M.food_ready or{})do food.ready_players[#food.ready_players+1]=id end
+-  end
++  local food={v=1,enabled=o.food_enabled~=false,ready_players=J.array(),confirmed_native_effects=food_native and food_native.confirmed or 0,
++   phase='waiting_verified_mc_session',readiness_scope='owned_provider_available_exact_item_CanUse_only_on_paid_request'}
++  local state=o.food_enabled~=false and fresh_food_mc()
++  local sessions=state and #(state.player_vitals or{})>0 and authenticated_sessions()
++  if sessions then
++   local seen={}
++   for _,v in ipairs(state.player_vitals or{})do
++    for _,binding in ipairs(sessions.sessions or{})do
++     if v.mc_uuid==binding.mc_uuid and v.pal_uid==binding.pal_uid and not seen[v.pal_uid]then
++      local proof={mc_uuid=v.mc_uuid,pal_uid=v.pal_uid,world_id=sessions.world_id,server_session_id=session,session_id=binding.session_id,generation=binding.generation}
++      local actor=authenticated_player(v.mc_uuid,proof)
++      if actor then for id,e in pairs(M.native)do
++       if e.player and e.actor:GetAddress()==actor:GetAddress()then
++        e.id=id
++        local ok,ready=pcall(function()return native_food().readiness(e)end)
++        if ok and ready then seen[v.pal_uid]=true;food.ready_players[#food.ready_players+1]=id;food.phase='owned_provider_available';food_error=nil
++        elseif not ok then food_error=tostring(ready);food.phase='native_provider_pending'
++        else food.phase='native_provider_pending'end
++        break
++       end
++      end end
++     end
++    end
++   end
++  end
++  food.error=food_error;M.food_phase=food.phase
+   local bodies=J.array()
+   for id,e in pairs(M.bodies)do if e.native_id and e.phase=='active'and live(e.actor)then
+    bodies[#bodies+1]={id=id,native_id=e.native_id,kind=e.state.kind,dimension=e.state.dimension,phase=e.phase,source_epoch=protocol.source_epoch,body_epoch=epoch,actor_name=e.actor:GetFullName()}
+@@ -345,8 +380,8 @@
+   return {v=1,t='entity_status',authority='pal_server',running=M.running,phase=M.phase,session=session,epoch=epoch,
+    bodies=n,mappings=bodies,errors=M.errors,confirmed=M.confirmed,pending={mc_models_and_animations=true,native_spawn_and_hooks=M.confirmed.spawns==0,native_despawn_confirmation=M.cleanup_pending or 0},
+    unprojected=M.unprojected,applied=protocol.applied,rejected=protocol.rejected,uncertain=protocol.uncertain,suppressed_surrogate_attacks=M.suppressed_surrogate_attacks or 0,
+-   player_health_authority='pal_server',food_authority='pal_server',mc_food_use=food_native and'paid_vanilla_to_native_processor'or'pending_native_food_classes',
+-   food=food_native and food_native.status()or{error=food_error},food_ledger=food_protocol and{applied=food_protocol.applied,pending=food_protocol.pending,rejected=food_protocol.rejected}or nil,
++   player_health_authority='pal_server',food_authority='pal_server',mc_food_use=food_native and'paid_vanilla_to_native_processor'or'waiting_verified_mc_food_session',
++   food=food_native and food_native.status()or{enabled=o.food_enabled~=false,phase=M.food_phase or'waiting_verified_mc_session',error=food_error},food_ledger=food_protocol and{applied=food_protocol.applied,pending=food_protocol.pending,rejected=food_protocol.rejected}or nil,
+    nonplayer_environment='original_mc_proxy_lava_fire_to_single_native_SlipDamage'}
+  end
+  function M.stop()
+--- a/server/food_native.lua
++++ b/server/food_native.lua
+@@ -4,38 +4,57 @@
+ local function name(v)return type(v)=='string'and v or v:ToString()end
+ function N.new(o)
+  assert(IsInGameThread(),'Native food game thread required')
+- local gs=assert(o.game_state);local epoch=assert(o.epoch);local data_class=StaticFindObject('/Script/Pal.PalStaticConsumeItemData')
+- local proc_class=StaticFindObject('/Script/Pal.PalItemUseProcessor_CommonEffectToIndividualParameter')
+- assert(valid(data_class)and valid(proc_class),'Native food classes unavailable')
+- for _,path in ipairs({'/Script/Pal.PalItemUseProcessor:UseItemToCharacter_ServerInternal','/Script/Pal.PalItemUseProcessor:CanUseItemToCharacter',
+-  '/Script/Pal.PalStaticConsumeItemData:GetRestoreSatiety','/Script/Pal.PalStaticConsumeItemData:GetRestoreHP'})do assert(valid(StaticFindObject(path)),'Missing native food function '..path)end
+- local proc=StaticConstructObject(proc_class,gs,FName('PalCraftFoodProcessor_'..epoch:gsub('%-','')),64,0)
+- assert(valid(proc),'Native food processor construction failed')
+- local M={confirmed=0,effects={},night_modes={},errors={},caps={},data={},serial=0,native_route='PalItemUseProcessor:UseItemToCharacter_ServerInternal'}
++ local gs=assert(o.game_state);local epoch=assert(o.epoch)
++ local M={confirmed=0,effects={},night_modes={},errors={},caps={},serial=0,native_route='PalItemUseProcessor:UseItemToCharacter_ServerInternal'}
++ local function provider()
++  assert(IsInGameThread(),'Native food game thread required')
++  assert(valid(gs)and gs:HasAuthority(),'Authoritative food world required')
++  local utility=StaticFindObject('/Script/Pal.Default__PalUtility');assert(valid(utility),'Native food utility unavailable')
++  local manager=utility:GetItemIDManager(gs)
++  assert(valid(manager)and manager:IsA('/Script/Pal.PalItemIDManager'),'Native item manager unavailable')
++  -- Read the engine-owned UPROPERTY map anew. A Lua UObject wrapper is not a UE GC reference.
++  local proc
++  manager.ItemUseProcessorMap:ForEach(function(_,value)
++   local candidate=value:get()
++   if valid(candidate)and candidate:IsA('/Script/Pal.PalItemUseProcessor_CommonEffectToIndividualParameter')then
++    local outer=candidate:GetOuter()
++    assert(valid(outer)and outer:GetAddress()==manager:GetAddress(),'Food processor owner mismatch')
++    proc=candidate;return true
++   end
++  end)
++  assert(proc,'Engine-owned native food processor unavailable')
++  return proc,manager
++ end
+  local function numeric(v)return type(v)=='number'and v or o.fixed:Convert_FixedPoint64ToFloat(v)end
+- local function template(q,target)
++ local function template(q,target,owner)
+   local max=target.cp:GetMaxFullStomach();assert(type(max)=='number'and max>0,'Native max full stomach required')
+   local heal=0
+   for _,e in ipairs(q.effects or{})do
+    if e.id=='minecraft:regeneration'then heal=heal+math.floor((e.duration or 0)/math.max(1,50/2^(e.amplifier or 0)))end
+   end
+   local satiety=math.max(0,math.floor(q.nutrition/20*max+.5));local hp=math.max(0,math.floor(heal/20*numeric(target.cp:GetMaxHP())+.5))
+-  local key=q.item..':'..satiety..':'..hp
+-  if valid(M.data[key])then return M.data[key]end
++  local data_class=StaticFindObject('/Script/Pal.PalStaticConsumeItemData')
++  assert(valid(data_class),'Native food data class unavailable')
+   M.serial=M.serial+1
+-  local d=StaticConstructObject(data_class,gs,FName('PalCraftFood_'..epoch:gsub('%-','')..'_'..M.serial),64,0)
+-  assert(valid(d),'Native food data construction failed')
++  -- This temporary data is constructed, used and released in one game-thread call; never cache across ticks.
++  local d=StaticConstructObject(data_class,owner,FName('PalCraftFood_'..epoch:gsub('%-','')..'_'..M.serial),64,0)
++  assert(valid(d)and d:IsA('/Script/Pal.PalStaticConsumeItemData'),'Native food data construction failed')
+   d.ID=FName('PalCraftMC_'..q.item:gsub('[^%w_]','_'));d.ItemBaseName=d.ID;d.TypeA=8;d.TypeB=53;d.MaxStackCount=64
+   d.RestoreSatiety=satiety;d.RestoreHP=hp
+   d.RestoreSP=0;d.RestoreSanity=0;d.WazaID=0;d.bNotConsumed=false
+   assert(d:GetRestoreSatiety()==math.floor(q.nutrition/20*max+.5)and d:GetRestoreHP()==math.floor(heal/20*numeric(target.cp:GetMaxHP())+.5),'Native food data getter mismatch')
+-  M.data[key]=d;return d
++  return d
+  end
+  function M.readiness(target)
+-  local q={id=epoch,item='minecraft:bread',nutrition=5,saturation=6,effects={}}
+-  local ok,r=pcall(function()local d=template(q,target);return proc:CanUseItemToCharacter(d,target.handle:GetIndividualID())end)
++  -- Availability permits a paid request, whose exact item still passes normal native CanUse rules.
++  -- Scanning a player must not allocate food or call CanUseItemToCharacter on their behalf.
++  local ok,r=pcall(function()
++   assert(target.player and valid(target.actor)and target.actor:IsInitialized(),'Initialized real food consumer required')
++   assert(not target.cp:IsDead()and not target.cp:IsDying(),'Live food consumer required')
++   provider();return true
++  end)
+   if not ok then M.errors[target.id]=tostring(r);return false end
+-  M.caps[target.id]=r==true;return r==true
++  M.errors[target.id]=nil;M.caps[target.id]=r==true;return r==true
+  end
+  local function status_component(a)
+   local c=a.StatusComponent;assert(valid(c),'Native status component unavailable');return c
+@@ -52,7 +71,7 @@
+  end
+  function M.apply(q,target)
+   assert(IsInGameThread(),'Native food game thread required');assert(target.player and not target.cp:IsDead()and not target.cp:IsDying(),'Real live Pal player required')
+-  local d=template(q,target);local individual=target.handle:GetIndividualID()
++  local proc,owner=provider();local d=template(q,target,owner);local individual=target.handle:GetIndividualID()
+   assert(proc:CanUseItemToCharacter(d,individual),'Native food rejected by normal item rules')
+   local before=target.cp:GetFullStomach();local hp_before=numeric(target.cp:GetHP())
+   local accepted=proc:UseItemToCharacter_ServerInternal(d,individual)
+@@ -90,7 +109,10 @@
+   for key,e in pairs(M.effects)do if valid(e.target.ip)then e.target.ip:RemoveDecreaseFullStomachRates(FName(key))end end;M.effects={}
+   for _,e in pairs(M.night_modes)do if valid(e.component)then e.component:SetNightVisionEnabled_ForServer(e.before);e.component:SetNightVisionEnabled_ToClient(e.before,e.before and 1 or 0)end end;M.night_modes={}
+  end
+- function M.status()return {native_route=M.native_route,confirmed=M.confirmed,errors=M.errors,unsupported_status_equivalents={'minecraft:absorption','minecraft:resistance','minecraft:fire_resistance'},inventory_credit_calls=0}end
++ function M.status()return {native_route=M.native_route,confirmed=M.confirmed,errors=M.errors,
++  processor_lifetime='engine_owned_ItemUseProcessorMap_reacquired_per_call',food_data_lifetime='single_game_thread_call',
++  readiness_scope='owned_provider_available_exact_item_CanUse_only_on_paid_request',native_effect_verified=M.confirmed>0,
++  unsupported_status_equivalents={'minecraft:absorption','minecraft:resistance','minecraft:fire_resistance'},inventory_credit_calls=0}end
+  return M
+ end
+ return N

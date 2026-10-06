@@ -1,0 +1,30 @@
+--- a/client/capture/capture_runtime_binding.lua
++++ b/client/capture/capture_runtime_binding.lua
+@@ -15,8 +15,25 @@
+   if message.t~='entity_visual_asset'and message.t~='entity_visual_cache'and message.t~='entity_visual_cache_chunk'then return false,'not_capture_event'end
+   return cache.accept(message)
+  end
+- function api.tick()return cache.tick_binding()end
+- function api.stop()if renderer.stop then renderer.stop()end;cache.rows={};cache.chunks={};cache.manifests={}end
++ function api.tick()
++  local ok,why=cache.tick_binding();api.reason=ok and nil or why
++  if not ok then renderer.suspend()end
++  return ok,why
++ end
++ function api.on_lifecycle(event)
++  local op=event.op
++  if op=='session_reset'or op=='world_unload'or op=='resync_required'or op=='player_view'or op=='chunk_unload'then
++   cache.reset();renderer.suspend();api.reason='capture_lifecycle:'..op
++  end
++ end
++ function api.stop(context_alive)
++  if renderer.stop then renderer.stop(context_alive~=false)end;cache.stop(context_alive~=false);api.reason='stopped'
++ end
++ function api.status()
++  local r=renderer.status();r.phase=api.reason or(cache.bound and'capture_bound'or'capture_view_pending')
++  r.bound=cache.bound;r.cache_error=cache.error;r.binding_error=cache.last_binding_error;r.actual_shader_verified=false
++  return r
++ end
+  return api
+ end
+ return M

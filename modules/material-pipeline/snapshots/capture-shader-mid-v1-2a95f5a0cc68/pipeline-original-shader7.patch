@@ -1,0 +1,31 @@
+--- a/client/native_visual_pipeline.lua
++++ b/client/native_visual_pipeline.lua
+@@ -3,6 +3,7 @@
+ local Profiles=dofile(dir..'material_profiles.lua')
+ local ActualMaterials=dofile(dir..'actual_material_consumers.lua')
+ local Additive=dofile(dir..'capture_additive_materials.lua')
++local OriginalShader=dofile(dir..'capture_shader_mid_bindings.lua')
+ local M={version=1}
+ function M.new(o)
+  local Models,J,root=assert(o.models),assert(o.json),assert(o.bridge_root)
+@@ -15,7 +16,11 @@
+   if file then additive_descriptor=J.decode(file:read('*a'));file:close()end
+  end
+  local additive=Additive.new({asset_root=capture_root,descriptor=additive_descriptor})
++ local original_shader=OriginalShader.new({asset_root=capture_root,cooked_contract=o.capture_shader_cooked_contract})
+  local function resolver(ctx,group,asset_root)
++  if group.actual_renderer_capture then
++   local value,why=original_shader:resolve(ctx,group);assert(value,'Original shader pending: '..tostring(why));return value
++  end
+   if group.additive_material_required then
+    local value,why=additive:resolve(ctx,group);assert(value,'Actual additive pending: '..tostring(why));return value
+   end
+@@ -134,7 +139,7 @@
+  end
+  function api.stop(context_alive)
+   api.detach_signs(context_alive);api.detach_capture(context_alive)
+-  additive:reset();for _,instance in pairs(instances)do instance:reset()end;instances={};api.last_seconds=nil
++  original_shader:reset();additive:reset();for _,instance in pairs(instances)do instance:reset()end;instances={};api.last_seconds=nil
+  end
+  function api.status()
+   local profiles={};for path,p in pairs(instances)do profiles[path]={actual_shader_verified=false,runnable_consumer='actual_material_consumers_v1'}end

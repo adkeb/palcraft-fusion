@@ -1,0 +1,35 @@
+--- a/runtime/client_options.lua
++++ b/runtime/client_options.lua
+@@ -227,7 +227,21 @@
+      and row.mapping.world_session==v.world_session and row.mapping.dim==v.dim
+      and row.mapping.scale==100 and row.mapping.y_origin==64 and valid_bounds(row.required_bounds)
+      and TravelP.vector(row.pos)and TravelP.ue(row.target_pawn)
+-     and TravelP.contains(row.mapping.region_bounds,row.target_pawn)then return row,b end
++     and TravelP.contains(row.mapping.region_bounds,row.target_pawn)then
++     -- Hello/auto sync covers 32 blocks. Request the real target ring once per
++     -- authenticated tuple before scene readiness starts the travel feature.
++     -- Issuing this request never asserts snapshot coverage or native readiness.
++     local key=b.mc_epoch..'/'..b.session_id..'/'..b.generation..'/'..v.world_session..'/'..v.dim..'/'..v.view
++     if self.snapshot_requested_tuple~=key then
++      local bounds=row.required_bounds;local x,z=math.floor(row.pos[1]),math.floor(row.pos[3])
++      local radius=math.max(x-bounds[1],bounds[4]-1-x,z-bounds[3],bounds[6]-1-z,1)
++      assert(radius<=64,'Authoritative target ring exceeds public blocksync capacity')
++      assert(commands.send{t='blocksync',r=radius,world_session=v.world_session,dim=v.dim,view=v.view}==true,
++       'Initial authoritative snapshot request failed')
++      self.snapshot_requested_tuple=key;self.snapshot_requested_radius=radius
++     end
++     return row,b
++    end
+    end
+   end
+   function Worker:tick(_,ctx)
+@@ -318,7 +332,8 @@
+    local ready,reason=self:ready()
+    return{version=M.version,ready=ready,reason=reason,started=self.started,companion_driven=true,
+     initial_proof=self.initial_proof,initial_from_prepare=self.initial_from_prepare==true,startup_rejected=self.startup_rejected or 0,
+-    chunks=self.chunks and self.chunks.status(),material_runtime=self.material_wiring and self.material_wiring.status(),in_game_verified=false}
++    chunks=self.chunks and self.chunks.status(),material_runtime=self.material_wiring and self.material_wiring.status(),in_game_verified=false,
++    snapshot_requested_tuple=self.snapshot_requested_tuple,snapshot_requested_radius=self.snapshot_requested_radius}
+   end
+   function Worker:stop(_,ctx)
+    thread();local c=self.companion;local alive=not ctx or ctx.context_alive~=false

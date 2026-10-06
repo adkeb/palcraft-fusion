@@ -1,0 +1,81 @@
+--- a/mc/src/main/java/dev/rehan/passthrough/PalEntityBridge.java
++++ b/mc/src/main/java/dev/rehan/passthrough/PalEntityBridge.java
+@@ -29,6 +29,8 @@
+             "D:/PalworldServer-LAN/PalCraft-Dev/bridge"));
+     private static final EntityCombatLedger ledger = new EntityCombatLedger(8192);
+     private static final Map<String, Long> pending = new LinkedHashMap<>();
++    private static final Map<Path,JsonObject> deferredPublications=new LinkedHashMap<>();
++    private static String publicationError;
+     private static final Map<String, HostEntity> hostStates = new HashMap<>();
+     private static Function<UUID,String> playerUid = uuid -> null;
+     private static Function<ServerPlayer,JsonObject> playerSession = player -> null;
+@@ -52,7 +54,7 @@
+         incoming = outgoing = rejected = 0;
+         phase = "waiting_for_pal_server";
+         error = null;
+-        pending.clear();
++        pending.clear();deferredPublications.clear();publicationError=null;
+         hostStates.clear();
+         healthAvatars.clear();
+     }
+@@ -63,11 +65,12 @@
+         if (ticks % 2 != 0) return;
+         try {
+             Files.createDirectories(ROOT);
++            flushPublications();
+             readPalState();
+             if (ready()) readPalHits(server);
+             if (session != null && ticks % 10 == 0) EntityCombatLab.tick(server,ROOT,session);
+             if (ticks % 4 == 0) { publish(server); writeHitIndex(); }
+-            if (ticks % 20 == 0) { pollResults(); write(ROOT.resolve("mc-status.json"), status()); }
++            if (ticks % 20 == 0) { pollResults(); publishLater(ROOT.resolve("mc-status.json"), status()); }
+             error = null;
+         } catch (IOException | RuntimeException e) {
+             error = e.toString();
+@@ -340,7 +343,7 @@
+             v.addProperty("food",p.getFoodData().getFoodLevel());v.addProperty("full_stomach",h.fullStomach());v.addProperty("max_full_stomach",h.maxFullStomach());
+         }
+         state.add("player_vitals",players);
+-        write(ROOT.resolve("mc-state.json"), state);
++        publishLater(ROOT.resolve("mc-state.json"), state);
+         Passthrough.events.accept(state.toString());
+     }
+ 
+@@ -381,12 +384,13 @@
+     private static void writeHitIndex() throws IOException {
+         JsonObject index=envelope("entity_hits","mc_server");index.addProperty("epoch",epoch);
+         JsonArray ids=new JsonArray();for(String id:pending.keySet())ids.add(id);index.add("ids",ids);
+-        write(ROOT.resolve("mc-hits.json"),index);
++        publishLater(ROOT.resolve("mc-hits.json"),index);
+     }
+     public static JsonObject status() {
+         JsonObject r=envelope("entity_status","mc_server");r.addProperty("epoch",epoch);r.addProperty("phase",phase);
+         r.addProperty("incoming",incoming);r.addProperty("outgoing",outgoing);r.addProperty("rejected",rejected);
+-        r.addProperty("pending",pending.size());r.addProperty("pal_revision",palRevision);
++        r.addProperty("pending",pending.size());r.addProperty("publication_pending",deferredPublications.size());
++        if(publicationError!=null)r.addProperty("publication_error",publicationError);r.addProperty("pal_revision",palRevision);
+         r.addProperty("proxies",MobWar.proxyCount());r.addProperty("legacy_damage_enabled",false);
+         r.addProperty("player_health_authority","pal_server");
+         if(error!=null)r.addProperty("error",error);return r;
+@@ -398,6 +402,21 @@
+         try { write(ROOT.resolve("mc-status.json"),status()); } catch(IOException e){Passthrough.LOG.warn("entity detach: {}",e.toString());}
+         attached=null;session=palEpoch=null;pending.clear();hostStates.clear();healthAvatars.clear();
+     }
++    /** Publication can wait for a Windows rb reader. Damage intents/receipts still use strict write(). */
++    private static boolean publishLater(Path path,JsonObject value)throws IOException{
++        try{write(path,value);deferredPublications.remove(path);if(deferredPublications.isEmpty())publicationError=null;return true;}
++        catch(AccessDeniedException busy){
++            Path temp=path.resolveSibling(path.getFileName()+".tmp");
++            if(!Files.exists(path)||!Files.exists(temp))throw busy;
++            deferredPublications.put(path,value.deepCopy());publicationError=busy.toString();return false;
++        }
++    }
++    private static void flushPublications()throws IOException{
++        int budget=4;
++        for(var e:new ArrayList<>(deferredPublications.entrySet())){
++            if(budget--==0)break;publishLater(e.getKey(),e.getValue());
++        }
++    }
+     public static void write(Path path,JsonObject value) throws IOException {
+         Path tmp=path.resolveSibling(path.getFileName()+".tmp");Files.writeString(tmp,value.toString());
+         try{Files.move(tmp,path,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}

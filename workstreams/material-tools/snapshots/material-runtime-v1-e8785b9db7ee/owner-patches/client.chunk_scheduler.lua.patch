@@ -1,0 +1,13 @@
+--- a/client/chunk_scheduler.lua
++++ b/client/chunk_scheduler.lua
+@@ -329,6 +329,10 @@
+  local elapsed=(self.clock()-start)*1000;self.stats.max_tick_ms=math.max(self.stats.max_tick_ms,elapsed)
+  if elapsed>budget_ms then self.stats.budget_overruns=self.stats.budget_overruns+1 end
+  return{steps=steps,elapsed_ms=elapsed,pending=self.tail-self.head+1,errors=count(self.errors)}
++end
++function Scheduler:invalidate_material(dim,at)
++ local touched={};self:_touch(dim,at[1],at[2],at[3],touched)
++ self:_publish(touched);return next(touched)~=nil
+ end
+ function Scheduler:retry()
+  self.errors={};for _,ch in pairs(self.chunks)do if ch.error then ch.error=nil;ch.job=nil;self:_enqueue(ch)end end

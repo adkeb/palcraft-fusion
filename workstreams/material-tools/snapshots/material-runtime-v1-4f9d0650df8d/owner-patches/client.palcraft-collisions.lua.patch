@@ -1,0 +1,44 @@
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -160,6 +160,21 @@
+  return J.encode({id=g.id,state=g.state,properties=g.properties,boxes=g.boxes,
+   visible=g.visible,render_kind=g.render_kind,fluid=g.fluid,tint_colors=g.tint_colors})
+ end
++-- Material replies resume the existing logical block or dirty its existing
++-- section. They never ingest a synthetic world row or replace a collider.
++function M.retry_material_block(block)
++ if M.chunk_consumer and M.chunk_consumer.retry_material_block
++  and M.chunk_consumer.retry_material_block(block)==true then return true end
++ if block.dim~=M.world.dimension then return true end
++ local g=M.world:get(block.dim,block.x,block.y,block.z)
++ local entry=M.block_render_entry(block.dim,{block.x,block.y,block.z})
++ if not g or not entry or g.id~=block.id or g.state~=block.state or entry.visible==false or entry.model then return true end
++ local ok,a,b=pcall(models.spawn,context(),O,g,block.x,block.y,block.z)
++ if ok then entry.model=a;entry.model_component=a and b or nil;entry.model_status=a and'rendered'or b
++ else entry.model_status='model_error: '..tostring(a)end
++ if a and ok then M.changes=M.changes+1 end
++ return true
++end
+ local function apply(kind,x,y,z,geometry)
+  local k=key(x,y,z);local previous=M.actors[k]
+  local signature=kind=='set'and J.encode(geometry or {id='minecraft:oak_planks',boxes=FULL})or nil
+@@ -181,7 +196,7 @@
+    if ok then entry.model=a;entry.model_component=a and b or nil;entry.model_status=a and'rendered'or b
+    else entry.model_status='model_error: '..tostring(a)end
+   end
+-  for _,b in ipairs(boxes_for(geometry))do entry.handles[#entry.handles+1]=invoke(client and(minecraft_renderer or entry.model or not visible)and 3 or 0,nil,x,y,z,b,entry.id)end
++  for _,b in ipairs(boxes_for(geometry))do entry.handles[#entry.handles+1]=invoke(client and(minecraft_renderer or entry.model or not visible or(visual_pipeline and visual_pipeline.material_runtime))and 3 or 0,nil,x,y,z,b,entry.id)end
+  end
+  M.changes=M.changes+1
+ end
+@@ -265,6 +280,10 @@
+       if routed==false then M.chunk_consumer_error=why end
+      end
+      observe('on_row',row,accepted,reason,M)
++    elseif client and row.t=='material_tint'and visual_pipeline and visual_pipeline.material_runtime then
++     -- This is the SAME authenticated native event journal and reader.
++     local accepted,reason=visual_pipeline.accept_material_tint(row)
++     M.material_reply_status={request_id=row.request_id,accepted=accepted,reason=reason}
+     end
+    end
+   end

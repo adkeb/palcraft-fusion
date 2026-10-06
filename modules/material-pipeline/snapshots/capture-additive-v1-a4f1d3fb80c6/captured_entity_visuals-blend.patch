@@ -1,0 +1,20 @@
+--- a/client/capture/captured_entity_visuals.lua
++++ b/client/capture/captured_entity_visuals.lua
+@@ -1,4 +1,6 @@
+ -- Actual MC renderer vertex stream -> existing native mesh groups. No kind list.
++local dir=assert(debug.getinfo(1,'S').source:match('^@(.*[/\\])'))
++local BlendRoute=dofile(dir..'capture_blend_route.lua')
+ local M={};local config={};local textureIndex
+ function M.configure(o)
+  config=o;if config.root:sub(-1)~='/'then config.root=config.root..'/'end
+@@ -22,9 +24,7 @@
+     renderer_source=batch.source,render_type_name=batch.render_type_name,render_order=batch.layer_order,
+     alpha_mode=batch.has_blending and'translucent'or'cutout',shade=true,light_emission=0,
+     mc_overlay=batch.overlay,mc_light=batch.light,vertex_colors={},vertices={},indices={}}
+-   if tostring(batch.render_type_name):find('eyes',1,true)then
+-    g.render_layer='minecraft_eyes';g.additive_material_required=true;g.light_emission=15
+-   end
++   BlendRoute.apply(g,batch)
+    for _,v in ipairs(batch.vertices)do
+     g.vertices[#g.vertices+1]={v[1]*100,-v[3]*100,v[2]*100,v[4],-v[6],v[5],v[7],v[8]}
+     g.vertex_colors[#g.vertex_colors+1]={v[9],v[10],v[11],v[12]}

@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "platform": "crossover",
+  "bottle_name": "PalCraft-Player-YourName",
+  "bottle_root": "/ABSOLUTE/PATH/TO/PRIVATE/BOTTLES/PalCraft-Player-YourName",
+  "crossover_app": "/Applications/CrossOver.app",
+  "fps": 60,
+  "mute": true,
+  "titlebar_height": 28,
+  "connection": {
+    "mode": "strict-player",
+    "ssh_target": "your-bridge-alias",
+    "remote_ports": {
+      "udp_tcp": 18321,
+      "mc_ws": 29001,
+      "mc_server": 25567,
+      "hud": 29002
+    },
+    "server_session_id": "REPLACE_FROM_OPERATOR_GRANT",
+    "world_origin": {
+      "X": 0,
+      "Y": 0,
+      "Z": 0
+    },
+    "identity": {
+      "world_id": "REPLACE_FROM_OPERATOR_GRANT",
+      "pal_uid": "11111111-1111-1111-1111-111111111111",
+      "mc_uuid": "22222222-2222-2222-2222-222222222222",
+      "mc_name": "REPLACE"
+    },
+    "frame_mapping": "Local\\MCPassthroughFrame-22222222-2222-2222-2222-222222222222"
+  },
+  "performance": {
+    "preset": "normal",
+    "pal_fps": 60,
+    "mc_fps": 60,
+    "hud_fps": 30
+  }
+}

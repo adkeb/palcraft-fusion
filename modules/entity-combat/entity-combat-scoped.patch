@@ -1,0 +1,2019 @@
+--- a/mc/src/main/java/dev/rehan/passthrough/MobWar.java
++++ b/mc/src/main/java/dev/rehan/passthrough/MobWar.java
+@@ -1,18 +1,11 @@
+ package dev.rehan.passthrough;
+ 
+ import dev.rehan.passthrough.mixin.MobAccessor;
+-import java.util.ArrayList;
+-import java.util.HashMap;
+-import java.util.Iterator;
+-import java.util.List;
+-import java.util.Locale;
+-import java.util.Map;
+-import java.util.Optional;
+-import java.util.concurrent.ConcurrentLinkedQueue;
++import java.util.*;
+ import java.util.concurrent.ThreadLocalRandom;
+-import java.util.concurrent.atomic.AtomicReference;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.registries.BuiltInRegistries;
++import net.minecraft.network.chat.Component;
+ import net.minecraft.resources.Identifier;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.server.level.ServerLevel;
+@@ -21,240 +14,108 @@
+ import net.minecraft.world.damagesource.DamageSource;
+ import net.minecraft.world.effect.MobEffectInstance;
+ import net.minecraft.world.effect.MobEffects;
+-import net.minecraft.world.entity.Entity;
+-import net.minecraft.world.entity.EntitySpawnReason;
+-import net.minecraft.world.entity.EntityType;
+-import net.minecraft.world.entity.EntityTypes;
+-import net.minecraft.world.entity.LivingEntity;
+-import net.minecraft.world.entity.Mob;
+-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+-import net.minecraft.world.entity.ai.attributes.Attributes;
++import net.minecraft.world.entity.*;
+ import net.minecraft.world.entity.ai.goal.GoalSelector;
++import net.minecraft.world.entity.ai.memory.MemoryModuleType;
++import net.minecraft.world.entity.ai.memory.MemoryStatus;
+ import net.minecraft.world.entity.monster.Enemy;
+ import net.minecraft.world.entity.npc.villager.Villager;
+-import net.minecraft.world.entity.player.Player;
+ import net.minecraft.world.entity.projectile.Projectile;
+ 
+-/**
+- * Minecraft's mobs vs the host's people. The host lists its people ("peds"); each gets an invisible, AI-less
+- * villager "proxy" here that follows it and that hostile mobs hunt. A mob's hit on a proxy goes back to the host
+- * ("mobhit"), which hurts the real person. The other way round, the host keeps a stand-in for every mob ("mobs") that
+- * its police shoot at, and sends the damage back ("mobdmg").
+- */
++/** Original MC mobs keep their own AI, health, inventory, death and loot. Pal bodies have explicit authority. */
+ public final class MobWar {
+-	public static final String PROXY_TAG = "gta_proxy";
+-	/** Mobs hunt proxies this far away (blocks). */
+-	private static final double FOLLOW_RANGE = 48.0;
+-	/** Host people further than this from the player aren't mirrored, nor mobs reported (blocks). */
+-	private static final double REPORT_RANGE = 96.0;
++    public static final String PROXY_TAG="palcraft_proxy";
++    private static final String LEGACY_PROXY_TAG="gta_proxy";
++    private static final String MARKER="palcraft:proxy/";
++    private static final Map<String,Villager> proxies=new HashMap<>();
++    private static final Map<UUID,PalEntityBridge.HostEntity> hostOf=new HashMap<>();
++    private static final Map<String,PalEntityBridge.HostEntity> hosts=new HashMap<>();
++    private static final Map<UUID,HitWindow> windows=new HashMap<>();
++    private static List<PalEntityBridge.HostEntity> newest=List.of();
++    private static final Set<String> BRAIN_MOBS=Set.of("piglin","piglin_brute","hoglin","zoglin","breeze","creaking","warden");
++    private record HitWindow(long tick,float amount) {}
++    private MobWar() {}
+ 
+-	/** The newest "peds" list from the host, flattened [handle, x, y, z, ...] (WebSocket thread -> server tick). */
+-	private static final AtomicReference<double[]> peds = new AtomicReference<>();
+-	private static volatile long pedsNanos;
+-	/** Host damage to mobs, [entity id, amount] (WebSocket thread -> server tick). */
+-	private static final ConcurrentLinkedQueue<double[]> damage = new ConcurrentLinkedQueue<>();
++    /** Invisibility alone is never an identity: invisible ordinary villagers remain normal villagers. */
++    public static boolean isProxy(Entity e) {
++        return e instanceof Villager && (e.entityTags().contains(PROXY_TAG)
++                || (e.getCustomName()!=null && e.getCustomName().getString().startsWith(MARKER)));
++    }
++    static PalEntityBridge.HostEntity hostFor(Entity e){return hostOf.get(e.getUUID());}
++    static LivingEntity proxyFor(String id){Villager v=proxies.get(id);return v!=null&&!v.isRemoved()?v:null;}
++    public static int proxyCount(){return proxies.size();}
++    static void replaceHostEntities(List<PalEntityBridge.HostEntity> next){newest=List.copyOf(next);}
++    static void clearHostEntities(){clearProxies();newest=List.of();}
+ 
+-	// server thread only
+-	private static final Map<Integer, Villager> proxies = new HashMap<>();
+-	private static final Map<Integer, Integer> handleOf = new HashMap<>();
+-	private static final Map<Integer, Integer> missingTicks = new HashMap<>();
+-	private static boolean reportedMobs;
++    /** Legacy client-supplied GTA handles and damage have no Pal server authority and are intentionally rejected. */
++    @Deprecated public static void peds(double[] flat){Passthrough.LOG.debug("Rejected legacy peds; use Pal server entity snapshot");}
++    @Deprecated public static void damage(int id,double amount){Passthrough.LOG.warn("Rejected unauthenticated legacy mobdmg for runtime entity {}",id);}
+ 
+-	private MobWar() {
+-	}
++    static void onEntityLoad(Entity e,ServerLevel level) {
++        if(e instanceof Villager v && (v.entityTags().contains(LEGACY_PROXY_TAG)
++                || (isProxy(v)&&!proxies.containsValue(v)))){v.discard();return;}
++        if(!(e instanceof Mob mob)||!(e instanceof Enemy)||isProxy(e))return;
++        GoalSelector targets=((MobAccessor)mob).passthrough$targetSelector();
++        if(targets.getAvailableGoals().stream().noneMatch(w->w.getGoal() instanceof ProxyTargetGoal))
++            targets.addGoal(3,new ProxyTargetGoal(mob));
++    }
+ 
+-	/** Brain-driven hostiles: they pick targets from brain memories, not goals, so they'd never join the fight. */
+-	private static final java.util.Set<String> BRAIN_MOBS = java.util.Set.of("piglin", "piglin_brute", "hoglin", "zoglin", "breeze", "creaking", "warden");
++    /** Return true only after a unique, durable event was created. Vanilla melee wear and projectile impact then work. */
++    public static boolean onProxyHit(LivingEntity proxy,DamageSource source,float amount) {
++        if(!(proxy.level() instanceof ServerLevel level)||!Float.isFinite(amount)||amount<=0)return false;
++        long now=level.getGameTime();HitWindow old=windows.get(proxy.getUUID());float forwarded=amount;
++        boolean bypass=source.is(DamageTypeTags.BYPASSES_COOLDOWN);
++        if(!bypass&&old!=null&&now-old.tick()<10){if(amount<=old.amount())return false;forwarded=amount-old.amount();}
++        boolean accepted=PalEntityBridge.proxyHit(proxy,source,forwarded);
++        if(accepted){
++            windows.put(proxy.getUUID(),new HitWindow(old!=null&&!bypass&&now-old.tick()<10?old.tick():now,amount));
++            proxy.hurtTime=10;
++        }
++        return accepted;
++    }
+ 
+-	/**
+-	 * A host person's stand-in. The server knows its tag; the client only sees that it's an invisible villager (a
+-	 * permanent hidden invisibility effect keeps that flag set: Minecraft resets it on sync otherwise).
+-	 */
+-	public static boolean isProxy(final Entity e) {
+-		return e instanceof Villager && (e.isInvisible() || e.entityTags().contains(PROXY_TAG));
+-	}
++    static void tick(MinecraftServer server) {
++        PalEntityBridge.tick(server);
++        syncProxies(server.overworld());
++        PalEntityBridge.syncPlayers(server);
++    }
++    private static void syncProxies(ServerLevel level) {
++        Map<String,PalEntityBridge.HostEntity> next=new HashMap<>();
++        for(PalEntityBridge.HostEntity h:newest){
++            if(!h.alive())continue;
++            // A bound Pal player already has their MC avatar; do not give the same person a second hit target.
++            if(h.player()&&PalEntityBridge.boundPlayer(level.getServer(),h.playerUid())!=null)continue;
++            next.put(h.id(),h);Villager v=proxies.get(h.id());
++            if(v==null||v.isRemoved()){
++                v=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);if(v==null)continue;
++                v.setInvisible(true);v.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY,MobEffectInstance.INFINITE_DURATION,0,false,false),null);
++                v.setNoAi(true);v.setNoGravity(true);v.setSilent(true);v.addTag(PROXY_TAG);
++                v.setCustomName(Component.literal(MARKER+h.id()));v.setCustomNameVisible(false);
++                v.snapTo(h.x(),h.y(),h.z(),h.yaw(),0);
++                proxies.put(h.id(),v);hostOf.put(v.getUUID(),h);
++                if(!level.addFreshEntity(v)){proxies.remove(h.id());hostOf.remove(v.getUUID());continue;}
++            }else{v.setPos(h.x(),h.y(),h.z());v.setYRot(h.yaw());hostOf.put(v.getUUID(),h);}
++        }
++        for(var entry:new ArrayList<>(proxies.entrySet()))if(!next.containsKey(entry.getKey())){
++            Villager v=entry.getValue();hostOf.remove(v.getUUID());windows.remove(v.getUUID());v.discard();proxies.remove(entry.getKey());
++        }
++        hosts.clear();hosts.putAll(next);
++    }
+ 
+-	/** Mobs that join the fight: hostile, goal-driven ones. */
+-	private static boolean fighter(final Entity e) {
+-		return e instanceof Mob && e instanceof Enemy && !isProxy(e) && !BRAIN_MOBS.contains(BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath());
+-	}
+-
+-	public static void peds(final double[] flat) {
+-		peds.set(flat);
+-		pedsNanos = System.nanoTime();
+-	}
+-
+-	public static void damage(final int id, final double amount) {
+-		damage.add(new double[] {id, amount});
+-	}
+-
+-	/** New mobs (and mobs loaded again) hunt proxies; stale proxies from an earlier session are removed. */
+-	static void onEntityLoad(final Entity e, final ServerLevel level) {
+-		if (e instanceof Villager v && v.entityTags().contains(PROXY_TAG) && !proxies.containsValue(v)) {
+-			v.discard();
+-			return;
+-		}
+-
+-		if (!fighter(e)) {
+-			return;
+-		}
+-
+-		Mob mob = (Mob) e;
+-		GoalSelector targets = ((MobAccessor) mob).passthrough$targetSelector();
+-		if (targets.getAvailableGoals().stream().noneMatch(w -> w.getGoal() instanceof ProxyTargetGoal)) {
+-			targets.addGoal(2, new ProxyTargetGoal(mob));
+-		}
+-
+-		AttributeInstance range = mob.getAttribute(Attributes.FOLLOW_RANGE);
+-		if (range != null && range.getBaseValue() < FOLLOW_RANGE) {
+-			range.setBaseValue(FOLLOW_RANGE);
+-		}
+-	}
+-
+-	/** A proxy was hurt (server thread, from LivingEntity.hurtServer; the damage itself is always cancelled). */
+-	public static void onProxyHit(final LivingEntity proxy, final DamageSource source, final float amount) {
+-		Integer handle = handleOf.get(proxy.getId());
+-		Entity attacker = source.getEntity();
+-		if (source.getDirectEntity() instanceof Projectile projectile && !(attacker instanceof Player)) {
+-			projectile.discard(); // a skeleton's arrow ends in the person it hit
+-		}
+-
+-		// explosions are the host's own already (every Minecraft explosion is mirrored); Steve's hits are handled there too
+-		if (handle == null || attacker == null || attacker instanceof Player || source.is(DamageTypeTags.IS_EXPLOSION)) {
+-			return;
+-		}
+-
+-		String kind = BuiltInRegistries.ENTITY_TYPE.getKey(attacker.getType()).getPath();
+-		Passthrough.events.accept(String.format(Locale.ROOT, "{\"t\":\"mobhit\",\"h\":%d,\"d\":%.2f,\"from\":[%.3f,%.3f,%.3f],\"k\":\"%s\"}",
+-			handle, amount, attacker.getX(), attacker.getY(), attacker.getZ(), kind));
+-	}
+-
+-	/** Every server tick (server thread). */
+-	static void tick(final MinecraftServer s) {
+-		ServerLevel level = s.overworld();
+-		syncProxies(level);
+-		applyDamage(level);
+-		if (Passthrough.active) {
+-			reportMobs(s, level);
+-		}
+-	}
+-
+-	private static void syncProxies(final ServerLevel level) {
+-		if (!proxies.isEmpty() && System.nanoTime() - pedsNanos > 1_500_000_000L) {
+-			clearProxies(); // the host stopped sending: nobody to hunt
+-			return;
+-		}
+-
+-		double[] p = peds.getAndSet(null);
+-		if (p == null) {
+-			return;
+-		}
+-
+-		Map<Integer, Boolean> seen = new HashMap<>();
+-		for (int i = 0; i + 3 < p.length; i += 4) {
+-			int handle = (int) p[i];
+-			double x = p[i + 1], y = p[i + 2], z = p[i + 3];
+-			seen.put(handle, true);
+-			Villager v = proxies.get(handle);
+-			if (v == null || v.isRemoved()) {
+-				v = EntityTypes.VILLAGER.create(level, EntitySpawnReason.COMMAND);
+-				if (v == null) {
+-					continue;
+-				}
+-
+-				v.setInvisible(true);
+-				v.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, MobEffectInstance.INFINITE_DURATION, 0, false, false), null);
+-				v.setNoAi(true);
+-				v.setNoGravity(true);
+-				v.setSilent(true);
+-				v.addTag(PROXY_TAG);
+-				v.snapTo(x, y, z, 0.0F, 0.0F);
+-				proxies.put(handle, v); // before adding: the load event must not take it for a stale one
+-				if (!level.addFreshEntity(v)) {
+-					proxies.remove(handle);
+-					continue;
+-				}
+-
+-				handleOf.put(v.getId(), handle);
+-			} else {
+-				v.setPos(x, y, z);
+-			}
+-
+-			missingTicks.remove(handle);
+-		}
+-
+-		// hysteresis: a person missing from a few lists in a row (out of range, dead, despawned) loses their proxy
+-		for (Iterator<Map.Entry<Integer, Villager>> it = proxies.entrySet().iterator(); it.hasNext();) {
+-			Map.Entry<Integer, Villager> e = it.next();
+-			if (seen.containsKey(e.getKey())) {
+-				continue;
+-			}
+-
+-			int missing = missingTicks.merge(e.getKey(), 1, Integer::sum);
+-			if (missing > 6 || e.getValue().isRemoved()) {
+-				handleOf.remove(e.getValue().getId());
+-				e.getValue().discard();
+-				missingTicks.remove(e.getKey());
+-				it.remove();
+-			}
+-		}
+-	}
+-
+-	private static void applyDamage(final ServerLevel level) {
+-		for (double[] d; (d = damage.poll()) != null;) {
+-			if (!(level.getEntity((int) d[0]) instanceof Mob mob) || !mob.isAlive()) {
+-				continue;
+-			}
+-
+-			// from the nearest person (a cop, most likely), so the mob turns on them
+-			LivingEntity from = nearestProxy(level, mob);
+-			DamageSource source = from != null ? level.damageSources().mobAttack(from) : level.damageSources().generic();
+-			mob.damageCooldownTime = 0; // automatic fire lands several hits inside the usual 10-tick cooldown
+-			mob.hurtServer(level, source, (float) d[1]);
+-		}
+-	}
+-
+-	private static LivingEntity nearestProxy(final ServerLevel level, final Mob mob) {
+-		LivingEntity best = null;
+-		double bestD = 48.0 * 48.0;
+-		for (Villager v : proxies.values()) {
+-			double dd = v.distanceToSqr(mob);
+-			if (!v.isRemoved() && dd < bestD) {
+-				best = v;
+-				bestD = dd;
+-			}
+-		}
+-
+-		return best;
+-	}
+-
+-	/** {"t":"mobs","m":[[id,"zombie",x,y,z],...]}: every fighting mob near the player, every tick while there are any. */
+-	private static void reportMobs(final MinecraftServer s, final ServerLevel level) {
+-		ServerPlayer player = s.getPlayerList().getPlayers().isEmpty() ? null : s.getPlayerList().getPlayers().get(0);
+-		if (player == null) {
+-			return;
+-		}
+-
+-		List<Entity> near = level.getEntities((Entity) null, player.getBoundingBox().inflate(REPORT_RANGE), MobWar::fighter);
+-		if (near.isEmpty() && !reportedMobs) {
+-			return;
+-		}
+-
+-		StringBuilder b = new StringBuilder("{\"t\":\"mobs\",\"m\":[");
+-		int n = 0;
+-		for (Entity e : near) {
+-			if (!e.isAlive()) {
+-				continue;
+-			}
+-
+-			b.append(n++ == 0 ? "" : ",").append(String.format(Locale.ROOT, "[%d,\"%s\",%.3f,%.3f,%.3f]",
+-				e.getId(), BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).getPath(), e.getX(), e.getY(), e.getZ()));
+-		}
+-
+-		Passthrough.events.accept(b.append("]}").toString());
+-		reportedMobs = n > 0;
+-	}
+-
++    /** Goal and brain mobs share native attack behavior. Existing living targets keep priority. */
++    public static void syncBrainTarget(Mob mob) {
++        if(mob.level().isClientSide()||!PalEntityBridge.ready()||!BRAIN_MOBS.contains(BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).getPath()))return;
++        var brain=mob.getBrain();
++        if(!brain.checkMemory(MemoryModuleType.ATTACK_TARGET,MemoryStatus.REGISTERED))return;
++        Optional<LivingEntity> current=brain.getMemory(MemoryModuleType.ATTACK_TARGET);
++        if(current.isPresent()&&current.get().isAlive()&&!current.get().isRemoved())return;
++        LivingEntity closest=null;double dist=48*48;
++        for(Villager v:proxies.values()){
++            double d=v.distanceToSqr(mob);
++            if(v.isAlive()&&!v.isRemoved()&&v.level()==mob.level()&&d<dist&&mob.hasLineOfSight(v)){closest=v;dist=d;}
++        }
++        if(closest!=null){brain.setMemory(MemoryModuleType.ATTACK_TARGET,closest);mob.setTarget(closest);}
++    }
+ 	/**
+ 	 * Spawn `count` mobs of `kind` (e.g. "zombie") on the ground `minR`..`maxR` blocks from the player, within `arc`
+ 	 * degrees either side of where the player faces (or of `yawOffset` from it); or, given `at` ({x, y, z}: a fixed
+@@ -313,48 +174,11 @@
+ 		return null;
+ 	}
+ 
+-	/** Remove every fighting mob (not the player's other things). */
+-	public static void clearMobs() {
+-		MinecraftServer s = serverOrNull();
+-		if (s != null) {
+-			s.execute(() -> discardFighters(s.overworld()));
+-		}
+-	}
+-
+-	/** Server thread. */
+-	static void discardFighters(final ServerLevel level) {
+-		List<Entity> all = new ArrayList<>();
+-		level.getAllEntities().forEach(all::add);
+-		all.stream().filter(e -> fighter(e) || isProxy(e)).forEach(Entity::discard);
+-	}
+-
+-	/** The host went away: nobody left to hunt. */
+-	public static void hostGone() {
+-		MinecraftServer s = serverOrNull();
+-		if (s != null) {
+-			s.execute(MobWar::clearProxies);
+-		}
+-	}
+-
+-	private static void clearProxies() {
+-		proxies.values().forEach(Entity::discard);
+-		proxies.clear();
+-		handleOf.clear();
+-		missingTicks.clear();
+-	}
+-
+-	static void detach(final MinecraftServer s) {
+-		// the world is saved next: none of the fight is kept in it
+-		discardFighters(s.overworld());
+-		proxies.clear();
+-		handleOf.clear();
+-		missingTicks.clear();
+-		peds.set(null);
+-		damage.clear();
+-		reportedMobs = false;
+-	}
+-
+-	private static MinecraftServer serverOrNull() {
+-		return WorldBridge.server();
+-	}
++    /** Explicit developer helper only. Disconnect/shutdown never call this on natural mobs. */
++    public static void clearMobs(){MinecraftServer s=serverOrNull();if(s!=null)s.execute(()->discardFighters(s.overworld()));}
++    static void discardFighters(ServerLevel level){List<Entity> all=new ArrayList<>();level.getAllEntities().forEach(all::add);all.stream().filter(e->e instanceof Enemy&&!isProxy(e)).forEach(Entity::discard);}
++    public static void hostGone(){MinecraftServer s=serverOrNull();if(s!=null)s.execute(MobWar::clearHostEntities);}
++    private static void clearProxies(){proxies.values().forEach(Entity::discard);proxies.clear();hostOf.clear();hosts.clear();windows.clear();}
++    static void detach(MinecraftServer s){PalEntityBridge.detach(s);clearHostEntities();}
++    private static MinecraftServer serverOrNull(){return WorldBridge.server();}
+ }
+--- a/mc/src/main/java/dev/rehan/passthrough/ProxyTargetGoal.java
++++ b/mc/src/main/java/dev/rehan/passthrough/ProxyTargetGoal.java
+@@ -4,10 +4,10 @@
+ import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
+ import net.minecraft.world.entity.npc.villager.Villager;
+ 
+-/** Hunt the nearest host person's proxy: invisible, and often behind host walls Minecraft can't see, so neither counts. */
++/** Pal server actors participate in normal MC targeting; only the bridge's own invisibility is ignored. */
+ final class ProxyTargetGoal extends NearestAttackableTargetGoal<Villager> {
+ 	ProxyTargetGoal(final Mob mob) {
+ 		super(mob, Villager.class, 10, false, false, (target, level) -> MobWar.isProxy(target));
+-		this.targetConditions.ignoreInvisibilityTesting().ignoreLineOfSight();
++		this.targetConditions.ignoreInvisibilityTesting();
+ 	}
+ }
+--- a/mc/src/main/java/dev/rehan/passthrough/mixin/MobMixin.java
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/MobMixin.java
+@@ -1,6 +1,7 @@
+ package dev.rehan.passthrough.mixin;
+ 
+ import dev.rehan.passthrough.Passthrough;
++import dev.rehan.passthrough.MobWar;
+ import net.minecraft.world.entity.Mob;
+ import org.spongepowered.asm.mixin.Mixin;
+ import org.spongepowered.asm.mixin.injection.At;
+@@ -16,4 +17,9 @@
+ 			ci.cancel();
+ 		}
+ 	}
++
++	@Inject(method = "serverAiStep()V", at = @At("HEAD"))
++	private void passthrough$palBrainTarget(final CallbackInfo ci) {
++		MobWar.syncBrainTarget((Mob)(Object)this);
++	}
+ }
+--- a/mc/src/main/java/dev/rehan/passthrough/mixin/ProxyMixin.java
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/ProxyMixin.java
+@@ -1,6 +1,7 @@
+ package dev.rehan.passthrough.mixin;
+ 
+ import dev.rehan.passthrough.MobWar;
++import dev.rehan.passthrough.PalEntityBridge;
+ import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.world.damagesource.DamageSource;
+ import net.minecraft.world.entity.LivingEntity;
+@@ -12,7 +13,7 @@
+ 
+ /**
+  * Host people's proxies: hits on them go to the host instead of doing damage; they neither push nor get pushed
+- * (they follow their person every tick); and Steve's crosshair ignores them (no trading screens, no blocked clicks).
++ * (they follow their actor every tick). Player melee and projectile damage share this server hook.
+  */
+ @Mixin(LivingEntity.class)
+ abstract class ProxyMixin {
+@@ -20,8 +21,7 @@
+ 	private void passthrough$proxyHurt(final ServerLevel level, final DamageSource source, final float amount, final CallbackInfoReturnable<Boolean> cir) {
+ 		LivingEntity self = (LivingEntity) (Object) this;
+ 		if (MobWar.isProxy(self)) {
+-			MobWar.onProxyHit(self, source, amount);
+-			cir.setReturnValue(false);
++			cir.setReturnValue(MobWar.onProxyHit(self, source, amount));
+ 		}
+ 	}
+ 
+@@ -39,12 +39,9 @@
+ 		}
+ 	}
+ 
+-	@Inject(method = "isPickable()Z", at = @At("HEAD"), cancellable = true)
+-	private void passthrough$proxyNotPickable(final CallbackInfoReturnable<Boolean> cir) {
+-		LivingEntity self = (LivingEntity) (Object) this;
+-		// client only: on the server this is also what lets projectiles hit, and mobs' arrows should hit proxies
+-		if (self.level().isClientSide() && MobWar.isProxy(self)) {
+-			cir.setReturnValue(false);
+-		}
++	@Inject(method = "die(Lnet/minecraft/world/damagesource/DamageSource;)V", at = @At("HEAD"))
++	private void passthrough$nativeDeath(final DamageSource source, final CallbackInfo ci) {
++		LivingEntity self = (LivingEntity)(Object)this;
++		if (!self.level().isClientSide()) PalEntityBridge.onDeath(self, source);
+ 	}
+ }
+--- a/mc/src/main/java/dev/rehan/passthrough/mixin/ProjectileMixin.java
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/ProjectileMixin.java
+@@ -2,7 +2,6 @@
+ 
+ import dev.rehan.passthrough.MobWar;
+ import net.minecraft.world.entity.Entity;
+-import net.minecraft.world.entity.player.Player;
+ import net.minecraft.world.entity.projectile.Projectile;
+ import org.spongepowered.asm.mixin.Mixin;
+ import org.spongepowered.asm.mixin.Shadow;
+@@ -10,7 +9,7 @@
+ import org.spongepowered.asm.mixin.injection.Inject;
+ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+ 
+-/** Steve's arrows and rockets fly through proxies: the host traces them into its real people itself. */
++/** Cross-engine projectiles use the MC server's one collision/hurt path for players and mobs alike. */
+ @Mixin(Projectile.class)
+ abstract class ProjectileMixin {
+ 	@Shadow
+@@ -18,8 +17,7 @@
+ 
+ 	@Inject(method = "canHitEntity(Lnet/minecraft/world/entity/Entity;)Z", at = @At("HEAD"), cancellable = true)
+ 	private void passthrough$throughProxies(final Entity target, final CallbackInfoReturnable<Boolean> cir) {
+-		if (MobWar.isProxy(target) && this.getOwner() instanceof Player) {
+-			cir.setReturnValue(false);
+-		}
++		// Imported Pal sources already fight in the Pal server. Do not echo a proxy-owned shot into another proxy.
++		if (MobWar.isProxy(target) && this.getOwner()!=null && MobWar.isProxy(this.getOwner())) cir.setReturnValue(false);
+ 	}
+ }
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/PalPlayerHealthMixin.java
+@@ -0,0 +1,22 @@
++package dev.rehan.passthrough.mixin;
++
++import dev.rehan.passthrough.PalEntityBridge;
++import net.minecraft.server.level.ServerLevel;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.damagesource.DamageSource;
++import net.minecraft.world.entity.LivingEntity;
++import net.minecraft.world.entity.player.Player;
++import org.spongepowered.asm.mixin.Mixin;
++import org.spongepowered.asm.mixin.injection.At;
++import org.spongepowered.asm.mixin.injection.Inject;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
++
++/** A verified driven avatar is one Pal player. F5 never starts another health/death simulation. */
++@Mixin(Player.class)
++abstract class PalPlayerHealthMixin {
++    @Inject(method="hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z",at=@At("HEAD"),cancellable=true)
++    private void palcraft$palHealth(ServerLevel level,DamageSource source,float amount,CallbackInfoReturnable<Boolean> cir){
++        if((Object)this instanceof ServerPlayer p && PalEntityBridge.ownsHealth(p))
++            cir.setReturnValue(PalEntityBridge.playerHurt(p,source,amount));
++    }
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/PalAvatarLifeMixin.java
+@@ -0,0 +1,27 @@
++package dev.rehan.passthrough.mixin;
++
++import dev.rehan.passthrough.PalEntityBridge;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.damagesource.DamageSource;
++import net.minecraft.world.entity.LivingEntity;
++import org.spongepowered.asm.mixin.Mixin;
++import org.spongepowered.asm.mixin.injection.At;
++import org.spongepowered.asm.mixin.injection.Inject;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
++
++/** Pal owns healing, corpse/respawn and death penalty. MC keeps its inventory and reports the mapped health. */
++@Mixin(LivingEntity.class)
++abstract class PalAvatarLifeMixin {
++    @Inject(method="heal(F)V",at=@At("HEAD"),cancellable=true)
++    private void palcraft$palHealing(float amount,CallbackInfo ci){
++        if((Object)this instanceof ServerPlayer p && PalEntityBridge.ownsHealth(p))ci.cancel();
++    }
++    @Inject(method="die(Lnet/minecraft/world/damagesource/DamageSource;)V",at=@At("HEAD"),cancellable=true)
++    private void palcraft$palDeath(DamageSource source,CallbackInfo ci){
++        if((Object)this instanceof ServerPlayer p && PalEntityBridge.ownsHealth(p))ci.cancel();
++    }
++    @Inject(method="tickDeath()V",at=@At("HEAD"),cancellable=true)
++    private void palcraft$palCorpse(CallbackInfo ci){
++        if((Object)this instanceof ServerPlayer p && PalEntityBridge.ownsHealth(p))ci.cancel();
++    }
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/PalPlayerFoodMixin.java
+@@ -0,0 +1,18 @@
++package dev.rehan.passthrough.mixin;
++
++import dev.rehan.passthrough.PalEntityBridge;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.food.FoodData;
++import org.spongepowered.asm.mixin.Mixin;
++import org.spongepowered.asm.mixin.injection.At;
++import org.spongepowered.asm.mixin.injection.Inject;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
++
++/** One real Pal metabolism. The MC bar is a read-only map, without a second starvation or regeneration clock. */
++@Mixin(FoodData.class)
++abstract class PalPlayerFoodMixin {
++    @Inject(method="tick(Lnet/minecraft/server/level/ServerPlayer;)V",at=@At("HEAD"),cancellable=true)
++    private void palcraft$nativeFood(ServerPlayer player,CallbackInfo ci){
++        if(PalEntityBridge.ownsHealth(player))ci.cancel();
++    }
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/PalFoodUseMixin.java
+@@ -0,0 +1,25 @@
++package dev.rehan.passthrough.mixin;
++
++import dev.rehan.passthrough.PalEntityBridge;
++import net.minecraft.core.component.DataComponents;
++import net.minecraft.network.chat.Component;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.InteractionHand;
++import net.minecraft.world.entity.LivingEntity;
++import org.spongepowered.asm.mixin.Mixin;
++import org.spongepowered.asm.mixin.injection.At;
++import org.spongepowered.asm.mixin.injection.Inject;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
++
++/** Until native MC food use is mapped, do not consume a player's MC food while their only metabolism is Pal. */
++@Mixin(LivingEntity.class)
++abstract class PalFoodUseMixin {
++    @Inject(method="startUsingItem(Lnet/minecraft/world/InteractionHand;)V",at=@At("HEAD"),cancellable=true)
++    private void palcraft$foodUse(InteractionHand hand,CallbackInfo ci){
++        if((Object)this instanceof ServerPlayer player && PalEntityBridge.ownsHealth(player)
++                && player.getItemInHand(hand).has(DataComponents.FOOD)){
++            player.sendSystemMessage(Component.literal("请使用帕鲁食物补充饱食度"));
++            ci.cancel();
++        }
++    }
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/PalAvatarRespawnMixin.java
+@@ -0,0 +1,23 @@
++package dev.rehan.passthrough.mixin;
++
++import dev.rehan.passthrough.PalEntityBridge;
++import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.server.network.ServerGamePacketListenerImpl;
++import org.spongepowered.asm.mixin.Mixin;
++import org.spongepowered.asm.mixin.Shadow;
++import org.spongepowered.asm.mixin.injection.At;
++import org.spongepowered.asm.mixin.injection.Inject;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
++
++/** A secondary MC respawn must not replace/heal the avatar while the real Pal player owns death/respawn. */
++@Mixin(ServerGamePacketListenerImpl.class)
++abstract class PalAvatarRespawnMixin {
++    @Shadow public ServerPlayer player;
++    @Inject(method="handleClientCommand(Lnet/minecraft/network/protocol/game/ServerboundClientCommandPacket;)V",at=@At("HEAD"),cancellable=true)
++    private void palcraft$nativeRespawn(ServerboundClientCommandPacket packet,CallbackInfo ci){
++        if(player.level().getServer().isSameThread()
++                && packet.getAction()==ServerboundClientCommandPacket.Action.PERFORM_RESPAWN
++                && PalEntityBridge.ownsHealth(player))ci.cancel();
++    }
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/EntityCombatLedger.java
+@@ -0,0 +1,84 @@
++package dev.rehan.passthrough;
++
++import java.nio.charset.StandardCharsets;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++import java.util.LinkedHashMap;
++import java.util.Map;
++import java.util.UUID;
++
++/** Engine-independent authority and replay checks. Never identifies an entity by a recyclable runtime handle. */
++public final class EntityCombatLedger {
++    public enum Decision { ACCEPT, REPLAY, CONFLICT, STALE_SESSION, STALE_EPOCH, INVALID }
++    public record Hit(String id, String session, String targetEpoch, String sourceEpoch,
++                      String target, String source, double amount, String kind) {
++        public String fingerprint() {
++            return digest(String.join("\n", session, targetEpoch, sourceEpoch, target, source,
++                    Double.toHexString(amount), kind));
++        }
++    }
++    private final int capacity;
++    private final Map<String, String> seen = new LinkedHashMap<>();
++    private String session;
++    private String epoch;
++
++    public EntityCombatLedger(int capacity) {
++        if (capacity < 1) throw new IllegalArgumentException("Positive capacity required");
++        this.capacity = capacity;
++    }
++
++    public void reset(String session, String epoch) {
++        if (!safeToken(session) || !safeToken(epoch)) throw new IllegalArgumentException("Authority identity required");
++        this.session = session;
++        this.epoch = epoch;
++        seen.clear();
++    }
++
++    /** A durable intent must be written before reserve, and before invoking the native engine. */
++    public Decision inspect(Hit h) {
++        if (!valid(h)) return Decision.INVALID;
++        if (!h.session().equals(session)) return Decision.STALE_SESSION;
++        if (!h.targetEpoch().equals(epoch)) return Decision.STALE_EPOCH;
++        String old = seen.get(h.id());
++        return old == null ? Decision.ACCEPT : old.equals(h.fingerprint()) ? Decision.REPLAY : Decision.CONFLICT;
++    }
++
++    public Decision reserve(Hit h) {
++        Decision d = inspect(h);
++        if (d != Decision.ACCEPT) return d;
++        seen.put(h.id(), h.fingerprint());
++        while (seen.size() > capacity) seen.remove(seen.keySet().iterator().next());
++        return d;
++    }
++
++    public static boolean valid(Hit h) {
++        return h != null && uuid(h.id()) && safeToken(h.session()) && safeToken(h.targetEpoch())
++                && safeToken(h.sourceEpoch()) && entityId(h.target()) && entityId(h.source())
++                && Double.isFinite(h.amount()) && h.amount() > 0 && h.amount() <= 10000
++                && h.kind() != null && h.kind().matches("[a-z0-9_:./-]{1,96}");
++    }
++
++    public static boolean entityId(String id) {
++        if (id == null) return false;
++        if (id.startsWith("mc:")) return uuid(id.substring(3));
++        if (!id.startsWith("pal:")) return false;
++        String[] ids = id.substring(4).split("/", -1);
++        return ids.length == 2 && uuid(ids[0]) && uuid(ids[1]);
++    }
++
++    public static boolean uuid(String id) {
++        return id != null && id.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
++    }
++
++    public static boolean safeToken(String value) {
++        return value != null && value.matches("[a-zA-Z0-9_.:-]{1,128}");
++    }
++
++    public static String mcId(UUID uuid) { return "mc:" + uuid; }
++    private static String digest(String value) {
++        try {
++            return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
++                    .digest(value.getBytes(StandardCharsets.UTF_8)));
++        } catch (NoSuchAlgorithmException impossible) { throw new AssertionError(impossible); }
++    }
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/EntityVitals.java
+@@ -0,0 +1,18 @@
++package dev.rehan.passthrough;
++
++/** Pure ratios: form changes never write Pal HP, shield, hunger, inventory or revive state. */
++public final class EntityVitals {
++    private EntityVitals() {}
++    public static float health(double hp,double maxHp,boolean alive,boolean dying){
++        require(hp,maxHp);
++        return alive&&!dying?(float)Math.clamp(hp/maxHp*20,0,20):0;
++    }
++    public static int food(double stomach,double maxStomach){
++        require(stomach,maxStomach);
++        return (int)Math.clamp(Math.ceil(stomach/maxStomach*20),0,20);
++    }
++    private static void require(double current,double maximum){
++        if(!Double.isFinite(current)||!Double.isFinite(maximum)||current<0||maximum<=0)
++            throw new IllegalArgumentException("Authoritative vital range required");
++    }
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/PalEntityBridge.java
+@@ -0,0 +1,410 @@
++package dev.rehan.passthrough;
++
++import com.google.gson.*;
++import java.io.IOException;
++import java.nio.file.*;
++import java.time.Instant;
++import java.util.*;
++import net.minecraft.core.registries.BuiltInRegistries;
++import net.minecraft.server.MinecraftServer;
++import net.minecraft.server.level.ServerLevel;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.damagesource.DamageSource;
++import net.minecraft.world.entity.Entity;
++import net.minecraft.world.entity.LivingEntity;
++import net.minecraft.world.entity.Mob;
++import net.minecraft.world.entity.projectile.Projectile;
++import java.util.function.Function;
++
++/** Trusted server-file transport. Observing clients never get an entity damage operation. */
++public final class PalEntityBridge {
++    public record HostEntity(String id, String kind, double x, double y, double z, float yaw,
++                             float hp, float maxHp, float width, float height, boolean alive,
++                             boolean player, String playerUid, String group, String target,
++                             double shield, double maxShield, boolean dying, double fullStomach, double maxFullStomach) {}
++    private static final int LIMIT = 512;
++    private static final Path ROOT = Path.of(System.getProperty("palcraft.entityDir",
++            "D:/PalworldServer-LAN/PalCraft-Dev/bridge/entities"));
++    private static final Path BRIDGE = Path.of(System.getProperty("palcraft.bridgeDir",
++            "D:/PalworldServer-LAN/PalCraft-Dev/bridge"));
++    private static final EntityCombatLedger ledger = new EntityCombatLedger(8192);
++    private static final Map<String, Long> pending = new LinkedHashMap<>();
++    private static final Map<String, HostEntity> hostStates = new HashMap<>();
++    private static Function<UUID,String> playerUid = uuid -> null;
++    private static Function<ServerPlayer,JsonObject> playerSession = player -> null;
++    private static final Map<UUID,ServerPlayer> healthAvatars=new HashMap<>();
++    private static MinecraftServer attached;
++    private static String session, palEpoch, epoch;
++    private static long palRevision = -1, revision, ticks;
++    private static long lastPalTick = Long.MIN_VALUE;
++    private static String error, phase = "waiting_for_pal_server";
++    private static int incoming, outgoing, rejected;
++    private PalEntityBridge() {}
++
++    /** Attach is idempotent; the existing MobWar tick can call it without a second tick registration. */
++    public static void attach(MinecraftServer server) {
++        if (attached == server) return;
++        attached = server;
++        epoch = UUID.randomUUID().toString();
++        session = palEpoch = null;
++        palRevision = -1;
++        revision = ticks = 0;
++        incoming = outgoing = rejected = 0;
++        phase = "waiting_for_pal_server";
++        error = null;
++        pending.clear();
++        hostStates.clear();
++        healthAvatars.clear();
++    }
++
++    public static void tick(MinecraftServer server) {
++        attach(server);
++        ticks++;
++        if (ticks % 2 != 0) return;
++        try {
++            Files.createDirectories(ROOT);
++            readPalState();
++            if (ready()) readPalHits(server);
++            if (session != null && ticks % 10 == 0) EntityCombatLab.tick(server,ROOT,session);
++            if (ticks % 4 == 0) { publish(server); writeHitIndex(); }
++            if (ticks % 20 == 0) { pollResults(); write(ROOT.resolve("mc-status.json"), status()); }
++            error = null;
++        } catch (IOException | RuntimeException e) {
++            error = e.toString();
++            phase = "transport_error";
++            Passthrough.LOG.warn("entity authority: {}", error);
++        }
++        if (lastPalTick != Long.MIN_VALUE && ticks - lastPalTick > 40) {
++            phase = "pal_server_stale";
++            MobWar.replaceHostEntities(List.of());
++        }
++    }
++
++    public static boolean ready() {
++        return session != null && palEpoch != null && ticks - lastPalTick <= 40 && phase.equals("active");
++    }
++
++    private static JsonObject read(Path path) throws IOException {
++        if (!Files.exists(path)) return null;
++        if (Files.size(path) > 1048576) throw new IOException("Entity message too large");
++        return JsonParser.parseString(Files.readString(path)).getAsJsonObject();
++    }
++
++    private static void readPalState() throws IOException {
++        JsonObject state = read(ROOT.resolve("pal-state.json"));
++        if (state == null) return;
++        JsonObject identity = read(BRIDGE.resolve("lab-identity.json"));
++        if (identity == null || !identity.has("server_session_id")) { phase = "missing_lab_identity"; return; }
++        String nextSession = str(state, "session"), nextPalEpoch = str(state, "epoch");
++        if (integer(state, "v") != 1 || !str(state,"authority").equals("pal_server")
++                || !nextSession.equals(str(identity,"server_session_id"))
++                || !EntityCombatLedger.safeToken(nextPalEpoch)) { rejected++; return; }
++        long unix = state.get("unix").getAsLong();
++        long age = Instant.now().getEpochSecond() - unix;
++        if (age < -5 || age > 3) { phase = "pal_server_stale"; return; }
++        boolean changed = !nextSession.equals(session) || !nextPalEpoch.equals(palEpoch);
++        long nextRevision = state.get("revision").getAsLong();
++        if (!changed && nextRevision <= palRevision) return;
++        JsonArray rows = state.getAsJsonArray("entities");
++        if (rows == null || rows.size() > LIMIT) throw new IllegalArgumentException("Pal snapshot entity limit");
++        List<HostEntity> parsed = new ArrayList<>();
++        Set<String> ids = new HashSet<>();
++        for (JsonElement row : rows) {
++            JsonObject r = row.getAsJsonObject();
++            String id = str(r,"id");
++            if (!id.startsWith("pal:") || !EntityCombatLedger.entityId(id) || !ids.add(id))
++                throw new IllegalArgumentException("Invalid or repeated Pal entity identity");
++            String kind = str(r,"kind");
++            if (kind.length() > 128) throw new IllegalArgumentException("Pal kind length");
++            double x = number(r,"x"), y = number(r,"y"), z = number(r,"z");
++            if (Math.abs(x) > 29999900 || Math.abs(z) > 29999900 || Math.abs(y) > 100000)
++                throw new IllegalArgumentException("Pal entity outside bridge bounds");
++            float hp = (float)number(r,"hp"), maxHp = (float)number(r,"max_hp");
++            float width = (float)number(r,"width"), height = (float)number(r,"height");
++            if (hp < 0 || maxHp <= 0 || width <= 0 || width > 64 || height <= 0 || height > 64)
++                throw new IllegalArgumentException("Invalid Pal entity state");
++            parsed.add(new HostEntity(id,kind,x,y,z,(float)number(r,"yaw"),hp,maxHp,width,height,
++                    r.get("alive").getAsBoolean(), r.has("player") && r.get("player").getAsBoolean(),
++                    optional(r,"player_uid"), optional(r,"group"), optional(r,"target"),
++                    r.has("shield")?number(r,"shield"):0, r.has("max_shield")?number(r,"max_shield"):0,
++                    r.has("dying")&&r.get("dying").getAsBoolean(),
++                    r.has("full_stomach")?number(r,"full_stomach"):0,r.has("max_full_stomach")?number(r,"max_full_stomach"):100));
++        }
++        if (changed) {
++            MobWar.clearHostEntities();
++            pending.clear();
++            ledger.reset(nextSession, epoch);
++        }
++        session = nextSession;
++        palEpoch = nextPalEpoch;
++        palRevision = nextRevision;
++        lastPalTick = ticks;
++        phase = "active";
++        hostStates.clear();
++        for(HostEntity h:parsed)hostStates.put(h.id(),h);
++        MobWar.replaceHostEntities(parsed);
++        JsonObject observation=state.deepCopy();observation.addProperty("t","pal_entity_snapshot");
++        Passthrough.events.accept(observation.toString());
++    }
++
++    private static void readPalHits(MinecraftServer server) throws IOException {
++        int budget = 32;
++        try (DirectoryStream<Path> files = Files.newDirectoryStream(ROOT, "pal-hit-*.json")) {
++            for (Path file : files) {
++                String id = file.getFileName().toString().substring(8).replaceFirst("\\.json$", "");
++                if (!EntityCombatLedger.uuid(id)) continue;
++                Path resultPath = ROOT.resolve("mc-result-" + id + ".json");
++                if (Files.exists(resultPath)) continue; // includes uncertain durable intents: never re-apply
++                if (budget-- == 0) break;
++                JsonObject q = read(file), result = new JsonObject();
++                result.addProperty("id", id);
++                result.addProperty("ok", false);
++                try {
++                    if (integer(q,"v") != 1 || !str(q,"authority").equals("pal_server") || !id.equals(str(q,"id")))
++                        throw new IllegalArgumentException("Invalid Pal event envelope");
++                    EntityCombatLedger.Hit hit = new EntityCombatLedger.Hit(id,str(q,"session"),str(q,"target_epoch"),
++                            str(q,"source_epoch"),str(q,"target"),str(q,"source"),number(q,"amount"),str(q,"kind"));
++                    EntityCombatLedger.Decision decision = ledger.inspect(hit);
++                    result.addProperty("decision", decision.name());
++                    if (decision != EntityCombatLedger.Decision.ACCEPT || !hit.sourceEpoch().equals(palEpoch)) {
++                        result.addProperty("status", "rejected_authority_or_replay"); rejected++;
++                    } else {
++                        Entity target = find(server, hit.target());
++                        ServerPlayer player = playerForPal(server, hit.source());
++                        LivingEntity attacker = player!=null?player:MobWar.proxyFor(hit.source());
++                        if (!(target instanceof Mob mob) || MobWar.isProxy(target) || !mob.isAlive() || attacker == null)
++                            throw new IllegalArgumentException("Entity source or target unavailable");
++                        if (mob.level() != attacker.level() || mob.distanceToSqr(attacker) > 256*256)
++                            throw new IllegalArgumentException("Cross-world or out-of-range native hit");
++                        ServerLevel level = (ServerLevel)mob.level();
++                        DamageSource source = level.damageSources().mobAttack(attacker);
++                        if (player != null) source = level.damageSources().playerAttack(player);
++                        result.addProperty("status", "in_flight");
++                        result.addProperty("fingerprint", hit.fingerprint());
++                        write(resultPath, result); // uncertain crash window is visible, not replayed
++                        ledger.reserve(hit);
++                        float before = mob.getHealth();
++                        boolean accepted = mob.hurtServer(level, source, (float)hit.amount());
++                        result.addProperty("ok", true);
++                        result.addProperty("accepted", accepted);
++                        result.addProperty("before_hp", before);
++                        result.addProperty("after_hp", mob.getHealth());
++                        result.addProperty("alive", mob.isAlive());
++                        result.addProperty("status", "applied");
++                        result.addProperty("drop_owner", "minecraft");
++                        incoming++;
++                    }
++                } catch (RuntimeException e) {
++                    result.addProperty("status", "rejected");
++                    result.addProperty("error", e.toString());
++                    rejected++;
++                }
++                write(resultPath, result);
++            }
++        }
++    }
++
++    private static ServerPlayer playerForPal(MinecraftServer server, String palId) {
++        HostEntity h=hostStates.get(palId);
++        return h!=null&&h.player()?boundPlayer(server,h.playerUid()):null;
++    }
++
++    /** Only the verified multiplayer owner may provide this connection-scoped binding. */
++    public static void bindPlayerUidResolver(Function<UUID,String> resolver){playerUid=Objects.requireNonNull(resolver);}
++    public static void bindPlayerSessionResolver(Function<ServerPlayer,JsonObject> resolver){playerSession=Objects.requireNonNull(resolver);}
++    public static ServerPlayer boundPlayer(MinecraftServer server,String uid){
++        if(uid==null||uid.isEmpty())return null;
++        for(ServerPlayer p:server.getPlayerList().getPlayers())if(uid.equals(playerUid.apply(p.getUUID())))return p;
++        return null;
++    }
++    public static HostEntity playerState(ServerPlayer p){
++        String uid=playerUid.apply(p.getUUID());if(uid==null)return null;
++        for(HostEntity h:hostStates.values())if(h.player()&&uid.equals(h.playerUid()))return h;
++        return null;
++    }
++    /** Bound avatars retain Pal authority even while the snapshot is stale: never fall back to separate MC health. */
++    public static boolean ownsHealth(ServerPlayer p){
++        if(playerUid.apply(p.getUUID())!=null){healthAvatars.put(p.getUUID(),p);return true;}
++        return healthAvatars.get(p.getUUID())==p;
++    }
++    public static void syncPlayers(MinecraftServer server){
++        if(!ready())return;
++        for(ServerPlayer p:server.getPlayerList().getPlayers()){
++            if(!ownsHealth(p))continue;HostEntity h=playerState(p);if(h==null)continue;
++            p.setHealth(EntityVitals.health(h.hp(),h.maxHp(),h.alive(),h.dying()));
++            p.setAbsorptionAmount(0); // native Pal shield is displayed separately, never deducted by MC a second time
++            p.getFoodData().setFoodLevel(EntityVitals.food(h.fullStomach(),h.maxFullStomach()));
++            p.getFoodData().setSaturation(0);
++            JsonObject v=envelope("player_vitals","pal_server");v.addProperty("mc_uuid",p.getUUID().toString());
++            v.addProperty("player_uid",h.playerUid());v.addProperty("hp",h.hp());v.addProperty("max_hp",h.maxHp());
++            v.addProperty("shield",h.shield());v.addProperty("max_shield",h.maxShield());v.addProperty("alive",h.alive());v.addProperty("dying",h.dying());
++            v.addProperty("full_stomach",h.fullStomach());v.addProperty("max_full_stomach",h.maxFullStomach());v.addProperty("food_authority","pal_server");
++            BridgeNetwork.eventFor(p,v.toString());
++        }
++    }
++    /** MC damage to the avatar (mobs, starvation, environment) goes through the same Pal ordinary damage path. */
++    public static boolean playerHurt(ServerPlayer p,DamageSource source,float amount){
++        if(!ownsHealth(p)||!ready()||amount<=0||!Float.isFinite(amount)||amount>10000)return false;
++        HostEntity h=playerState(p);if(h==null||!h.alive())return false;
++        Entity attacker=source.getEntity();if(attacker==null)attacker=source.getDirectEntity();
++        // Native Pal damage already changed the real HP. The imported Pal source must never echo back.
++        if(attacker!=null&&MobWar.isProxy(attacker))return false;
++        // Pal already runs hunger and environmental physics. Only MC starvation must be suppressed altogether.
++        if(source.typeHolder().unwrapKey().map(k->k.identifier().toString()).orElse("").equals("minecraft:starve"))return false;
++        JsonObject event=envelope("entity_damage","mc_server");String id=UUID.randomUUID().toString();
++        event.addProperty("id",id);event.addProperty("source_epoch",epoch);event.addProperty("target_epoch",palEpoch);
++        event.addProperty("target",h.id());event.addProperty("source",EntityCombatLedger.mcId((attacker!=null?attacker:p).getUUID()));
++        event.addProperty("source_kind",attacker!=null?BuiltInRegistries.ENTITY_TYPE.getKey(attacker.getType()).toString():"minecraft:environment");
++        event.addProperty("source_player",attacker instanceof ServerPlayer);event.addProperty("environment",attacker==null);
++        ServerPlayer responsible=attacker instanceof ServerPlayer a?a:attacker==null?p:null;
++        if(responsible!=null){JsonObject binding=playerSession.apply(responsible);if(binding==null)return false;event.add("player_session",binding);}
++        event.addProperty("amount",amount);
++        event.addProperty("kind",source.typeHolder().unwrapKey().map(k->k.identifier().toString()).orElse("minecraft:generic"));
++        event.addProperty("x",attacker!=null?attacker.getX():p.getX());event.addProperty("y",attacker!=null?attacker.getY():p.getY());event.addProperty("z",attacker!=null?attacker.getZ():p.getZ());
++        try{write(ROOT.resolve("mc-hit-"+id+".json"),event);pending.put(id,ticks);outgoing++;return true;}
++        catch(IOException e){error=e.toString();return false;}
++    }
++
++    private static Entity find(MinecraftServer server, String id) {
++        if (!id.startsWith("mc:") || !EntityCombatLedger.entityId(id)) return null;
++        UUID uuid = UUID.fromString(id.substring(3));
++        for (ServerLevel level : server.getAllLevels()) { Entity e = level.getEntity(uuid); if (e != null) return e; }
++        return null;
++    }
++
++    /** Called once by the server proxy damage mixin. The durable event is the only Pal damage authority. */
++    public static boolean proxyHit(LivingEntity proxy, DamageSource damage, float amount) {
++        if (!ready() || !Float.isFinite(amount) || amount <= 0 || amount > 10000) return false;
++        HostEntity host = MobWar.hostFor(proxy);
++        if (host == null || !host.alive()) return false;
++        Entity attacker = damage.getEntity();
++        if (attacker == null) attacker = damage.getDirectEntity();
++        if (attacker == null || MobWar.isProxy(attacker)) return false; // imported damage never echoes back
++        String id = UUID.randomUUID().toString();
++        JsonObject event = envelope("entity_damage", "mc_server");
++        event.addProperty("id", id);
++        event.addProperty("source_epoch", epoch);
++        event.addProperty("target_epoch", palEpoch);
++        event.addProperty("target", host.id());
++        event.addProperty("source", EntityCombatLedger.mcId(attacker.getUUID()));
++        event.addProperty("source_kind", BuiltInRegistries.ENTITY_TYPE.getKey(attacker.getType()).toString());
++        event.addProperty("source_player", attacker instanceof ServerPlayer);
++        if(attacker instanceof ServerPlayer p){JsonObject binding=playerSession.apply(p);if(binding==null)return false;event.add("player_session",binding);}
++        event.addProperty("amount", amount);
++        event.addProperty("kind", damage.typeHolder().unwrapKey().map(k -> k.identifier().toString()).orElse("minecraft:generic"));
++        event.addProperty("x", attacker.getX()); event.addProperty("y",attacker.getY()); event.addProperty("z",attacker.getZ());
++        try {
++            write(ROOT.resolve("mc-hit-"+id+".json"),event);
++            pending.put(id,ticks);
++            outgoing++;
++            Passthrough.events.accept(event.toString()); // observers may display it; must never apply it
++            return true;
++        } catch (IOException e) { error = e.toString(); return false; }
++    }
++
++    /** Native deaths are notifications only; MC already ran its normal death/loot path. */
++    public static void onDeath(LivingEntity e, DamageSource source) {
++        if (!ready() || MobWar.isProxy(e) || !(e instanceof Mob)) return;
++        JsonObject event = envelope("entity_death", "mc_server");
++        event.addProperty("entity",EntityCombatLedger.mcId(e.getUUID()));
++        event.addProperty("drop_owner","minecraft");
++        if (source.getEntity()!=null) event.addProperty("killer",EntityCombatLedger.mcId(source.getEntity().getUUID()));
++        Passthrough.events.accept(event.toString());
++    }
++
++    private static void publish(MinecraftServer server) throws IOException {
++        JsonObject state = envelope("entity_snapshot","mc_server");
++        state.addProperty("epoch",epoch); state.addProperty("revision",++revision);
++        state.addProperty("ready",ready());
++        JsonArray rows = new JsonArray();
++        Set<UUID> seen = new HashSet<>();
++        outer: for (ServerLevel level : server.getAllLevels()) {
++            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
++                if (player.level()!=level) continue;
++                for (Entity e : level.getEntities((Entity)null,player.getBoundingBox().inflate(96),
++                        a -> (a instanceof Mob || a instanceof Projectile) && !MobWar.isProxy(a))) {
++                    if (!seen.add(e.getUUID())) continue;
++                    rows.add(row(e,level));
++                    if (rows.size()>=LIMIT) break outer;
++                }
++            }
++        }
++        state.add("entities", rows);
++        JsonArray players=new JsonArray();
++        for(ServerPlayer p:server.getPlayerList().getPlayers()){
++            if(!ownsHealth(p))continue;HostEntity h=playerState(p);if(h==null)continue;
++            JsonObject v=new JsonObject();v.addProperty("mc_uuid",p.getUUID().toString());v.addProperty("pal_uid",h.playerUid());
++            v.addProperty("hearts",p.getHealth());v.addProperty("max_hearts",p.getMaxHealth());
++            v.addProperty("hp",h.hp());v.addProperty("max_hp",h.maxHp());v.addProperty("shield",h.shield());v.addProperty("max_shield",h.maxShield());
++            v.addProperty("alive",h.alive());v.addProperty("dying",h.dying());v.addProperty("authority","pal_server");players.add(v);
++            v.addProperty("food",p.getFoodData().getFoodLevel());v.addProperty("full_stomach",h.fullStomach());v.addProperty("max_full_stomach",h.maxFullStomach());
++        }
++        state.add("player_vitals",players);
++        write(ROOT.resolve("mc-state.json"), state);
++        Passthrough.events.accept(state.toString());
++    }
++
++    private static JsonObject row(Entity e, ServerLevel level) {
++        JsonObject r = new JsonObject();
++        r.addProperty("id",EntityCombatLedger.mcId(e.getUUID())); r.addProperty("entity_id",e.getId());
++        r.addProperty("kind",BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).toString());
++        r.addProperty("dimension",level.dimension().identifier().toString());
++        r.addProperty("category",e instanceof Mob?"mob":"projectile");
++        r.addProperty("x",e.getX()); r.addProperty("y",e.getY()); r.addProperty("z",e.getZ());
++        r.addProperty("yaw",e.getYRot()); r.addProperty("pitch",e.getXRot());
++        r.addProperty("vx",e.getDeltaMovement().x); r.addProperty("vy",e.getDeltaMovement().y); r.addProperty("vz",e.getDeltaMovement().z);
++        r.addProperty("width",e.getBbWidth()); r.addProperty("height",e.getBbHeight()); r.addProperty("alive",e.isAlive());
++        if (e instanceof LivingEntity living) {
++            r.addProperty("hp",living.getHealth()); r.addProperty("max_hp",living.getMaxHealth());
++            r.addProperty("baby",living.isBaby()); r.addProperty("hurt",living.hurtTime>0);
++        }
++        if (e instanceof Mob mob) {
++            r.addProperty("hostile",mob instanceof net.minecraft.world.entity.monster.Enemy);
++            LivingEntity target = mob.getTarget();
++            if (target != null) { HostEntity h=MobWar.hostFor(target); r.addProperty("target",h!=null?h.id():EntityCombatLedger.mcId(target.getUUID())); }
++        }
++        if (e instanceof Projectile p && p.getOwner()!=null) r.addProperty("owner",EntityCombatLedger.mcId(p.getOwner().getUUID()));
++        return r;
++    }
++
++    private static JsonObject envelope(String type,String authority) {
++        JsonObject r=new JsonObject(); r.addProperty("v",1);r.addProperty("t",type);r.addProperty("authority",authority);
++        r.addProperty("session",session==null?"pending":session);r.addProperty("unix",Instant.now().getEpochSecond()); return r;
++    }
++    private static void pollResults() throws IOException {
++        for (var e : new ArrayList<>(pending.entrySet())) {
++            JsonObject result=read(ROOT.resolve("pal-result-"+e.getKey()+".json"));
++            if (result!=null) { pending.remove(e.getKey()); Passthrough.events.accept(result.toString()); }
++        }
++        writeHitIndex();
++    }
++    private static void writeHitIndex() throws IOException {
++        JsonObject index=envelope("entity_hits","mc_server");index.addProperty("epoch",epoch);
++        JsonArray ids=new JsonArray();for(String id:pending.keySet())ids.add(id);index.add("ids",ids);
++        write(ROOT.resolve("mc-hits.json"),index);
++    }
++    public static JsonObject status() {
++        JsonObject r=envelope("entity_status","mc_server");r.addProperty("epoch",epoch);r.addProperty("phase",phase);
++        r.addProperty("incoming",incoming);r.addProperty("outgoing",outgoing);r.addProperty("rejected",rejected);
++        r.addProperty("pending",pending.size());r.addProperty("pal_revision",palRevision);
++        r.addProperty("proxies",MobWar.proxyCount());r.addProperty("legacy_damage_enabled",false);
++        r.addProperty("player_health_authority","pal_server");
++        if(error!=null)r.addProperty("error",error);return r;
++    }
++    public static void detach(MinecraftServer server) {
++        if(attached!=server)return;
++        phase="detached";MobWar.clearHostEntities();
++        EntityCombatLab.detach(server);
++        try { write(ROOT.resolve("mc-status.json"),status()); } catch(IOException e){Passthrough.LOG.warn("entity detach: {}",e.toString());}
++        attached=null;session=palEpoch=null;pending.clear();hostStates.clear();healthAvatars.clear();
++    }
++    public static void write(Path path,JsonObject value) throws IOException {
++        Path tmp=path.resolveSibling(path.getFileName()+".tmp");Files.writeString(tmp,value.toString());
++        try{Files.move(tmp,path,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}
++        catch(AtomicMoveNotSupportedException e){Files.move(tmp,path,StandardCopyOption.REPLACE_EXISTING);}
++    }
++    private static String str(JsonObject r,String key){String s=r.get(key).getAsString();if(s.length()>256)throw new IllegalArgumentException("Entity field length");return s;}
++    private static String optional(JsonObject r,String key){return r.has(key)&&!r.get(key).isJsonNull()?str(r,key):"";}
++    private static int integer(JsonObject r,String key){return r.get(key).getAsInt();}
++    private static double number(JsonObject r,String key){double n=r.get(key).getAsDouble();if(!Double.isFinite(n))throw new IllegalArgumentException("Non-finite entity value");return n;}
++}
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/EntityCombatLab.java
+@@ -0,0 +1,75 @@
++package dev.rehan.passthrough;
++
++import com.google.gson.*;
++import java.nio.charset.StandardCharsets;
++import java.nio.file.*;
++import java.time.Instant;
++import java.util.*;
++import net.minecraft.core.registries.BuiltInRegistries;
++import net.minecraft.resources.Identifier;
++import net.minecraft.server.MinecraftServer;
++import net.minecraft.server.level.ServerLevel;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.entity.Entity;
++import net.minecraft.world.entity.EntitySpawnReason;
++import net.minecraft.world.entity.Mob;
++
++/** Opt-in one-creature Lab fixture, server-owned file only. No item grants, healing, world commands or network API. */
++public final class EntityCombatLab {
++    public static final String TAG="palcraft_lab_entity";
++    private static final Set<String> TYPES=Set.of("minecraft:zombie","minecraft:sheep","minecraft:skeleton");
++    private EntityCombatLab(){}
++    public static void tick(MinecraftServer server,Path root,String session){
++        if(!Boolean.getBoolean("palcraft.entityLab"))return;
++        Path request=root.resolve("lab-request.json");
++        if(!Files.exists(request))return;
++        try{
++            if(Files.size(request)>8192)throw new IllegalArgumentException("Lab request too large");
++            JsonObject q=JsonParser.parseString(Files.readString(request)).getAsJsonObject();String id=q.get("id").getAsString();
++            if(!EntityCombatLedger.uuid(id))throw new IllegalArgumentException("Lab request UUID required");
++            Path result=root.resolve("lab-result-"+id+".json");if(Files.exists(result))return;
++            JsonObject out=new JsonObject();out.addProperty("id",id);out.addProperty("ok",false);
++            try{
++                long age=Instant.now().getEpochSecond()-q.get("unix").getAsLong();
++                if(age< -5||age>30||!session.equals(q.get("session").getAsString()))throw new IllegalArgumentException("Stale Lab request");
++                String action=q.get("action").getAsString();
++                if(action.equals("spawn")){
++                    if(!PalEntityBridge.ready())throw new IllegalStateException("Pal authority must be fresh before Lab spawn");
++                    String kind=q.get("kind").getAsString();if(!TYPES.contains(kind))throw new IllegalArgumentException("Lab creature type");
++                    ServerPlayer p=server.getPlayerList().getPlayer(UUID.fromString(q.get("mc_player_uuid").getAsString()));
++                    if(p==null)throw new IllegalArgumentException("Exact connected MC player required");
++                    if(!tagged(server).isEmpty())throw new IllegalStateException("Clean up the existing one-creature fixture first");
++                    Mob mob=(Mob)BuiltInRegistries.ENTITY_TYPE.getOptional(Identifier.parse(kind)).orElseThrow().create((ServerLevel)p.level(),EntitySpawnReason.COMMAND);
++                    if(mob==null)throw new IllegalStateException("Vanilla creature factory returned null");
++                    mob.setUUID(UUID.nameUUIDFromBytes(("palcraft-lab:"+id).getBytes(StandardCharsets.UTF_8)));
++                    mob.addTag(TAG);mob.setNoAi(true);mob.setNoGravity(true);mob.setPersistenceRequired();
++                    mob.snapTo(p.getX()+3,p.getY(),p.getZ(),0,0);
++                    out.addProperty("status","in_flight");out.addProperty("entity",EntityCombatLedger.mcId(mob.getUUID()));
++                    PalEntityBridge.write(result,out);
++                    boolean added=((ServerLevel)p.level()).addFreshEntity(mob);out.addProperty("ok",added);
++                    out.addProperty("status",added?"spawned_held_ai":"spawn_rejected");out.addProperty("native_mc_hp",mob.getHealth());
++                    out.addProperty("ai_held",true);out.addProperty("items_granted",0);out.addProperty("player_hp_modified",false);
++                }else if(action.equals("cleanup")){
++                    int removed=0;
++                    for(Entity e:tagged(server)){e.discard();removed++;}
++                    out.addProperty("ok",true);out.addProperty("status","discarded_lab_creature_without_loot");out.addProperty("removed",removed);
++                }else if(action.equals("release_ai")){
++                    if(!PalEntityBridge.ready())throw new IllegalStateException("Pal authority must be fresh before Lab AI release");
++                    UUID uuid=UUID.fromString(q.get("entity").getAsString().substring(3));Mob found=null;
++                    for(ServerLevel l:server.getAllLevels())if(l.getEntity(uuid) instanceof Mob m&&m.entityTags().contains(TAG))found=m;
++                    if(found==null)throw new IllegalArgumentException("Tagged Lab entity unavailable");
++                    found.setNoAi(false);found.setNoGravity(false);out.addProperty("ok",true);out.addProperty("status","vanilla_ai_released");
++                }else throw new IllegalArgumentException("Unsupported Lab action");
++            }catch(RuntimeException e){out.addProperty("status","rejected");out.addProperty("error",e.toString());}
++            PalEntityBridge.write(result,out);
++        }catch(Exception e){Passthrough.LOG.warn("entity Lab fixture: {}",e.toString());}
++    }
++    public static void detach(MinecraftServer server){
++        tagged(server).forEach(Entity::discard);
++    }
++    private static List<Entity> tagged(MinecraftServer server){
++        List<Entity> found=new ArrayList<>();
++        for(ServerLevel l:server.getAllLevels())for(Entity e:l.getAllEntities())if(e.entityTags().contains(TAG))found.add(e);
++        return found;
++    }
++}
+--- /dev/null
++++ b/server/entity_protocol.lua
+@@ -0,0 +1,87 @@
++-- Engine-independent protocol and attempt-once combat journal. Clients cannot be an authority.
++local P={VERSION=1,MAX_ENTITIES=512,MAX_DAMAGE=10000}
++function P.uuid(s)return type(s)=='string'and #s==36 and s:match('^%x%x%x%x%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%-%x%x%x%x%x%x%x%x%x%x%x%x$')~=nil and s==s:lower()end
++function P.token(s)return type(s)=='string'and #s>0 and #s<=128 and not s:find('[^%w_.:%-]')end
++function P.entity_id(s)
++ if type(s)~='string'then return false end
++ if s:sub(1,3)=='mc:'then return P.uuid(s:sub(4))end
++ if s:sub(1,4)=='pal:'then local a,b=s:sub(5):match('^([^/]+)/([^/]+)$');return P.uuid(a)and P.uuid(b)end
++ return false
++end
++function P.finite(n)return type(n)=='number'and n==n and n~=math.huge and n~=-math.huge end
++local function safe(q,k)assert(P.token(q[k]),'Invalid '..k);return q[k]end
++function P.validate_hit(q,session,epoch,source_epoch,authority)
++ assert(type(q)=='table'and q.v==1 and q.t=='entity_damage'and q.authority==authority,'Invalid authority envelope')
++ assert(P.uuid(q.id),'Invalid event ID')
++ assert(safe(q,'session')==session,'Stale session')
++ assert(safe(q,'target_epoch')==epoch,'Stale target epoch')
++ assert(safe(q,'source_epoch')==source_epoch,'Stale source epoch')
++ assert(P.entity_id(q.source)and P.entity_id(q.target),'Invalid entity ID')
++ assert(authority~='mc_server'or(q.source:sub(1,3)=='mc:'and q.target:sub(1,4)=='pal:'),'Wrong authority direction')
++ assert(P.finite(q.amount)and q.amount>0 and q.amount<=P.MAX_DAMAGE,'Invalid damage')
++ assert(type(q.kind)=='string'and #q.kind<=96 and #q.kind>0 and not q.kind:find('[^%w_:./%-]'),'Invalid damage kind')
++ return true
++end
++-- Include all combat semantics; reusing an ID for a different attacker/amount is a conflict, not another hit.
++function P.fingerprint(q)
++ return table.concat({tostring(q.session),tostring(q.target_epoch),tostring(q.source_epoch),tostring(q.target),tostring(q.source),P.finite(q.amount)and('%.17g'):format(q.amount)or tostring(q.amount),tostring(q.kind),
++  tostring(q.environment==true),tostring(q.source_player==true),q.player_session and tostring(q.player_session.session_id)or'',
++  q.player_session and tostring(q.player_session.generation)or''},'|')
++end
++function P.validate_snapshot(q,session,now)
++ assert(type(q)=='table'and q.v==1 and q.t=='entity_snapshot'and q.authority=='mc_server','Invalid MC authority snapshot')
++ assert(safe(q,'session')==session and P.token(q.epoch),'Stale MC session')
++ assert(P.finite(q.unix)and now-q.unix<=3 and now-q.unix>=-5,'Stale MC snapshot')
++ assert(type(q.revision)=='number'and q.revision>=0 and q.revision%1==0,'Invalid revision')
++ assert(type(q.entities)=='table'and #q.entities<=P.MAX_ENTITIES,'Entity limit')
++ local seen={}
++ for _,r in ipairs(q.entities)do
++  assert(P.entity_id(r.id)and r.id:sub(1,3)=='mc:'and not seen[r.id],'Invalid or duplicate MC identity');seen[r.id]=true
++  assert(type(r.kind)=='string'and #r.kind<=128,'Invalid entity kind')
++  for _,k in ipairs({'x','y','z','yaw','width','height'})do assert(P.finite(r[k]),'Invalid '..k)end
++  assert(math.abs(r.x)<=29999900 and math.abs(r.z)<=29999900 and math.abs(r.y)<=100000,'Entity outside bridge bounds')
++  assert(r.width>0 and r.width<=64 and r.height>0 and r.height<=64,'Invalid entity dimensions')
++  if r.category=='mob'then assert(P.finite(r.hp)and P.finite(r.max_hp)and r.hp>=0 and r.max_hp>0,'Invalid health')end
++ end
++ return true
++end
++function P.new(o)
++ assert(P.token(o.session)and P.token(o.epoch),'Server authority required')
++ assert(type(o.read)=='function'and type(o.write)=='function'and type(o.apply)=='function','Durable storage and native apply required')
++ local M={session=o.session,epoch=o.epoch,source_epoch=nil,revision=-1,applied=0,rejected=0,uncertain=0}
++ function M.snapshot(q)
++  P.validate_snapshot(q,M.session,o.now())
++  if M.source_epoch==q.epoch and q.revision<=M.revision then return false end
++  local changed=M.source_epoch~=q.epoch
++  M.source_epoch=q.epoch;M.revision=q.revision
++  return true,changed
++ end
++ function M.hit(q)
++  local path='pal-result-'..tostring(q.id)..'.json'
++  assert(P.uuid(q.id),'Invalid event path')
++  local prior=o.read(path)
++  if prior then
++   if prior.fingerprint~=P.fingerprint(q)then return {v=1,t='entity_result',id=q.id,ok=false,status='id_conflict'}end
++   return prior -- in_flight/native_error stay uncertain forever; no automatic native retry
++  end
++  local valid,why=pcall(P.validate_hit,q,M.session,M.epoch,M.source_epoch,'mc_server')
++  if not valid then
++   M.rejected=M.rejected+1
++   local r={v=1,t='entity_result',id=q.id,ok=false,status='rejected',error=tostring(why),fingerprint=P.fingerprint(q)}
++   o.write(path,r);return r
++  end
++  local r={v=1,t='entity_result',id=q.id,session=M.session,epoch=M.epoch,ok=false,status='in_flight',fingerprint=P.fingerprint(q),drop_owner='palworld'}
++  o.write(path,r) -- durability is mandatory before any native mutation
++  local ok,result=pcall(o.apply,q)
++  if not ok then r.status='native_error';r.error=tostring(result);M.uncertain=M.uncertain+1
++  else
++   assert(type(result)=='table','Native result required')
++   for k,v in pairs(result)do r[k]=v end
++   r.ok=result.ok==true;r.status=result.status or(r.ok and'applied'or'pending_native_confirmation')
++   if r.ok then M.applied=M.applied+1 else M.uncertain=M.uncertain+1 end
++  end
++  o.write(path,r);return r
++ end
++ return M
++end
++return P
+--- /dev/null
++++ b/server/entities.lua
+@@ -0,0 +1,310 @@
++-- Pal server authority for real actor hit bodies and native combat. Load once and tick on the game thread.
++local dir=assert(debug.getinfo(1,'S').source:match('^@(.*[/\\])'))
++local P=dofile(dir..'entity_protocol.lua')
++local E={}
++local ZERO={A=0,B=0,C=0,D=0}
++local function live(a)return a and a:IsValid()and not a:GetFullName():find('Default__',1,true)end
++local function str(v)return type(v)=='string'and v or v:ToString()end
++local function guid(g)return('%08x-%04x-%04x-%04x-%04x%08x'):format(g.A&0xffffffff,(g.B>>16)&0xffff,g.B&0xffff,(g.C>>16)&0xffff,g.C&0xffff,g.D&0xffffffff)end
++local function plain_guid(g)return {A=g.A,B=g.B,C=g.C,D=g.D}end
++local function unwrap(v)return v and v.get and v:get()or v end
++local DEFAULT_SPECIES={['minecraft:sheep']='SheepBall',['minecraft:cow']='CowPal',['minecraft:chicken']='ChickenPal',
++ ['minecraft:pig']='BoarPal',['minecraft:wolf']='Garm',['minecraft:cat']='PinkCat',['minecraft:rabbit']='CuteFox',
++ ['minecraft:zombie']='DreamDemon',['minecraft:husk']='DreamDemon',['minecraft:drowned']='DreamDemon',
++ ['minecraft:skeleton']='DarkCrow',['minecraft:stray']='DarkCrow',['minecraft:creeper']='GhostBeast',
++ ['minecraft:spider']='Garm',['minecraft:cave_spider']='Garm',['minecraft:slime']='NegativeKoala',
++ ['minecraft:phantom']='NightFox',['minecraft:bat']='DarkCrow',['minecraft:blaze']='FlameBambi',
++ ['minecraft:enderman']='DarkScorpion',['minecraft:villager']='SheepBall'}
++
++function E.new(o)
++ o=o or{};assert(IsInGameThread(),'Entities must be initialized on the game thread')
++ local root=assert(o.root,'Entity transport directory required'):gsub('\\','/'):gsub('/?$','/')
++ local J=assert(o.json,'JSON adapter required');local now=o.now or os.time
++ local O=assert(o.origin,'World origin required');local active_dimension=o.dimension or'minecraft:overworld'
++ local scale=o.pal_damage_per_mc_health or 50;assert(P.finite(scale)and scale>0,'Damage conversion required')
++ local function read(name)
++  if o.read then return o.read(name)end
++  local path=(name:match('^%a:[/\\]')or name:sub(1,1)=='/')and name or root..name
++  local f=io.open(path,'rb');if not f then return end
++  local size=f:seek('end');assert(size<=1048576,'Entity message too large');f:seek('set');local raw=f:read('*a');f:close();return J.decode(raw)
++ end
++ local function write(name,v)
++  if o.write then return o.write(name,v)end
++  local f=assert(io.open(root..name..'.tmp','wb'));assert(f:write(J.encode(v)));f:close();os.remove(root..name);assert(os.rename(root..name..'.tmp',root..name))
++ end
++ local utility=StaticFindObject('/Script/Pal.Default__PalUtility')
++ local fp=StaticFindObject('/Script/Pal.Default__FixedPoint64MathLibrary')
++ local ids=StaticFindObject('/Script/Engine.Default__KismetGuidLibrary')
++ assert(utility and utility:IsValid()and fp and fp:IsValid()and ids and ids:IsValid(),'Native utilities unavailable')
++ local gs
++ for _,a in ipairs(FindAllOf('PalGameStateInGame')or{})do if live(a)and a:HasAuthority()then gs=a;break end end
++ assert(gs,'Authoritative Pal game state required; client observer cannot run server entities')
++ local session=str(gs.ServerSessionId);assert(not o.session or o.session==session,'Pal session mismatch')
++ local epoch=guid(ids:NewGuid());local manager=utility:GetCharacterManager(gs);assert(live(manager),'Character manager unavailable')
++ local database
++ for _,a in ipairs(FindAllOf('PalDatabaseCharacterParameter')or{})do if live(a)then database=a;break end end
++ assert(live(database),'Character database unavailable')
++ local M={running=true,session=session,epoch=epoch,revision=0,ticks=0,bodies={},native={},by_actor={},by_parameter={},
++  hooks={},errors={},confirmed={spawns=0,native_damage_observations=0,pal_damage=0,deaths=0},unprojected={},phase='waiting_for_mc_server'}
++ local function numeric(v)return type(v)=='number'and v or fp:Convert_FixedPoint64ToFloat(v)end
++ local function parameter(a)local cp=a:GetCharacterParameterComponent();assert(live(cp),'Character component unavailable');local ip=cp:GetIndividualParameter();assert(live(ip),'Individual parameter unavailable');return cp,ip end
++ local function id_for(a)
++  local cp,ip=parameter(a);local h=manager:GetIndividualHandleFromCharacterParameter(ip);assert(live(h),'Individual handle unavailable')
++  local id=h:GetIndividualID();return 'pal:'..guid(id.PlayerUId)..'/'..guid(id.InstanceId),cp,ip,h
++ end
++ local function world(r)return {X=O.X+r.x*100,Y=O.Y-r.z*100,Z=O.Z+(r.y-64)*100}end
++ local function mc(p)return (p.X-O.X)/100,64+(p.Z-O.Z)/100,-(p.Y-O.Y)/100 end
++ local function remove(e)
++  if e.actor and live(e.actor)then M.by_actor[e.actor:GetAddress()]=nil end
++  if e.cp and live(e.cp)then M.by_parameter[e.cp:GetAddress()]=nil end
++  if live(e.handle)then manager:DespawnCharacterByHandle(e.handle,nil)end
++ end
++ local function configure(e)
++  local a=e.handle:TryGetIndividualActor();if not live(a)then return false end
++  assert(a:HasAuthority(),'Spawned body lacks server authority')
++  if not a:IsInitialized()then return false end
++  local cp,ip=parameter(a);if numeric(cp:GetMaxHP())<=0 then return false end
++  local controller=a:GetController()
++  if live(controller)then assert(controller:IsA('/Script/Pal.PalAIController'),'Body controller is not a Pal AI controller');controller:SetActiveAI(false)end
++  a.CharacterMovement:DisableMovement()
++  ip:SetUncapturable(true);ip:SetDisableNaturalHealing(true);ip:SetDisableNaturalUpdate(true)
++  ip:SetCanTargetFromAI(true)
++  e.actor,e.cp,e.ip=a,cp,ip;M.by_actor[a:GetAddress()]=e;M.by_parameter[cp:GetAddress()]=e
++  if not e.guard_registered then e.original_hp=numeric(cp:GetHP());e.guard_registered=true end
++  a:SetActiveActor(true);controller=a:GetController()
++  if not live(controller)then e.phase='awaiting_native_controller';return false end
++  assert(controller:IsA('/Script/Pal.PalAIController'),'Body controller is not a Pal AI controller')
++  controller:SetActiveAI(false);a.CharacterMovement:DisableMovement()
++  if e.phase~='active'then M.confirmed.spawns=M.confirmed.spawns+1 end;e.phase='active'
++  return true
++ end
++ local function spawn(r)
++  assert(M.hooks.damage,'Native damage hook must exist before a body can be spawned')
++  local data={};local species=(o.species or DEFAULT_SPECIES)[r.kind]or'SheepBall'
++  local setup=database:SetupSaveParameter(FName(species),o.body_level or 1,ZERO,data)
++  assert(setup,'Native database rejected surrogate species '..species)
++  local save=data.outParameter or data;assert(save.CharacterID,'Save parameter output unavailable')
++  save.NickName='MC '..r.kind;save.FilteredNickName=save.NickName;save.IsPlayer=false
++  local loc=world(r);loc.Z=loc.Z+r.height*50
++  local name='PalCraftMC_'..r.id:sub(4):gsub('%-','')
++  local handle=manager:SpawnNewCharacter(save,{Name=FName(name),Owner=gs,SpawnLocation=loc,
++   SpawnRotation={Pitch=0,Yaw=-90-r.yaw,Roll=0},SpawnScale={X=1,Y=1,Z=1},SpawnCollisionHandlingOverride=2,
++   bAlwaysRelevant=false,bNeedAdjustToFloor=false,bStartAsInactivePalCharacter=true},nil)
++  assert(live(handle),'SpawnNewCharacter did not return an IndividualHandle')
++  local e={id=r.id,state=r,handle=handle,phase='awaiting_native_actor',species=species,requested=now(),name=name}
++  M.bodies[r.id]=e;configure(e);return e
++ end
++ local function update_body(e,r)
++  e.state=r;e.missing=0
++  if not e.actor or not live(e.actor)or e.phase~='active'then
++   if not configure(e)then assert(now()-e.requested<10,'Native actor spawn timed out');return end
++  end
++  local p=world(r);local half=e.actor.CapsuleComponent:GetScaledCapsuleHalfHeight();p.Z=p.Z+half
++  e.actor:K2_SetActorLocation(p,false,{},true);e.actor:K2_SetActorRotation({Pitch=0,Yaw=-90-r.yaw,Roll=0},false)
++  e.actor:ForceNetUpdate()
++  -- HP is never written to a real Pal. Native bodies retain their spawn HP and cannot produce native death loot.
++  if numeric(e.cp:GetHP())~=e.original_hp then
++   M.errors[e.id]='surrogate_native_hp_changed';M.phase='native_damage_guard_failed';M.running=false
++   error('Native damage guard failed for '..e.id)
++  end
++ end
++ local function authenticated_player(mc_uuid,proof)
++  local table=read(o.sessions_file or'../auth/authenticated-sessions.json');if not table then return nil,'missing_authenticated_sessions'end
++  local age=now()-(table.updated_unix or 0)
++  if table.v~=2 or age< -5 or age>5 or table.server_session_id~=session then return nil,'stale_authenticated_sessions'end
++  local world_id=o.world_id or str(gs:GetWorldSaveDirectoryName())
++  if table.world_id~=world_id then return nil,'world_identity_mismatch'end
++  for _,r in ipairs(table.sessions or{})do
++   if r.mc_uuid==mc_uuid and not r.legacy and P.uuid(r.pal_uid)and (r.expires_at or 0)>now()then
++    if not proof or proof.mc_uuid~=r.mc_uuid or proof.pal_uid~=r.pal_uid or proof.world_id~=table.world_id
++      or proof.server_session_id~=session or proof.session_id~=r.session_id or proof.generation~=r.generation then return nil,'source_connection_generation_mismatch'end
++    for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do
++     if live(pc)and pc:HasAuthority()and guid(pc:GetPlayerUId())==r.pal_uid and live(pc.Pawn)then return pc.Pawn,r end
++    end
++   end
++  end
++  return nil,'unbound_or_offline_source_player'
++ end
++ local function apply(q)
++  assert(IsInGameThread(),'Native combat requires game thread')
++  local target=M.native[q.target];assert(target and live(target.actor),'Real Pal target unavailable')
++  local cp=target.cp;assert(not cp:IsDead(),'Target already dead')
++  local attacker,binding
++  if q.source_player then attacker,binding=authenticated_player(q.source:sub(4),q.player_session);assert(attacker,'Verified player unavailable: '..tostring(binding))
++  elseif not q.environment then local body=M.bodies[q.source];assert(body and body.phase=='active'and live(body.actor),'MC attacker body unavailable');attacker=body.actor end
++  local before,shield_before=numeric(cp:GetHP()),numeric(target.ip:GetShieldHP())
++  local alive_before,dying_before=not cp:IsDead(),cp:IsDying()
++  local power=math.max(1,math.floor(q.amount*scale+.5))
++  if q.environment then
++   assert(target.player,'Environmental MC damage is only for the bound avatar')
++   local bound=authenticated_player(q.source:sub(4),q.player_session);assert(bound and bound:GetAddress()==target.actor:GetAddress(),'Environmental damage player mismatch')
++   local dead={['minecraft:fall']=4,['minecraft:drown']=7,['minecraft:on_fire']=6,['minecraft:in_fire']=6,['minecraft:lava']=6,['minecraft:starve']=0,['minecraft:poison']=5}
++   local kind=dead[q.kind];assert(kind~=nil,'Environmental damage kind pending native mapping: '..q.kind)
++   target.actor.DamageReactionComponent:SlipDamage(power,true,kind,false)
++  else
++   local _,ip=parameter(attacker)
++   local make={Attacker=attacker,Defender=target.actor,Power=power,Category=0,Element=1,AttackType=q.source_player and 1 or 0,WeaponType=0,
++    HitLocation=target.actor:K2_GetActorLocation(),IsLeanBack=false,IsBlow=false,SneakAttackRate=1,DamageRatePerCollision=1,
++    PvPBuildingDamageRate=1,PvPPlayerToGuildPalDamageRate=1,CollectionObjectDamageRate=1,WeaponDamageRatePvP=1,
++    bAttackableToFriend=false,NoDamage=false,IgnoreShield=false,IgnorePlayerEquipItemDamage=false,bCannotKill=false,
++    bIsExplosionDamage=q.kind:find('explosion',1,true)~=nil}
++   local info=utility:MakeDamageInfo(make)
++   -- The native calculator, friendly-fire checks, shield/armor, AI retaliation and death pipeline remain enabled.
++   info.AttackerGroupID=plain_guid(ip:GetGroupId())
++   utility:ProcessDamageAndPlayEffectsByDamageInfo(attacker,target.actor,info,true,0)
++  end
++  local after,shield_after=numeric(cp:GetHP()),numeric(target.ip:GetShieldHP())
++  local observed=M.last_native_damage and M.last_native_damage.defender==q.target and M.last_native_damage.serial>M.current_apply_serial
++  local changed=after~=before or shield_after~=shield_before or alive_before~=not cp:IsDead()or dying_before~=cp:IsDying()
++  if changed then M.confirmed.pal_damage=M.confirmed.pal_damage+1 end
++  return {ok=changed or observed,accepted=changed,native_damage_observed=observed==true,
++   status=changed and'applied'or observed and'blocked_by_native_rules'or'pending_native_confirmation',
++   before_hp=before,after_hp=after,before_shield=shield_before,after_shield=shield_after,alive=not cp:IsDead(),dying=cp:IsDying(),
++   before_alive=alive_before,before_dying=dying_before,
++   native_route=q.environment and'SlipDamage'or'ProcessDamageAndPlayEffectsByDamageInfo',player_attributed=binding~=nil,drop_owner='palworld'}
++ end
++ local protocol=P.new{session=session,epoch=epoch,read=read,write=write,now=now,apply=function(q)
++  M.current_apply_serial=M.damage_serial or 0;M.applying_damage=q
++  local ok,result=pcall(apply,q);M.applying_damage=nil
++  if not ok then error(result)end;return result
++ end}
++ M.protocol=protocol
++ local function native_damage(context,damage_param)
++  local cp=unwrap(context);if not live(cp)then return end
++  local owner=cp:GetOwner();if not live(owner)or not owner:HasAuthority()then return end
++  local result=unwrap(damage_param);local body=M.by_parameter[cp:GetAddress()]
++  M.damage_serial=(M.damage_serial or 0)+1
++  local attacker_body=live(result.Attacker)and M.by_actor[result.Attacker:GetAddress()]
++  if not body and attacker_body then
++   local expected=M.applying_damage;local target_id=id_for(owner)
++   if not expected or expected.source~=attacker_body.id or expected.target~=target_id then
++    result.Damage=0;result.ActualDamage=0;result.bCannotKill=true
++    M.suppressed_surrogate_attacks=(M.suppressed_surrogate_attacks or 0)+1;return
++   end
++  end
++  if body then
++   local amount=result.Damage
++   -- Only this server HP-stage hook forwards damage. Client FX and subsequent damage/death hooks never do.
++   if P.finite(amount)and amount>0 and M.running and protocol.source_epoch then
++    local attacker=result.Attacker
++    if live(attacker)and not M.by_actor[attacker:GetAddress()]then
++     local from=id_for(attacker);local id=guid(ids:NewGuid())
++     local q={v=1,t='entity_damage',authority='pal_server',session=session,id=id,source_epoch=epoch,
++      target_epoch=protocol.source_epoch,target=body.id,source=from,amount=amount/scale,kind='pal:native',unix=now()}
++     assert(P.finite(q.amount)and q.amount<=10000,'Native damage conversion limit')
++     write('pal-hit-'..id..'.json',q);M.confirmed.native_damage_observations=M.confirmed.native_damage_observations+1
++    end
++   end
++   -- Surrogate native HP/death is disabled at the normal HP stage; MC owns the only death and loot.
++   result.Damage=0;result.ActualDamage=0;result.bCannotKill=true
++  else
++   local defender=id_for(owner)
++   M.last_native_damage={defender=defender,serial=M.damage_serial,amount=result.Damage}
++  end
++ end
++ local function hook(path,pre,post)
++  local fn=StaticFindObject(path);assert(live(fn),'Missing native function '..path)
++  local a,b=RegisterHook(path,pre,post);assert(a and b,'Native hook registration did not return both IDs')
++  return {path=path,pre=a,post=b}
++ end
++ M.hooks.damage=hook('/Script/Pal.PalCharacterParameterComponent:OnDamage',function(c,d)
++  local ok,why=pcall(native_damage,c,d)
++  if not ok then M.phase='native_hook_error';M.errors.damage=tostring(why);M.running=false
++   -- If transport fails, still prevent a native surrogate kill/reward. Never silently revert to two authorities.
++   local cp=unwrap(c);local body=live(cp)and M.by_parameter[cp:GetAddress()]
++   if body then local result=unwrap(d);result.Damage=0;result.ActualDamage=0;result.bCannotKill=true end
++  end
++ end)
++ M.hooks.death=hook('/Script/Pal.PalCharacter:OnDeadCharacter',function()end,function(c,d)
++  local a=unwrap(c);if not live(a)or not a:HasAuthority()then return end
++  if M.by_actor[a:GetAddress()]then M.phase='unexpected_surrogate_death';M.errors.death='Native death guard failed';M.running=false;return end
++  local ok,id=pcall(id_for,a);if not ok then M.errors.death=tostring(id);return end
++  if not M.dead_seen then M.dead_seen={}end
++  if not M.dead_seen[id]then M.dead_seen[id]=true;M.confirmed.deaths=M.confirmed.deaths+1
++   write('pal-death-'..guid(ids:NewGuid())..'.json',{v=1,t='entity_death',authority='pal_server',session=session,epoch=epoch,entity=id,drop_owner='palworld',unix=now()})
++  end
++ end)
++ local function scan()
++  local rows=J.array();M.native={}
++  local centers={}
++  for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do if live(pc)and pc:HasAuthority()and live(pc.Pawn)then centers[#centers+1]=pc.Pawn:K2_GetActorLocation()end end
++  for _,a in ipairs(FindAllOf('PalCharacter')or{})do
++   if live(a)and a:HasAuthority()and not M.by_actor[a:GetAddress()]then
++    local pos=a:K2_GetActorLocation();local near=false
++    for _,c in ipairs(centers)do if (pos.X-c.X)^2+(pos.Y-c.Y)^2+(pos.Z-c.Z)^2<=9600^2 then near=true;break end end
++    if near then
++     local ok,id,cp,ip,h=pcall(id_for,a)
++     if ok then
++      local individual=h:GetIndividualID();local capsule=a.CapsuleComponent
++      local half=live(capsule)and capsule:GetScaledCapsuleHalfHeight()or 90
++      local radius=live(capsule)and capsule:GetScaledCapsuleRadius()or 30
++      local x,y,z=mc{X=pos.X,Y=pos.Y,Z=pos.Z-half}
++      local player=a:IsA('/Script/Pal.PalPlayerCharacter')
++      local row={id=id,kind=str(ip:GetCharacterID()),x=x,y=y,z=z,yaw=-90-a:K2_GetActorRotation().Yaw,
++       hp=numeric(cp:GetHP()),max_hp=numeric(cp:GetMaxHP()),shield=numeric(ip:GetShieldHP()),max_shield=numeric(ip:GetShieldMaxHP()),
++       width=radius*2/100,height=half*2/100,alive=not cp:IsDead(),dying=cp:IsDying(),player=player,
++       full_stomach=cp:GetFullStomach(),max_full_stomach=cp:GetMaxFullStomach(),
++       player_uid=guid(individual.PlayerUId),group=guid(ip:GetGroupId()),dimension=active_dimension}
++      local controller=a:GetController()
++      if live(controller)and not player and controller:IsA('/Script/Pal.PalAIController')then
++       local hate=controller:GetHateSystem();if live(hate)then local target=hate:FindMostHateTarget();if live(target)then local b=M.by_actor[target:GetAddress()];row.target=b and b.id or nil end end
++      end
++      rows[#rows+1]=row;M.native[id]={actor=a,cp=cp,ip=ip,handle=h,player=player}
++      if #rows>=512 then break end
++     else M.errors[a:GetFullName()]=tostring(id)end
++    end
++   end
++  end
++  M.revision=M.revision+1;write('pal-state.json',{v=1,t='entity_snapshot',authority='pal_server',session=session,epoch=epoch,revision=M.revision,unix=now(),entities=rows})
++ end
++ function M.tick()
++  assert(IsInGameThread(),'Entity tick must run on game thread');if not M.running then return M.status()end
++  local ok,why=pcall(function()
++   assert(live(gs)and str(gs.ServerSessionId)==session,'Pal world changed')
++   M.ticks=M.ticks+1;scan()
++   local q=read('mc-state.json')
++   if q and q.session==session and P.finite(q.unix)and now()-q.unix<=3 and now()-q.unix>=-5 then
++    local changed,new_epoch=protocol.snapshot(q)
++    if changed then
++     if new_epoch then for _,e in pairs(M.bodies)do remove(e)end;M.bodies={}end
++     M.mc_seen=now();M.phase='active';local wanted={};M.unprojected={}
++     local spawned=0
++     for _,r in ipairs(q.entities)do
++      if r.category=='mob'and r.alive and r.dimension==active_dimension then
++       wanted[r.id]=true;local e=M.bodies[r.id]
++       if not e and spawned<4 then e=spawn(r);spawned=spawned+1 end
++       if e then update_body(e,r)end
++      elseif r.category=='mob'and r.dimension~=active_dimension then M.unprojected[r.id]=r.dimension end
++     end
++     for id,e in pairs(M.bodies)do if not wanted[id]then e.missing=(e.missing or 0)+1;if e.missing>2 then remove(e);M.bodies[id]=nil end end end
++    end
++   end
++   if M.mc_seen and now()-M.mc_seen>3 then for _,e in pairs(M.bodies)do remove(e)end;M.bodies={};M.phase='mc_server_stale'end
++   -- Reliable journal: scan the IDs from the authority index, not a filesystem shell or client payload.
++   local index=read('mc-hits.json')
++   if index and index.session==session and index.epoch==protocol.source_epoch then
++    for i,id in ipairs(index.ids or{})do if i>32 then break end
++     if P.uuid(id)then local hit=read('mc-hit-'..id..'.json');if hit then assert(hit.id==id,'Hit index/file identity mismatch');local result=protocol.hit(hit);M.last_result=result end end
++    end
++   end
++  end)
++  if not ok then M.phase='runtime_error';M.errors.tick=tostring(why);M.running=false end
++  write('pal-status.json',M.status());return M.status()
++ end
++ function M.status()
++  local n=0;local bodies=J.array();for id,e in pairs(M.bodies)do n=n+1;bodies[#bodies+1]={id=id,phase=e.phase,species=e.species,actor_name=e.actor and live(e.actor)and e.actor:GetFullName()or nil,render='native_pal_surrogate_pending_mc_model'}end
++  return {v=1,t='entity_status',authority='pal_server',running=M.running,phase=M.phase,session=session,epoch=epoch,
++   bodies=n,mappings=bodies,errors=M.errors,confirmed=M.confirmed,pending={mc_models_and_animations=true,native_spawn_and_hooks=M.confirmed.spawns==0,native_despawn_confirmation=M.cleanup_pending or 0},
++   unprojected=M.unprojected,applied=protocol.applied,rejected=protocol.rejected,uncertain=protocol.uncertain,suppressed_surrogate_attacks=M.suppressed_surrogate_attacks or 0,
++   player_health_authority='pal_server',food_authority='pal_server',mc_food_use='pending_native_mapping'}
++ end
++ function M.stop()
++  assert(IsInGameThread(),'Entity stop must run on game thread');M.running=false
++  M.cleanup_pending=0
++  for _,e in pairs(M.bodies)do remove(e);if live(e.handle)and live(e.handle:TryGetIndividualActor())then M.cleanup_pending=M.cleanup_pending+1 end end;M.bodies={}
++  for _,h in pairs(M.hooks)do UnregisterHook(h.path,h.pre,h.post)end;M.hooks={};M.phase=M.cleanup_pending>0 and'stop_requested_pending_native_despawn'or'stopped'
++  write('pal-status.json',M.status());return M.status()
++ end
++ return M
++end
++return E
+--- /dev/null
++++ b/client/entities.lua
+@@ -0,0 +1,77 @@
++-- Observer only. Native Pal bodies are real replicated actors; this client never spawns combat bodies or sends damage.
++local E={}
++local function live(a)return a and a:IsValid()and not a:GetFullName():find('Default__',1,true)end
++local function guid(g)
++ return('%08x-%04x-%04x-%04x-%04x%08x'):format(g.A&0xffffffff,(g.B>>16)&0xffff,g.B&0xffff,(g.C>>16)&0xffff,g.C&0xffff,g.D&0xffffffff)
++end
++function E.new(o)
++ assert(IsInGameThread(),'Entity observer must run on game thread')
++ local J=assert(o.json);local root=assert(o.root):gsub('\\','/'):gsub('/?$','/')
++ local now=o.now or os.time
++ local M={running=true,views={},revision=-1,pending_models=true,phase='waiting_for_authority'}
++ local function read(name)
++  if o.read then return o.read(name)end
++  local f=io.open(root..name,'rb');if not f then return end;local raw=f:read('*a');f:close();assert(#raw<=1048576,'Observer snapshot too large');return J.decode(raw)
++ end
++ local function fresh(q)return q and type(q.unix)=='number'and now()-q.unix>=-5 and now()-q.unix<=3 end
++ local function session(pc)
++  for _,g in ipairs(FindAllOf('PalGameStateInGame')or{})do if live(g)then local id=type(g.ServerSessionId)=='string'and g.ServerSessionId or g.ServerSessionId:ToString();if id==o.session then return id end end end
++ end
++ local function clear_views()
++  if o.renderer then for _,v in pairs(M.views)do if v.render_handle then o.renderer.remove(v.render_handle)end end end
++  M.views={};M.rendered=0
++ end
++ function M.tick(pc)
++  assert(IsInGameThread(),'Observer tick must run on game thread')
++  if not M.running then return end
++  if not live(pc)or not session(pc)then clear_views();M.phase='other_or_unloaded_session';return end
++  local state=read('mc-state.json');local pal=read('pal-state.json')
++  if not fresh(state)or not fresh(pal)or state.session~=o.session or pal.session~=o.session then clear_views();M.phase='authority_stale';return end
++  local actors={}
++  for _,a in ipairs(FindAllOf('PalCharacter')or{})do
++   if live(a)then local id=a:GetFullName():match('PalCraftMC_(%x+)');if id then actors[id]=a end end
++  end
++  local next_views={};local rendered=0
++  for _,r in ipairs(state.entities or{})do
++   if r.category=='mob'and r.alive then
++    local a=actors[r.id:sub(4):gsub('%-','')]
++    if a then
++     local prior=M.views[r.id];local view={id=r.id,kind=r.kind,actor=a,state=r,render='native_pal_surrogate_pending_mc_model'}
++     -- A renderer may be supplied by the native owner only when it implements real world meshes/animations.
++     if o.renderer then
++      local handle=prior and prior.render_handle or o.renderer.spawn(r,a)
++      if handle then o.renderer.update(handle,r,a);view.render_handle=handle;view.render='mc_world_model';rendered=rendered+1 end
++     end
++     next_views[r.id]=view
++    end
++   end
++  end
++  if o.renderer then for id,v in pairs(M.views)do if not next_views[id]and v.render_handle then o.renderer.remove(v.render_handle)end end end
++  M.views=next_views;M.revision=state.revision;M.phase='observing_native_bodies';M.rendered=rendered
++  local n=0;for _ in pairs(next_views)do n=n+1 end;M.pending_models=not o.renderer or rendered<n
++ end
++ function M.vitals(pc)
++  if not live(pc)or not session(pc)then return {ok=false,status='unloaded_or_other_session'}end
++  local uid=guid(pc:GetPlayerUId());local pal=read('pal-state.json');local mc=read('mc-state.json')
++  if not fresh(pal)or not fresh(mc)or pal.session~=o.session or mc.session~=o.session then return {ok=false,player_uid=uid,status='authority_stale'}end
++  local p,m
++  for _,r in ipairs(pal.entities or{})do if r.player and r.player_uid==uid then p=r;break end end
++  for _,r in ipairs(mc.player_vitals or{})do if r.pal_uid==uid then m=r;break end end
++  if not p or not m then return {ok=false,player_uid=uid,status='verified_vitals_unavailable',pal_present=p~=nil,mc_present=m~=nil}end
++  return {ok=true,player_uid=uid,server_session_id=o.session,player_health_authority='pal_server',
++   pal={hp=p.hp,max_hp=p.max_hp,shield=p.shield,max_shield=p.max_shield,alive=p.alive,dying=p.dying,
++    full_stomach=p.full_stomach,max_full_stomach=p.max_full_stomach,epoch=pal.epoch,revision=pal.revision,unix=pal.unix},
++   mc={mc_uuid=m.mc_uuid,hearts=m.hearts,max_hearts=m.max_hearts,food=m.food,epoch=mc.epoch,revision=mc.revision,unix=mc.unix},
++   expected_mc_health=p.alive and not p.dying and p.hp/p.max_hp*20 or 0}
++ end
++ function M.status()
++  local n=0;for _ in pairs(M.views)do n=n+1 end
++  return {running=M.running,phase=M.phase,authority='observer_only',native_bodies=n,mc_models=M.rendered or 0,
++   pending_mc_models_and_animations=M.pending_models,damage_events_sent=0,combat_bodies_spawned=0,revision=M.revision}
++ end
++ function M.stop()
++  clear_views();M.running=false;M.phase='stopped';return M.status()
++ end
++ return M
++end
++return E
+--- /dev/null
++++ b/tests/entity-combat/protocol_test.lua
+@@ -0,0 +1,45 @@
++local root=assert(arg[1],'Repository palcraft root required')
++local P=dofile(root..'/server/entity_protocol.lua')
++local J=dofile(assert(arg[2],'JSON module path required'))
++local n=0;local cases={}
++local function test(name,f)local ok,why=pcall(f);assert(ok,name..': '..tostring(why));n=n+1;cases[#cases+1]=name end
++local function bad(f)local ok=pcall(f);assert(not ok,'Expected rejection')end
++local function clone(x)return J.decode(J.encode(x))end
++local A='00000001-0000-0000-0000-000000000001';local B='00000002-0000-0000-0000-000000000002'
++local SESSION='lab-session';local EPOCH='pal-epoch';local MC='mc-epoch'
++local function hit(id)return {v=1,t='entity_damage',authority='mc_server',id=id or A,session=SESSION,target_epoch=EPOCH,source_epoch=MC,source='mc:'..A,target='pal:'..A..'/'..B,amount=3,kind='minecraft:mob_attack'}end
++local function snapshot()return {v=1,t='entity_snapshot',authority='mc_server',session=SESSION,epoch=MC,revision=1,unix=100,entities={{id='mc:'..A,kind='minecraft:zombie',category='mob',dimension='minecraft:overworld',x=1,y=64,z=1,yaw=0,width=.6,height=1.8,hp=20,max_hp=20,alive=true}}}end
++test('stable identities reject recyclable handles',function()assert(P.entity_id('mc:'..A));assert(P.entity_id('pal:'..A..'/'..B));assert(not P.entity_id('pal:123'));assert(not P.uuid('../event'))end)
++test('valid server snapshot and hit',function()assert(P.validate_snapshot(snapshot(),SESSION,100));assert(P.validate_hit(hit(),SESSION,EPOCH,MC,'mc_server'))end)
++test('observer cannot submit damage',function()local q=hit();q.authority='pal_client';bad(function()P.validate_hit(q,SESSION,EPOCH,MC,'mc_server')end)end)
++test('stale session and both authority epochs reject',function()for _,k in ipairs({'session','source_epoch','target_epoch'})do local q=hit();q[k]='old';bad(function()P.validate_hit(q,SESSION,EPOCH,MC,'mc_server')end)end end)
++test('damage bounds and non-finite values reject',function()for _,v in ipairs({0,-1,10001,math.huge,-math.huge})do local q=hit();q.amount=v;bad(function()P.validate_hit(q,SESSION,EPOCH,MC,'mc_server')end)end;local q=hit();q.amount=0/0;bad(function()P.validate_hit(q,SESSION,EPOCH,MC,'mc_server')end)end)
++test('same-engine direction rejects',function()local q=hit();q.target='mc:'..B;bad(function()P.validate_hit(q,SESSION,EPOCH,MC,'mc_server')end)end)
++test('snapshot duplicate IDs reject',function()local q=snapshot();q.entities[2]=clone(q.entities[1]);bad(function()P.validate_snapshot(q,SESSION,100)end)end)
++test('stale snapshot rejects',function()bad(function()P.validate_snapshot(snapshot(),SESSION,104)end)end)
++test('non-finite coordinates reject',function()local q=snapshot();q.entities[1].x=0/0;bad(function()P.validate_snapshot(q,SESSION,100)end)end)
++test('durable intent precedes native invocation and replay preserves result',function()
++ local store={};local calls=0
++ local m=P.new{session=SESSION,epoch=EPOCH,now=function()return 100 end,read=function(k)return store[k]end,write=function(k,v)store[k]=clone(v)end,apply=function(q)calls=calls+1;assert(store['pal-result-'..q.id..'.json'].status=='in_flight');return {ok=true,before_hp=10,after_hp=7}end}
++ assert(m.snapshot(snapshot()));assert(not m.snapshot(snapshot()));local r=m.hit(hit());assert(r.ok and calls==1);assert(m.hit(hit()).after_hp==7 and calls==1)
++ local q=hit();q.amount=4;assert(m.hit(q).status=='id_conflict'and calls==1)
++end)
++test('crash after native call never automatically applies again',function()
++ local store={};local calls=0
++ local m=P.new{session=SESSION,epoch=EPOCH,now=function()return 100 end,read=function(k)return store[k]end,write=function(k,v)store[k]=clone(v)end,apply=function(q)calls=calls+1;error('simulated native crash after mutation')end}
++ m.snapshot(snapshot());assert(m.hit(hit()).status=='native_error');assert(m.hit(hit()).status=='native_error'and calls==1)
++end)
++test('crash while writing final receipt leaves visible uncertain intent',function()
++ local store={};local calls,writes=0,0
++ local m=P.new{session=SESSION,epoch=EPOCH,now=function()return 100 end,read=function(k)return store[k]end,write=function(k,v)writes=writes+1;if writes==2 then error('lost final receipt')end;store[k]=clone(v)end,apply=function()calls=calls+1;return {ok=true}end}
++ m.snapshot(snapshot());bad(function()m.hit(hit())end);assert(m.hit(hit()).status=='in_flight'and calls==1)
++end)
++test('storage failure prevents native mutation',function()
++ local calls=0;local m=P.new{session=SESSION,epoch=EPOCH,now=function()return 100 end,read=function()end,write=function()error('disk full')end,apply=function()calls=calls+1 end}
++ m.snapshot(snapshot());bad(function()m.hit(hit())end);assert(calls==0)
++end)
++test('old hit after restart cannot target new incarnation',function()
++ local calls=0;local m=P.new{session=SESSION,epoch='new-pal-boot',now=function()return 100 end,read=function()end,write=function()end,apply=function()calls=calls+1 end}
++ m.snapshot(snapshot());assert(not m.hit(hit()).ok and calls==0)
++end)
++print(J.encode({ok=true,suite='entity_protocol',tests=n,cases=cases,real_game_runtime_verified=false}))
+--- /dev/null
++++ b/tests/entity-combat/server_adapter_test.lua
+@@ -0,0 +1,142 @@
++-- Models the reflected SDK boundary; this does not pretend to prove an actual UE native call or hook.
++local root=assert(arg[1]);local J=dofile(assert(arg[2]));local cases={};local passed=0
++local function clone(x)return J.decode(J.encode(x))end
++local function test(name,f)local ok,why=pcall(f);assert(ok,name..': '..tostring(why));passed=passed+1;cases[#cases+1]=name end
++local ADDR=100;local function obj(name,methods)
++ ADDR=ADDR+1;local a=methods or{};a.addr=ADDR;a.name=name;a.valid=true
++ a.IsValid=function(s)return s.valid end;a.GetFullName=function(s)return s.name end;a.GetAddress=function(s)return s.addr end
++ return a
++end
++local function wrap(x)return {get=function()return x end}end
++local function g(n)return {A=n,B=0,C=0,D=n}end
++local function gid(n)return ('%08x-0000-0000-0000-%012x'):format(n,n)end
++local UID=gid(1);local PID='pal:'..UID..'/'..gid(2);local MOB='mc:'..gid(3)
++local function setup()
++ local store={};local clock=100;local hooks={};local counts={spawn=0,despawn=0,damage=0,drops=0,unhook=0,slip=0,ai=0}
++ local all={};local handles={};local serial=10;local hook_serial=0
++ IsInGameThread=function()return true end
++ FName=function(s)return {ToString=function()return s end}end
++ local function actor(name,uid,instance,player)
++  local a=obj(name,{HasAuthority=function()return true end,IsA=function(_,c)return c=='/Script/Pal.PalPlayerCharacter'and player or c=='/Script/Pal.PalCharacter'end})
++  a.pos={X=0,Y=0,Z=90};a.rotation={Pitch=0,Yaw=0,Roll=0}
++  a.K2_GetActorLocation=function(s)return s.pos end;a.K2_GetActorRotation=function(s)return s.rotation end
++  a.K2_SetActorLocation=function(s,p,sweep,hit,teleport)assert(not sweep and teleport);s.pos=p;return true end
++  a.K2_SetActorRotation=function(s,r)s.rotation=r end;a.ForceNetUpdate=function()end;a.SetActiveActor=function()end
++  a.CharacterMovement=obj('movement',{DisableMovement=function()end})
++  a.CapsuleComponent=obj('capsule',{GetScaledCapsuleHalfHeight=function()return 90 end,GetScaledCapsuleRadius=function()return 30 end})
++  local ip=obj('individual',{GetCharacterID=function()return FName(player and'Player'or'SheepBall')end,GetGroupId=function()return g(0)end,
++   GetShieldHP=function()return 0 end,GetShieldMaxHP=function()return 0 end,SetUncapturable=function(_,v)assert(v)end,
++   SetDisableNaturalHealing=function(_,v)assert(v)end,SetDisableNaturalUpdate=function(_,v)assert(v)end,SetCanTargetFromAI=function(_,v)assert(v)end})
++  local cp=obj('component',{hp=1000,GetOwner=function()return a end,GetIndividualParameter=function()return ip end,
++   GetHP=function(s)return {Value=s.hp}end,GetMaxHP=function()return {Value=1000}end,GetFullStomach=function()return 10 end,GetMaxFullStomach=function()return 100 end,
++   IsDead=function(s)return s.hp<=0 end,IsDying=function()return false end})
++  a.GetCharacterParameterComponent=function()return cp end;a.IsInitialized=function()return true end
++  local hate=obj('hate',{FindMostHateTarget=function()end})
++  local controller=obj('AIController',{IsA=function(_,c)return c=='/Script/Pal.PalAIController'end,
++   SetActiveAI=function(_,v)assert(not v);counts.ai=counts.ai+1 end,GetHateSystem=function()return hate end})
++  a.GetController=function()return controller end
++  local handle=obj('handle',{GetIndividualID=function()return {PlayerUId=g(uid),InstanceId=g(instance)}end,TryGetIndividualActor=function()return a end})
++  handles[ip]=handle;all[#all+1]=a
++  return a,cp,ip,handle
++ end
++ local player,player_cp=actor('RealPlayer',1,2,true)
++ local target,target_cp=actor('RealWildPal',0,4,false)
++ local pc=obj('PlayerController',{HasAuthority=function()return true end,Pawn=player,GetPlayerUId=function()return g(1)end})
++ local gs=obj('GameState',{HasAuthority=function()return true end,ServerSessionId='lab-session',GetWorldSaveDirectoryName=function()return 'world-lab'end})
++ local function damage(attacker,defender,power)
++  local cp=defender:GetCharacterParameterComponent();local info={Attacker=attacker,Defender=defender,Damage=power,ActualDamage=power,bCannotKill=false}
++  local h=hooks['/Script/Pal.PalCharacterParameterComponent:OnDamage'];if h and h.pre then h.pre(wrap(cp),wrap(info))end
++  cp.hp=math.max(0,cp.hp-info.Damage)
++  if cp.hp==0 then counts.drops=counts.drops+1;local d=hooks['/Script/Pal.PalCharacter:OnDeadCharacter'];if d and d.post then d.post(wrap(defender),wrap({}))end end
++  return info
++ end
++ player.DamageReactionComponent=obj('reaction',{SlipDamage=function(_,power,ignore,kind,clear)assert(ignore and not clear);counts.slip=counts.slip+1;damage(player,player,power)end})
++ local manager=obj('Manager',{GetIndividualHandleFromCharacterParameter=function(_,ip)return handles[ip]end,
++  SpawnNewCharacter=function(_,save,spawn,delegate)
++   assert(delegate==nil,'Unbound delegate required');assert(spawn.bStartAsInactivePalCharacter,'Register HP guard before activation')
++   counts.spawn=counts.spawn+1;local a,cp,ip,h=actor(spawn.Name:ToString(),0,100+counts.spawn,false);a.pos=spawn.SpawnLocation
++   return h
++  end,DespawnCharacterByHandle=function(_,h,delegate)assert(delegate==nil);counts.despawn=counts.despawn+1;h:TryGetIndividualActor().valid=false end})
++ local util=obj('Default__PalUtility',{GetCharacterManager=function()return manager end,MakeDamageInfo=function(_,q)return clone{Power=q.Power}end,
++  ProcessDamageAndPlayEffectsByDamageInfo=function(_,a,d,info,fx,exceed)assert(fx and exceed==0);counts.damage=counts.damage+1;damage(a,d,info.Power)end})
++ local fp=obj('Default__FixedPoint64MathLibrary',{Convert_FixedPoint64ToFloat=function(_,v)return v.Value end})
++ local ids=obj('Default__KismetGuidLibrary',{NewGuid=function()serial=serial+1;return g(serial)end})
++ local db=obj('Database',{SetupSaveParameter=function(_,name,level,owner,out)assert(level==1 and owner.A==0);out.CharacterID=name;return true end})
++ StaticFindObject=function(path)
++  if path=='/Script/Pal.Default__PalUtility'then return util elseif path=='/Script/Pal.Default__FixedPoint64MathLibrary'then return fp
++  elseif path=='/Script/Engine.Default__KismetGuidLibrary'then return ids else return obj('Function '..path)end
++ end
++ FindAllOf=function(c)if c=='PalGameStateInGame'then return {gs}elseif c=='PalDatabaseCharacterParameter'then return {db}elseif c=='PalPlayerController'then return {pc}elseif c=='PalCharacter'then return all end;return {}end
++ RegisterHook=function(path,pre,post)hook_serial=hook_serial+2;hooks[path]={pre=pre,post=post};return hook_serial-1,hook_serial end
++ UnregisterHook=function(path,pre,post)assert(pre and post);counts.unhook=counts.unhook+1;hooks[path]=nil end
++ local M=dofile(root..'/server/entities.lua').new{root='fixture/',json=J,origin={X=0,Y=0,Z=0},session='lab-session',now=function()return clock end,
++  read=function(k)return store[k]and clone(store[k])end,write=function(k,v)store[k]=clone(v)end}
++ store['mc-state.json']={v=1,t='entity_snapshot',authority='mc_server',session='lab-session',epoch='mc-epoch',revision=1,unix=clock,
++  entities={{id=MOB,kind='minecraft:zombie',category='mob',dimension='minecraft:overworld',x=0,y=64,z=0,yaw=0,width=.6,height=1.8,hp=20,max_hp=20,alive=true}}}
++ M.tick();assert(M.running and counts.spawn==1,J.encode(M.status()))
++ local function hit(id,source,targetId)return {v=1,t='entity_damage',authority='mc_server',id=gid(id),session='lab-session',target_epoch=M.epoch,source_epoch='mc-epoch',target=targetId or'pal:'..gid(0)..'/'..gid(4),source=source or MOB,amount=2,kind='minecraft:mob_attack'}end
++ return {m=M,store=store,counts=counts,player=player,player_cp=player_cp,target=target,target_cp=target_cp,damage=damage,pc=pc,
++  hit=hit,clock=function(v)clock=v end,hooks=hooks,proof={v=2,world_id='world-lab',server_session_id='lab-session',pal_uid=UID,mc_uuid=gid(5),session_id=gid(6),generation=1,expires_at=110,legacy=false}}
++end
++test('real character spawn is inactive until guard registered',function()local s=setup();assert(s.m.confirmed.spawns==1 and s.counts.ai>=2);assert(s.m.bodies[MOB].phase=='active');assert(s.m.status().mappings[1].render=='native_pal_surrogate_pending_mc_model')end)
++test('native Pal hit is durable once and surrogate HP stays unchanged',function()
++ local s=setup();local body=s.m.bodies[MOB];local info=s.damage(s.player,body.actor,100)
++ assert(info.Damage==0 and info.ActualDamage==0 and info.bCannotKill);assert(body.cp.hp==1000 and s.counts.drops==0)
++ local count=0;for k,q in pairs(s.store)do if k:match('^pal%-hit%-')then count=count+1;assert(q.source==PID and q.target==MOB and q.amount==2 and q.authority=='pal_server')end end
++ assert(count==1 and s.m.confirmed.native_damage_observations==1)
++end)
++test('observer-side copy cannot forward native hit',function()
++ local s=setup();local body=s.m.bodies[MOB];body.actor.HasAuthority=function()return false end
++ local info={Attacker=s.player,Damage=100,ActualDamage=100};s.hooks['/Script/Pal.PalCharacterParameterComponent:OnDamage'].pre(wrap(body.cp),wrap(info))
++ assert(info.Damage==100 and s.m.confirmed.native_damage_observations==0)
++end)
++test('surrogate attacker cannot echo imported damage',function()
++ local s=setup();local body=s.m.bodies[MOB];s.damage(body.actor,body.actor,100);assert(s.m.confirmed.native_damage_observations==0 and body.cp.hp==1000)
++end)
++test('unsolicited surrogate AI hit cannot be a second damage authority',function()
++ local s=setup();local body=s.m.bodies[MOB];local r=s.damage(body.actor,s.player,100)
++ assert(r.Damage==0 and s.player_cp.hp==1000 and s.m.status().suppressed_surrogate_attacks==1)
++end)
++test('MC mob hits real Pal through native damage and replay cannot double it',function()
++ local s=setup();local q=s.hit(20);local r=s.m.protocol.hit(q);assert(r.ok and r.native_route=='ProcessDamageAndPlayEffectsByDamageInfo'and s.target_cp.hp==900 and s.counts.damage==1)
++ assert(s.m.protocol.hit(q).ok and s.target_cp.hp==900 and s.counts.damage==1)
++end)
++test('native death owns exactly one drop; receipt replay adds none',function()
++ local s=setup();local q=s.hit(21);q.amount=20;assert(s.m.protocol.hit(q).ok);assert(s.target_cp.hp==0 and s.counts.drops==1 and s.m.confirmed.deaths==1)
++ s.m.protocol.hit(q);assert(s.counts.damage==1 and s.counts.drops==1 and s.m.confirmed.deaths==1)
++end)
++test('stale ID epoch and absent body do not mutate native Pal',function()
++ local s=setup();local q=s.hit(22);q.source_epoch='previous-mc';assert(not s.m.protocol.hit(q).ok and s.counts.damage==0)
++ q=s.hit(23,'mc:'..gid(99));assert(s.m.protocol.hit(q).status=='native_error'and s.counts.damage==0)
++end)
++test('verified player connection gets normal native attribution',function()
++ local s=setup();s.store['../auth/authenticated-sessions.json']={v=2,world_id='world-lab',server_session_id='lab-session',updated_unix=100,sessions={s.proof}}
++ local q=s.hit(24,'mc:'..gid(5));q.source_player=true;q.player_session=s.proof
++ local r=s.m.protocol.hit(q);assert(r.ok and r.player_attributed and s.target_cp.hp==900)
++end)
++test('reconnected player cannot apply old connection-generation hit',function()
++ local s=setup();local current=clone(s.proof);current.generation=2;s.store['../auth/authenticated-sessions.json']={v=2,world_id='world-lab',server_session_id='lab-session',updated_unix=100,sessions={current}}
++ local q=s.hit(25,'mc:'..gid(5));q.source_player=true;q.player_session=s.proof;assert(not s.m.protocol.hit(q).ok and s.counts.damage==0)
++end)
++test('MC environment damage uses one bound Pal avatar and native SlipDamage',function()
++ local s=setup();s.store['../auth/authenticated-sessions.json']={v=2,world_id='world-lab',server_session_id='lab-session',updated_unix=100,sessions={s.proof}}
++ local q=s.hit(26,'mc:'..gid(5),PID);q.environment=true;q.kind='minecraft:fall';q.player_session=s.proof
++ local r=s.m.protocol.hit(q);assert(r.ok and r.native_route=='SlipDamage'and s.counts.slip==1 and s.player_cp.hp==900)
++ s.m.protocol.hit(q);assert(s.counts.slip==1 and s.player_cp.hp==900)
++end)
++test('unmapped environment kind is pending, never noop success',function()
++ local s=setup();s.store['../auth/authenticated-sessions.json']={v=2,world_id='world-lab',server_session_id='lab-session',updated_unix=100,sessions={s.proof}}
++ local q=s.hit(27,'mc:'..gid(5),PID);q.environment=true;q.kind='minecraft:magic';q.player_session=s.proof
++ local r=s.m.protocol.hit(q);assert(not r.ok and r.status=='native_error'and s.counts.slip==0 and s.player_cp.hp==1000)
++end)
++test('unknown dimension has explicit unprojected state',function()
++ local s=setup();local q=s.store['mc-state.json'];q.revision=2;q.entities[1].dimension='minecraft:the_nether';s.m.tick()
++ assert(s.m.status().unprojected[MOB]=='minecraft:the_nether'and s.counts.spawn==1)
++end)
++test('disconnect cleans only bridge bodies without native drops',function()
++ local s=setup();s.clock(104);s.m.tick();assert(s.m.status().bodies==0 and s.counts.despawn==1 and s.counts.drops==0 and s.player_cp.hp==1000)
++end)
++test('stop removes hooks and bridge bodies, ordinary Pal remains',function()
++ local s=setup();s.m.stop();assert(s.counts.unhook==2 and s.counts.despawn==1 and s.target:IsValid()and s.counts.drops==0)
++end)
++print(J.encode({ok=true,suite='pal_server_adapter_mock',tests=passed,cases=cases,real_game_runtime_verified=false}))
+--- /dev/null
++++ b/tests/entity-combat/EntityCombatTest.java
+@@ -0,0 +1,36 @@
++import dev.rehan.passthrough.EntityCombatLedger;
++import dev.rehan.passthrough.EntityVitals;
++
++/** Offline assertions against the actual engine-independent Java authority code. */
++public final class EntityCombatTest {
++    private static int tests;
++    private static void check(boolean yes){tests++;if(!yes)throw new AssertionError("assertion "+tests);}
++    private static EntityCombatLedger.Hit hit(String id,double amount){return new EntityCombatLedger.Hit(id,"pal-session","mc-epoch","pal-epoch",
++        "mc:00000001-0000-0000-0000-000000000001","pal:00000000-0000-0000-0000-000000000000/00000002-0000-0000-0000-000000000002",amount,"pal:native");}
++    public static void main(String[] args){
++        String id="00000003-0000-0000-0000-000000000003";
++        EntityCombatLedger l=new EntityCombatLedger(2);l.reset("pal-session","mc-epoch");
++        check(l.inspect(hit(id,3))==EntityCombatLedger.Decision.ACCEPT);
++        check(l.reserve(hit(id,3))==EntityCombatLedger.Decision.ACCEPT);
++        check(l.reserve(hit(id,3))==EntityCombatLedger.Decision.REPLAY);
++        check(l.reserve(hit(id,4))==EntityCombatLedger.Decision.CONFLICT);
++        check(!EntityCombatLedger.valid(hit(id,Double.NaN)));
++        check(!EntityCombatLedger.valid(hit(id,Double.POSITIVE_INFINITY)));
++        check(!EntityCombatLedger.valid(hit(id,-1)));
++        check(!EntityCombatLedger.valid(hit(id,0)));
++        check(!EntityCombatLedger.valid(hit(id,10001)));
++        check(!EntityCombatLedger.entityId("mc:123"));
++        check(!EntityCombatLedger.uuid("../ack"));
++        l.reset("pal-session","new-mc-epoch");check(l.inspect(hit(id,3))==EntityCombatLedger.Decision.STALE_EPOCH);
++        l.reset("new-pal-session","mc-epoch");check(l.inspect(hit(id,3))==EntityCombatLedger.Decision.STALE_SESSION);
++        float actual=EntityVitals.health(1,2370,true,false);
++        check(Math.abs(actual-20f/2370)<0.00000001);
++        for(int switchForm=0;switchForm<50;switchForm++)check(EntityVitals.health(1,2370,true,false)==actual);
++        check(EntityVitals.health(2370,2370,true,false)==20);
++        check(EntityVitals.health(1,2370,false,false)==0);
++        check(EntityVitals.health(1,2370,true,true)==0);
++        check(EntityVitals.food(0,100)==0);check(EntityVitals.food(50,100)==10);check(EntityVitals.food(100,100)==20);
++        try{EntityVitals.health(1,0,true,false);throw new AssertionError("Missing max HP accepted");}catch(IllegalArgumentException expected){tests++;}
++        System.out.println("{\"ok\":true,\"suite\":\"java_entity_authority\",\"assertions\":"+tests+",\"pal_1_of_2370_mapped_mc_hp\":"+actual+",\"real_game_runtime_verified\":false}");
++    }
++}
+--- /dev/null
++++ b/tests/entity-combat/lab_probe.lua
+@@ -0,0 +1,51 @@
++-- Lab-only staged experiment. Lead schedules execution; this file never deploys or starts a service.
++-- run{action='inspect'} is read-only. Mutation actions require explicit IDs; never select the first player/Pal.
++local Probe={}
++local function live(a)return a and a:IsValid()and not a:GetFullName():find('Default__',1,true)end
++local function gid(g)return('%08x-%04x-%04x-%04x-%04x%08x'):format(g.A&0xffffffff,(g.B>>16)&0xffff,g.B&0xffff,(g.C>>16)&0xffff,g.C&0xffff,g.D&0xffffffff)end
++function Probe.run(q)
++ assert(IsInGameThread(),'Game thread required')
++ local M=assert(_G.PalCraftEntityAuthority,'Entity authority not loaded')
++ local status=M.status();assert(status.session and status.epoch,'Entity authority identity missing')
++ local utility=StaticFindObject('/Script/Pal.Default__PalUtility');local fp=StaticFindObject('/Script/Pal.Default__FixedPoint64MathLibrary')
++ local function hp(e)return fp:Convert_FixedPoint64ToFloat(e.cp:GetHP())end
++ if q.action=='inspect'then
++  local bodies,targets={},{}
++  for id,e in pairs(M.bodies)do bodies[#bodies+1]={id=id,phase=e.phase,native_hp=e.cp and hp(e)or nil,native_name=e.actor and e.actor:GetFullName()or nil,source=e.state,render='pal_surrogate_mc_models_pending'}end
++  for id,e in pairs(M.native)do targets[#targets+1]={id=id,player=e.player,hp=hp(e),max_hp=fp:Convert_FixedPoint64ToFloat(e.cp:GetMaxHP()),name=e.actor:GetFullName(),dying=e.cp:IsDying(),alive=not e.cp:IsDead()}end
++  local functions={}
++  for _,name in ipairs({'PalCharacterManager:SpawnNewCharacter','PalCharacterParameterComponent:OnDamage','PalCharacter:OnDeadCharacter','PalUtility:ProcessDamageAndPlayEffectsByDamageInfo','PalUtility:MakeDamageInfo'})do
++   local f=StaticFindObject('/Script/Pal.'..name);functions[name]=f and f:IsValid()or false
++  end
++  return {ok=true,action='inspect',status=status,bodies=bodies,targets=targets,reflected_functions=functions,
++   runtime_verified=status.confirmed.spawns>0 and status.confirmed.native_damage_observations>0,manual_weapon_hit_pending=true}
++ elseif q.action=='pal_hit_mc_body'then
++  local body=assert(M.bodies[q.mc_entity_id],'Exact registered MC entity required');assert(body.phase=='active'and live(body.actor),'Native body not active')
++  local source=assert(M.native[q.pal_source_id],'Exact existing native Pal source required');assert(live(source.actor),'Pal source unavailable')
++  assert(type(q.power)=='number'and q.power>=1 and q.power<=100,'Nonlethal probe power 1..100 required')
++  local before=hp(body);local hooks_before=status.confirmed.native_damage_observations
++  local info=utility:MakeDamageInfo{Attacker=source.actor,Defender=body.actor,Power=q.power,Category=0,Element=1,AttackType=1,
++   HitLocation=body.actor:K2_GetActorLocation(),DamageRatePerCollision=1,SneakAttackRate=1,PvPBuildingDamageRate=1,
++   PvPPlayerToGuildPalDamageRate=1,CollectionObjectDamageRate=1,WeaponDamageRatePvP=1,bAttackableToFriend=false,IgnoreShield=false,bCannotKill=false}
++  utility:ProcessDamageAndPlayEffectsByDamageInfo(source.actor,body.actor,info,true,0)
++  local after=hp(body);local observed=M.confirmed.native_damage_observations>hooks_before
++  return {ok=observed and before==after,action=q.action,native_guard_hp_before=before,native_guard_hp_after=after,
++   native_hook_observed=observed,mc_damage_receipt='Read entities/mc-result-*.json after the next MC ticks',
++   status=observed and'await_mc_receipt'or'pending_native_hook_confirmation',player_hp_untouched=true,
++   test_origin='explicit_native_api_probe_not_manual_weapon_input',drops_generated_here=0}
++ elseif q.action=='mc_hit_pal'then
++  local body=assert(M.bodies[q.mc_entity_id],'Exact registered MC attacker required');assert(body.phase=='active','MC body not active')
++  local target=assert(M.native[q.pal_target_id],'Exact existing native Pal target required');assert(not target.player,'Never damage the 1HP test player via this probe')
++  local save=target.ip:GetSaveParameter();assert(gid(save.OwnerPlayerUId)=='00000000-0000-0000-0000-000000000000','Never damage an owned Pal in this probe')
++  assert(type(q.amount)=='number'and q.amount>0 and q.amount<=20,'Probe damage 0..20 required')
++  assert(q.allow_death==true,'Lead must explicitly schedule possible death/drop observation')
++  local id=gid(StaticFindObject('/Script/Engine.Default__KismetGuidLibrary'):NewGuid())
++  local hit={v=1,t='entity_damage',authority='mc_server',session=M.session,id=id,source_epoch=M.protocol.source_epoch,
++   target_epoch=M.epoch,source=body.id,target=q.pal_target_id,amount=q.amount,kind='minecraft:mob_attack'}
++  local first=M.protocol.hit(hit);local replay=M.protocol.hit(hit)
++  return {ok=first.ok==true and first.accepted==true,action=q.action,event_id=id,first=first,replay=replay,drop_owner='palworld',
++   test_origin='lab_protocol_fixture_not_manual_mc_attack',manual_game_hit_pending=true,items_granted_to_player=0}
++ elseif q.action=='cleanup'then return M.stop()
++ else error('Unknown Lab probe action')end
++end
++return Probe

@@ -1,0 +1,15 @@
+--- a/palcraft/server/features.lua
++++ b/palcraft/server/features.lua
+@@ -64,10 +64,10 @@
+   end,
+   factory=function()
+    local options={};for k,v in pairs(o.bootstrap)do options[k]=v end;options.json=J;options.readers=R
+-   local worker=load('exchange_bootstrap').new(options);api.boot_observer=worker;return worker
++   local worker=options.early_observer or load('exchange_bootstrap').new(options);api.boot_observer=worker;return worker
+   end,tick=function(worker)worker.tick()end,status=function(worker)return worker.status()end,
+   is_ready=function(status)return status.ready==true end,
+-  stop=function()api.boot_observer=nil end})
++  stop=function(worker)if worker.stop then worker.stop()end;api.boot_observer=nil end})
+  C:register('exchange',{enabled=o.exchange_enabled==true,disabled_reason='exchange_escrow_and_save_witness_not_ready',
+   depends={'presence'},interval_ms=500,ready=function()
+    if o.exchange then return true end -- Constructor restores held guards before admission.

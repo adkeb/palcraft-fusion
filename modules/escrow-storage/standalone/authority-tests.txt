@@ -1,0 +1,9 @@
+PASS local-authority-nil-socket-native-singleplayer
+PASS network-branch-still-requires-real-socket
+PASS world-off-local-listen-records-real-mode-without-faking-standalone
+PASS multiplayer-world-option-not-waived
+PASS dedicated-authority-not-a-singleplayer-host
+PASS client-or-nonlocal-controller-not-a-host
+PASS other-current-world-network-player-not-hidden
+PASS runtime-world-and-native-return-shape-must-match
+RESULT 8

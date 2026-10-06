@@ -1,0 +1,22 @@
+--- a/client/native_visual_pipeline.lua
++++ b/client/native_visual_pipeline.lua
+@@ -50,6 +50,10 @@
+   assert(type(accept)=='function'and type(resolve)=='function','Material dispatch functions required')
+   local entry={accept=accept,resolve=resolve};table.insert(handlers,1,entry);return entry
+  end
++ function api.remove_material_handler(entry)
++  for i=#handlers,1,-1 do if handlers[i]==entry then table.remove(handlers,i);return true end end
++  return false
++ end
+  function api.attach_signs(options)
+   assert(not sign_worker,'Sign consumer already installed')
+   local sign_dir=dir..'signtext/'
+@@ -86,7 +90,7 @@
+  function api.stop()api.detach_signs(true);api.entity_renderer.stop();for _,instance in pairs(instances)do instance:reset()end;instances={}end
+  function api.status()
+   local profiles={};for path,p in pairs(instances)do profiles[path]={actual_shader_verified=false,runnable_consumer='actual_material_consumers_v1'}end
+-  return{version=1,phase=api.phase,profiles=profiles,sign_text=sign_worker and sign_worker:status(),entity_visual=api.entity_renderer.status(),actual_shader_verified=false}
++  return{version=1,phase=api.phase,profiles=profiles,sign_text=sign_worker and sign_worker:status(),entity_visual=api.entity_renderer.status(),material_runtime=api.material_runtime and api.material_runtime.status(),actual_shader_verified=false}
+  end
+  return api
+ end

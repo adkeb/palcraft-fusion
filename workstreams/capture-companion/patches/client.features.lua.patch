@@ -1,0 +1,51 @@
+--- a/client/features.lua
++++ b/client/features.lua
+@@ -20,7 +20,7 @@
+  if not renderer and o.entity_visuals_enabled==true then
+   renderer=load('entity_renderer_proxy').new(function()
+    local companion=api.last_companion
+-   return companion and companion.visual_pipeline and companion.visual_pipeline.entity_renderer
++   return companion and companion.visual_pipeline and companion.visual_pipeline.capture_renderer
+   end)
+  end
+  C:register('host',{interval_ms=250,ready=function()return api.binding~=nil,api.binding_error or'authenticated_host_unavailable'end,
+@@ -64,6 +64,24 @@
+  end,status=function(companion)return J.decode(assert(companion.status_json,'Companion-owned status encoder missing')())end,stop=function(companion)
+   if companion.set_world_observer then companion.set_world_observer(nil)end
+  end})
++ C:register('entity_capture',{enabled=o.entity_visuals_enabled==true and o.entity_renderer==nil,
++  disabled_reason='captured_entity_visuals_not_selected',depends={'host','native_mc','world'},interval_ms=250,
++  ready=function(ctx)
++   local pipeline=ctx and ctx.collisions and ctx.collisions.visual_pipeline
++   return pipeline and pipeline.attach_capture and pipeline.detach_capture and o.capture~=nil,'capture_pipeline_or_scope_missing'
++  end,factory=function(ctx)
++   local pipeline=ctx.collisions.visual_pipeline;local options={};for k,v in pairs(o.capture)do options[k]=v end
++   options.verify_actor=function(row,actor)
++    local observer=api.entity_observer
++    return observer and observer.verify_actor(row,actor)==true or false
++   end
++   return{pipeline=pipeline,worker=assert(pipeline.attach_capture(options),'Capture factory returned nil')}
++  end,
++  -- Capture binding is ticked by the companion's existing pipeline callback.
++  status=function(instance)return instance.worker.status()end,
++  stop=function(instance,_,ctx)
++   assert(instance.pipeline.detach_capture(not ctx or ctx.context_alive~=false)==true,'Capture lifecycle cleanup failed')
++  end})
+  C:register('entities',{enabled=o.entities_enabled~=false,depends={'host'},interval_ms=o.entity_interval_ms or 250,
+   factory=function()
+    local worker=load('entities').new{json=J,root=root..'entities/',session=api.binding.server_session_id,now=now,
+@@ -76,11 +94,13 @@
+      return F.read(root..'entities/'..name)
+     end,renderer=renderer}
+    _G.PalCraftEntityObserver=worker
++   api.entity_observer=worker
+    api.vitals=function(pc)return worker.vitals(pc)end;_G.PalCraftAcceptanceVitals=api.vitals
+    return worker
+   end,tick=function(worker,ms,ctx)worker.tick(ctx.pc)end,status=function(worker)return worker.status()end,
+   is_ready=function(s,worker,ctx)return s.phase=='observing_native_bodies'and worker.vitals(ctx.pc).ok==true end,
+-  stop=function(worker)worker.stop();if _G.PalCraftEntityObserver==worker then _G.PalCraftEntityObserver=nil end
++  stop=function(worker,_,ctx)worker.stop(not ctx or ctx.context_alive~=false);if api.entity_observer==worker then api.entity_observer=nil end
++   if _G.PalCraftEntityObserver==worker then _G.PalCraftEntityObserver=nil end
+    if _G.PalCraftAcceptanceVitals==api.vitals then _G.PalCraftAcceptanceVitals=nil end;api.vitals=nil
+   end})
+  C:register('travel',{enabled=o.travel_enabled==true,disabled_reason='travel_native_readiness_and_transport_not_ready',

@@ -1,0 +1,106 @@
+
+work/minecraft-fusion/mac/drive_d/PalworldServer-LAN/PalCraft-Client/Pal/Binaries/Win64/Palworld-Win64-Shipping.exe:	file format coff-x86-64
+
+Disassembly of section .text:
+
+0000000144a3d540 <src_strerror>:
+1454599b0: 48 89 5c 24 08              	movq	%rbx, 0x8(%rsp)
+1454599b5: 57                          	pushq	%rdi
+1454599b6: 48 83 ec 20                 	subq	$0x20, %rsp
+1454599ba: 48 8b 01                    	movq	(%rcx), %rax
+1454599bd: 8b fa                       	movl	%edx, %edi
+1454599bf: 48 8b d9                    	movq	%rcx, %rbx
+1454599c2: ff 50 40                    	callq	*0x40(%rax)
+1454599c5: 48 85 c0                    	testq	%rax, %rax
+1454599c8: 75 24                       	jne	0x1454599ee <src_strerror+0xa1c4ae>
+1454599ca: 66 0f 1f 44 00 00           	nopw	(%rax,%rax)
+1454599d0: 48 8b 03                    	movq	(%rbx), %rax
+1454599d3: 8b d7                       	movl	%edi, %edx
+1454599d5: 48 8b cb                    	movq	%rbx, %rcx
+1454599d8: ff 50 48                    	callq	*0x48(%rax)
+1454599db: 48 8b d8                    	movq	%rax, %rbx
+1454599de: 8b d7                       	movl	%edi, %edx
+1454599e0: 48 8b cb                    	movq	%rbx, %rcx
+1454599e3: 48 8b 00                    	movq	(%rax), %rax
+1454599e6: ff 50 40                    	callq	*0x40(%rax)
+1454599e9: 48 85 c0                    	testq	%rax, %rax
+1454599ec: 74 e2                       	je	0x1454599d0 <src_strerror+0xa1c490>
+1454599ee: 48 8b 5c 24 30              	movq	0x30(%rsp), %rbx
+1454599f3: 48 83 c4 20                 	addq	$0x20, %rsp
+1454599f7: 5f                          	popq	%rdi
+1454599f8: c3                          	retq
+1454599f9: cc                          	int3
+1454599fa: cc                          	int3
+1454599fb: cc                          	int3
+1454599fc: cc                          	int3
+1454599fd: cc                          	int3
+1454599fe: cc                          	int3
+1454599ff: cc                          	int3
+145459a00: 48 8b 41 68                 	movq	0x68(%rcx), %rax
+145459a04: 0f b6 80 fc 00 00 00        	movzbl	0xfc(%rax), %eax
+145459a0b: c3                          	retq
+145459a0c: cc                          	int3
+145459a0d: cc                          	int3
+145459a0e: cc                          	int3
+145459a0f: cc                          	int3
+
+work/minecraft-fusion/mac/drive_d/PalworldServer-LAN/PalCraft-Client/Pal/Binaries/Win64/Palworld-Win64-Shipping.exe:	file format coff-x86-64
+
+Disassembly of section .text:
+
+0000000144a3d540 <src_strerror>:
+1457b6830: f6 47 54 01                 	testb	$0x1, 0x54(%rdi)
+1457b6834: 0f 84 34 03 00 00           	je	0x1457b6b6e <src_strerror+0xd7962e>
+1457b683a: 41 0f b6 45 38              	movzbl	0x38(%r13), %eax
+1457b683f: 45 32 e4                    	xorb	%r12b, %r12b
+1457b6842: 49 8b 8d b0 02 00 00        	movq	0x2b0(%r13), %rcx
+1457b6849: fe c8                       	decb	%al
+1457b684b: 41 0f b6 9d 20 09 00 00     	movzbl	0x920(%r13), %ebx
+1457b6853: 41 b6 01                    	movb	$0x1, %r14b
+1457b6856: 41 3a c6                    	cmpb	%r14b, %al
+1457b6859: 48 89 4c 24 78              	movq	%rcx, 0x78(%rsp)
+1457b685e: 45 8b ef                    	movl	%r15d, %r13d
+1457b6861: 4c 89 7d 90                 	movq	%r15, -0x70(%rbp)
+1457b6865: 40 0f 96 c7                 	setbe	%dil
+1457b6869: 49 8b d7                    	movq	%r15, %rdx
+1457b686c: 40 88 7c 24 4d              	movb	%dil, 0x4d(%rsp)
+1457b6871: 41 22 de                    	andb	%r14b, %bl
+1457b6874: 48 8b 45 80                 	movq	-0x80(%rbp), %rax
+1457b6878: 48 89 54 24 70              	movq	%rdx, 0x70(%rsp)
+1457b687d: 88 5c 24 4c                 	movb	%bl, 0x4c(%rsp)
+1457b6881: 44 3b 68 38                 	cmpl	0x38(%rax), %r13d
+1457b6885: 0f 8d 4a 01 00 00           	jge	0x1457b69d5 <src_strerror+0xd79495>
+1457b688b: 49 83 c3 30                 	addq	$0x30, %r11
+1457b688f: 49 03 cb                    	addq	%r11, %rcx
+1457b6892: 48 8b 41 10                 	movq	0x10(%rcx), %rax
+1457b6896: 48 85 c0                    	testq	%rax, %rax
+1457b6899: 48 0f 45 c8                 	cmovneq	%rax, %rcx
+1457b689d: 48 8b 0c 11                 	movq	(%rcx,%rdx), %rcx
+1457b68a1: 48 8b 01                    	movq	(%rcx), %rax
+1457b68a4: ff 90 f0 02 00 00           	callq	*0x2f0(%rax)
+1457b68aa: 8b 55 9c                    	movl	-0x64(%rbp), %edx
+1457b68ad: 48 8b c8                    	movq	%rax, %rcx
+1457b68b0: e8 fb 30 ca ff              	callq	0x1454599b0 <src_strerror+0xa1c470>
+1457b68b5: 48 8b d8                    	movq	%rax, %rbx
+1457b68b8: 45 84 e4                    	testb	%r12b, %r12b
+1457b68bb: 75 17                       	jne	0x1457b68d4 <src_strerror+0xd79394>
+1457b68bd: 40 84 ff                    	testb	%dil, %dil
+1457b68c0: 75 0d                       	jne	0x1457b68cf <src_strerror+0xd7938f>
+1457b68c2: 48 8b 10                    	movq	(%rax), %rdx
+1457b68c5: 48 8b c8                    	movq	%rax, %rcx
+1457b68c8: ff 52 40                    	callq	*0x40(%rdx)
+1457b68cb: 84 c0                       	testb	%al, %al
+1457b68cd: 75 05                       	jne	0x1457b68d4 <src_strerror+0xd79394>
+1457b68cf: 45 32 e4                    	xorb	%r12b, %r12b
+1457b68d2: eb 03                       	jmp	0x1457b68d7 <src_strerror+0xd79397>
+1457b68d4: 41 b4 01                    	movb	$0x1, %r12b
+1457b68d7: 45 84 f6                    	testb	%r14b, %r14b
+1457b68da: 74 17                       	je	0x1457b68f3 <src_strerror+0xd793b3>
+1457b68dc: 40 84 ff                    	testb	%dil, %dil
+1457b68df: 75 12                       	jne	0x1457b68f3 <src_strerror+0xd793b3>
+1457b68e1: 48 8b 03                    	movq	(%rbx), %rax
+1457b68e4: 48 8b cb                    	movq	%rbx, %rcx
+1457b68e7: ff 50 40                    	callq	*0x40(%rax)
+1457b68ea: 84 c0                       	testb	%al, %al
+1457b68ec: 74 05                       	je	0x1457b68f3 <src_strerror+0xd793b3>
+1457b68ee: 41 b6 01                    	movb	$0x1, %r14b

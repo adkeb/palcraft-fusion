@@ -1,0 +1,61 @@
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -18,6 +18,7 @@
+ M.geometry_signature=function(g)return J.encode(g)end
+ local visual_pipeline
+ local native,addresses,process_event,world_address,mesh,parent,normal;local materials={}
++local bound_context,bound_context_address,bound_world_address
+ local function live(x)return x and x:IsValid()and not x:GetFullName():find('Default__',1,true)end
+ local function write(name,v)local f=assert(io.open(ROOT..name,'wb'));f:write(J.encode(v));f:close()end
+ local function address(name)local o=StaticFindObject(name);assert(o and o:IsValid(),name);return o:GetAddress()end
+@@ -93,6 +94,16 @@
+  M.world_observer=observer
+ end
+ M.context=context
++function M.context_alive()
++ if not bound_context or not bound_context:IsValid()then return false end
++ local ok,current=pcall(context)
++ if not ok or current:GetAddress()~=bound_context_address then return false end
++ if bound_world_address then
++  local good,world=pcall(function()return current:GetWorld()end)
++  if not good or not world or not world:IsValid()or world:GetAddress()~=bound_world_address then return false end
++ end
++ return true
++end
+ local function observe(method,...)
+  local observer=M.world_observer
+  if observer and observer[method]then
+@@ -226,7 +237,8 @@
+  return {running=M.running,error=M.error,blocks=n,shapes=shapes,models=model_count,unconverted=unconverted,drops=drops,types=types,pending=queued_count(),changes=M.changes,offset=M.offset,side=client and'client'or'server',render=client and'native_unreal_mesh'or'collision',version=9,model_renderer=models and models.status(),world_state=M.world:status(),world_error=M.world_error,pending_view=M.pending_view,observer_error=M.observer_error,chunk_consumer_error=M.chunk_consumer_error,chunk_consumer=M.chunk_consumer and M.chunk_consumer.status and M.chunk_consumer.status(),visual_pipeline=visual_pipeline and visual_pipeline.status(),origin=O}
+ end
+ M.status_json=function()return J.encode(M.status())end
+-function M.stop()
++function M.stop(context_alive)
++ if context_alive==false or(client and not M.context_alive())then M.abandon();return M.status()end
+  M.running=false
+  -- Shared Models.reset must run last: text/entities and legacy block models
+  -- still own lifetime records while their explicit cleanup is in progress.
+@@ -243,13 +255,21 @@
+ function M.abandon()
+  if visual_pipeline then visual_pipeline.stop(false)end
+  if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end
+- M.running=false;M.actors={};M.items={};if models and models.abandon_models then models.abandon_models()end
++ if models and models.abandon_models then models.abandon_models()end
++ M.running=false;M.actors={};M.items={};M.queue={};M.queued={};M.queue_head=1;M.pending=''
++ M.ingesting_row=nil;M.pending_view=nil;M.world_observer=nil;M.abandoned=true
++ bound_context=nil;bound_context_address=nil;bound_world_address=nil
+ end
+ local tick
+ tick=function()
+  if not M.running then return end
+  local ok,e=pcall(function()
+-  if client and world_address and context():GetAddress()~=world_address then M.abandon();return end
++  if client and bound_context and not M.context_alive()then M.abandon();return end
++  if client and not bound_context then
++   bound_context=context();bound_context_address=bound_context:GetAddress()
++   local ok,world=pcall(function()return bound_context:GetWorld()end)
++   if ok and world and world:IsValid()then bound_world_address=world:GetAddress()end
++  end
+   if client and models and not M.visual_pipeline_checked then
+    M.visual_pipeline_checked=true
+    local f=io.open(SHARED..'native-visual-settings.json','rb')

@@ -1,0 +1,23 @@
+--- a/render/palcraft.cpp
++++ b/render/palcraft.cpp
+@@ -90,8 +90,19 @@
+  if(f){std::fprintf(f,"{\"websocket_connected\":%s,\"camera_active\":%s,\"version\":15,\"camera_transport\":\"%s\",\"updated_unix\":%lld}",connected?"true":"false",active?"true":"false",cameraRevision?"persistent_file_to_memory":"legacy_file",static_cast<long long>(std::time(nullptr)));std::fclose(f);}
+ }
+ static double millis(){static LARGE_INTEGER frequency=[](){LARGE_INTEGER v{};QueryPerformanceFrequency(&v);return v;}();LARGE_INTEGER v{};QueryPerformanceCounter(&v);return double(v.QuadPart)*1000/double(frequency.QuadPart);}
++static int host_proxy_port(){
++ wchar_t value[16]{};SetLastError(ERROR_SUCCESS);
++ DWORD used=GetEnvironmentVariableW(L"PALCRAFT_HOST_PROXY_PORT",value,16);
++ if(!used)return GetLastError()==ERROR_ENVVAR_NOT_FOUND?25599:0;
++ if(used>=16)return 0;
++ int port=0;
++ for(DWORD i=0;i<used;++i){if(value[i]<L'0'||value[i]>L'9')return 0;port=port*10+int(value[i]-L'0');if(port>65535)return 0;}
++ return port;
++}
+ static DWORD WINAPI loop(void *) {
+- WsClient ws;ws.start("127.0.0.1",25599);
++ const int proxyPort=host_proxy_port();
++ if(!proxyPort){status(false,false);OutputDebugStringW(L"[PalCraft] Invalid PALCRAFT_HOST_PROXY_PORT; connection refused.\n");return 0;}
++ WsClient ws;ws.start("127.0.0.1",proxyPort);
+  const bool wine=GetProcAddress(GetModuleHandleW(L"ntdll.dll"),"wine_get_version")!=nullptr;
+  ULONGLONG registerAfter=0,lastStatus=0,lastFiles=0,lastCompat=0,lastCameraRead=0;
+  std::string sentGround;int oldGeneration=-1;unsigned long frame=0;

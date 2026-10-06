@@ -1,0 +1,98 @@
+--- a/native/fluid_physics_core.lua
++++ b/native/fluid_physics_core.lua
+@@ -287,7 +287,9 @@
+  assert(type(o.resolve_participants)=='function','Fluid participant resolver required')
+  local A={running=true,phase='waiting_for_tick',participants={},contacts={},observations={},ticks=0,
+   samples=0,revision=0,simulation='minecraft',damage_owner='mc_hurt_to_pal_entity_authority',lava_damage_calls=0}
+- local N=o.native or Native.new(o);local E=o.engine or Engine.new(o);A.native=N
++ -- Native state is process-wide even when UE4SS mods have separate Lua globals.
++ -- Delay construction until this worker really owns physical simulation.
++ local N=o.native;local E=o.engine or Engine.new(o);A.native=N
+  local Shape=o.shape_contact_driver or dofile((o.shared_dir or source_dir)..'fluid_physics_contact.lua')
+  A.driver=Shape.new{world=o.world,column_driver=o.contact_driver,volume_boxes=M.fluid_boxes,
+   require_committed=o.require_committed~=false,max_surface_cells=o.max_surface_cells,
+@@ -297,13 +299,14 @@
+  local function thread()local f=o.game_thread or IsInGameThread;assert(type(f)=='function'and f()==true,'Fluid game-thread tick required')end
+  local function context_alive()return A.context_object and live(A.context_object)end
+  function A:remove(id,alive)
+-  local s=self.participants[id];if s and alive~=false then E:release(s)end
++  local s=self.participants[id];if s and not s.observer and alive~=false then E:release(s)end
+   self.driver:remove(id);self.participants[id]=nil;self.contacts[id]=nil;self.observations[id]=nil
+  end
+  function A:reset(reason,alive)
+   thread();local ids={};for id in pairs(self.participants)do ids[#ids+1]=id end;for _,id in ipairs(ids)do self:remove(id,alive)end
+-  N:reset(alive==true);self.signature=nil;self.region_signature=nil;self.previous_time=nil;self.context=nil
+-  self.context_object=nil;self.fence=nil;self.next_query=0;self.phase=reason or'reset';return self:status()
++  if N and self.ownership~='authority_observer'then N:reset(alive==true)end
++  self.signature=nil;self.region_signature=nil;self.previous_time=nil;self.context=nil
++  self.context_object=nil;self.fence=nil;self.next_query=0;self.ownership=nil;self.phase=reason or'reset';return self:status()
+  end
+  function A:on_world(row)
+   -- Called only after the one world reducer accepted the row; no ingest/read here.
+@@ -321,6 +324,18 @@
+   -- A 100ms feature cadence on the 15FPS night client commonly yields 133ms.
+   local dt=self.previous_time and clamp((ms-self.previous_time)/1000,0,o.max_force_dt or .2)or 0;self.previous_time=ms
+   local list=o.resolve_participants(ctx)or{};local seen,regions,volumes={},{},{};local surfaces_known=true
++  local observer=o.observe_only==true
++  if o.side=='client'then
++   local pawn=ctx and ctx.pc and ctx.pc.Pawn
++   if live(pawn)and pawn:HasAuthority()then observer=true end
++   for _,p in ipairs(list)do if live(p.actor)and p.actor:HasAuthority()then observer=true;break end end
++  end
++  local ownership=observer and'authority_observer'or(o.side=='server'and'pal_authority_worker'or'client_prediction')
++  -- A real world/session reset reconstructs ownership through the composition.
++  -- Never transfer a live process-wide native batch between two Lua workers.
++  assert(not self.ownership or self.ownership==ownership,'Fluid ownership changed: runtime must reconstruct this worker')
++  self.ownership=ownership
++  if not observer and not N then N=Native.new(o);self.native=N end
+   for _,p in ipairs(list)do
+    assert(type(p.id)=='string'and type(p.dim)=='string','Fluid participant identity/dimension required')
+    assert(not seen[p.id],'Duplicate fluid participant');seen[p.id]=true
+@@ -328,7 +343,10 @@
+    else
+     local s=self.participants[p.id]
+     if s and address(s.actor)~=address(p.actor)then self:remove(p.id);s=nil end
+-    if not s then s=E:attach(p);self.participants[p.id]=s end
++    if not s then
++     s=observer and{actor=p.actor,movement=p.actor.CharacterMovement,observer=true}or E:attach(p)
++     self.participants[p.id]=s
++    end
+     local pose=E:pose(p);pose.world_session=p.world_session or o.world.session
+     pose.view=p.view or o.world.view;pose.player=p.mc_uuid or p.player_filter;p.pose=pose
+     local contact=self.driver:sample(p.id,pose);p.contact=contact
+@@ -348,7 +366,7 @@
+   if region_signature~=self.region_signature then self.dirty=true end
+   if o.world.seq~=self.revision then self.dirty=true end
+   self.query_surface_pending=not surfaces_known;if not surfaces_known then self.dirty=true end
+-  if self.dirty and ms>=(self.next_query or 0)then
++  if not observer and self.dirty and ms>=(self.next_query or 0)then
+    self.next_query=ms+(o.query_interval_ms or 250);local cells={};local geometry_known=surfaces_known;local snapshot_known=true
+    for _,k in ipairs(rk)do for _,v in ipairs(o.world:fluid_volumes(o.world.dimension,regions[k]))do
+     local known=true
+@@ -375,11 +393,14 @@
+      if not self.contacts[p.id]then self.contacts[p.id]=contact end
+      local previous=self.observations[p.id]or{};previous.known=false;previous.reason=contact.reason
+      previous.physics_preserved=true;self.observations[p.id]=previous
++    elseif observer then
++     local m=s.movement;self.observations[p.id]={known=true,observer_only=true,physics_applied=false,
++      actor_authority=p.actor:HasAuthority(),authority=false,native_swimming=live(m)and m:IsSwimming()or false}
+     else self.observations[p.id]=E:apply(s,p,contact,p.pose,dt);self.observations[p.id].known=true end
+     self.samples=self.samples+1
+    end
+   end
+-  self.ticks=self.ticks+1;self.phase='sampling_real_mc_contacts';return self:status()
++  self.ticks=self.ticks+1;self.phase=observer and'observing_pal_authority_owner'or'sampling_real_mc_contacts';return self:status()
+  end
+  function A:status()
+   local ids={};local swimmers,lava=0,0
+@@ -396,7 +417,9 @@
+    world_session=o.world.session,dimension=o.world.dimension,revision=self.revision,participants=ids,
+    observed_swimmers=swimmers,lava_contacts=lava,lava_damage_calls=0,query_snapshot_pending=self.query_snapshot_pending,
+    query_surface_pending=self.query_surface_pending,
+-   damage_owner=self.damage_owner,simulation='minecraft',native=N:status(),
++   ownership=self.ownership,observer_only=self.ownership=='authority_observer',damage_owner=self.damage_owner,simulation='minecraft',
++   native=self.ownership=='authority_observer'and{initialized=false,observer_only=true,actors=0,boxes=0}
++    or(N and N:status()or{initialized=false,actors=0,boxes=0}),
+    geometry=self.geometry and{water_cells=self.geometry.water_cells,lava_cells=self.geometry.lava_cells,query_boxes=self.geometry.query_boxes},
+    buoyancy=o.script_buoyancy~=false and'sampled_surface_controller'or'pal_native',
+    contact_sampling='physical_capsule_or_aabb',shape_overlap='analytic_positive_volume',

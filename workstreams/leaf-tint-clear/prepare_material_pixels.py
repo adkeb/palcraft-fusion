@@ -1,0 +1,68 @@
+"""Prepare exact RGBA sidecars for runtime tinting; never edits the frozen model package."""
+import argparse
+import hashlib
+import json
+from pathlib import Path
+
+
+def prepare(asset_root, output_root, sprites, nearest_min_size=1):
+    from PIL import Image
+    asset_root, output_root = Path(asset_root), Path(output_root)
+    if asset_root.resolve() == output_root.resolve():
+        raise ValueError("pixel sidecars require a separate output directory")
+    if not isinstance(nearest_min_size, int) or not 1 <= nearest_min_size <= 1024:
+        raise ValueError("nearest import size must be an integer in 1..1024")
+    output_root.mkdir(parents=True, exist_ok=True)
+    records = {}
+    for sprite in sprites:
+        if ":" in sprite:
+            sprite = sprite.replace(":", "/", 1)
+        if ".." in sprite or sprite.startswith("/") or not sprite:
+            raise ValueError("invalid sprite")
+        relative = Path("textures") / (sprite + ".png")
+        meta = asset_root / "textures" / (sprite + ".json")
+        paths = [relative]
+        if meta.is_file():
+            info = json.loads(meta.read_text())
+            animation = info.get("animation")
+            if isinstance(animation, dict):
+                frames_dir = animation.get("frames_dir")
+                if frames_dir and ".." not in frames_dir and not frames_dir.startswith("/"):
+                    paths += [Path(frames_dir) / f"{f['index']:04d}.png" for f in animation["frames"]]
+        for path in dict.fromkeys(paths):
+            image = Image.open(asset_root / path).convert("RGBA")
+            width, height = image.size
+            if not 0 < width <= 1024 or not 0 < height <= 1024:
+                raise ValueError(f"pixel sidecar dimensions too large: {path}")
+            source_width, source_height = width, height
+            # Integer nearest scaling retains the exact source RGBA texels and
+            # UV0 extent. Large atlases are capped; exported animation frames
+            # remain separate images and keep their original timing metadata.
+            desired = max(1, (nearest_min_size + min(width, height) - 1) // min(width, height))
+            scale = min(desired, 1024 // max(width, height))
+            if scale > 1:
+                image = image.resize((width * scale, height * scale), Image.Resampling.NEAREST)
+                width, height = image.size
+            raw = image.tobytes()
+            destination = Path(str(path) + ".rgba")
+            full = output_root / destination
+            full.parent.mkdir(parents=True, exist_ok=True)
+            full.write_bytes(raw)
+            records[path.as_posix()] = dict(path=destination.as_posix(), width=width, height=height,
+                sha256=hashlib.sha256(raw).hexdigest(), alpha="straight", tint="caller BlockColors RGB, byte multiply",
+                source_width=source_width, source_height=source_height, nearest_scale=scale)
+    index = dict(version=1, source_root=asset_root.name, source_modified=False, textures=records)
+    (output_root / "index.json").write_text(json.dumps(index, indent=2) + "\n")
+    return index
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("asset_root")
+    parser.add_argument("output_root", help="Separate bridge/material-pixels-v1 directory")
+    parser.add_argument("sprites", nargs="+", help="Only the actual tinted sprites needed by this world; avoids processing every animated texture.")
+    parser.add_argument("--nearest-min-size", type=int, default=1,
+                        help="Optional integer-nearest expansion of sidecars only; original model PNGs are unchanged.")
+    args = parser.parse_args()
+    index = prepare(args.asset_root, args.output_root, args.sprites, args.nearest_min_size)
+    print(json.dumps(dict(status="ready",textures=len(index["textures"]),source_modified=False)))

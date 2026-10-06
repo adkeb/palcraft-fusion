@@ -1,0 +1,11 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -181,7 +181,7 @@
+     if p['platform'] == 'crossover':
+         wine = Path(p['crossover_app']) / 'Contents/SharedSupport/CrossOver/bin/wine'
+         commands['client'] = [str(wine), '--bottle', p['bottle_name'], '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+-                              '--env', 'SteamAppId=1623730', '--env', 'PALCRAFT_WINDOWS_ROOT=' + win_root,
++                              '--env', 'SteamAppId=1623730',
+                               '--workdir', windows_path(win_root, CLIENT), host_windows] + args
+         hud = executable_role(root, state, 'mac_hud')
+         commands['hud'] = [str(hud)]

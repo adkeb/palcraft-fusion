@@ -1,0 +1,28 @@
+成对安装 / 回退（仅 root 协调的下一独立 runtime 窗口）
+
+这是文件清单片段，不是可单独安装的完整 player release；installer owner 必须把其与同批 path-aware Lua/native/host/Fabric/HUD 精确组件组装，正式 9.2/next10不改。
+
+文件与角色：player-release-entries.json 中 Core(role ue4ss)与shim(role ue4ss_utf8_shim)同一版本事务写入。Core target=PalCraft-Client/Pal/Binaries/Win64/ue4ss/UE4SS.dll；shim target=PalCraft-Client/Pal/Binaries/Win64/PalCraftUE4SSUtf8.dll。先确保 target_allowed 两个目的路径及 runtime_paths helper role，缺任何一个必须拒绝。不得给现发布 ZIP直接补标记。
+
+准备：runtime取停止/部署窗口，独立 owned 新安装目录（中文/空格根、C/E或Mac标准Z映射），原游戏只读复制，使用由root核对的完整候选release和profile。保存前版 release/state/事务备份；仅操作这一个目标root。旧 current/frozen不作为更新目标。
+
+新目录可复制命令（完整候选ZIP尚待所有DLL到齐）：
+python launcher/palcraft.py install --root "<新的owned安装目录>" --game "<原正版游戏目录>" --bundle "<完整portable候选ZIP>" --profile "<个人profile.json>" --dry-run
+python launcher/palcraft.py install --root "<新的owned安装目录>" --game "<原正版游戏目录>" --bundle "<完整portable候选ZIP>" --profile "<个人profile.json>"
+
+已有同一root兼容版本的更新：
+python launcher/palcraft.py update --root "<独立owned安装目录>" --bundle "<完整portable候选ZIP>" --dry-run
+python launcher/palcraft.py update --root "<独立owned安装目录>" --bundle "<完整portable候选ZIP>"
+
+核对后由runtime启动这一个隔离游戏；确认 Lua/helper/native与 Core/shim哈希同批、first main.lua与模型/相机文件实际来自中文root。启动进程PALCRAFT_WINDOWS_ROOT必须为真实逻辑Windows根（Mac Z:/...），DLL的PALCRAFT_BRIDGE_DIR仍是Windows路径；Host已通过--root对子树SetEnvironmentVariableW。CrossOver CLI --env只能一次，next launcher receipt=3b2d4c3493a83e0223f3b3ae9d19d2e1f4647adfe1ec6a224deabb8c74510dd9。
+
+正常回退：停止此独立root游戏后使用现有事务/历史版本，一并恢复两文件及相关Lua/native，不手工只删shim。
+python launcher/palcraft.py rollback --root "<独立owned安装目录>" --dry-run
+python launcher/palcraft.py rollback --root "<独立owned安装目录>"
+若上版还未含shim，事务会按 owned清单恢复原Core并删除这个 owned shim。上版必须与同一个root兼容；old D-only版本不能作为中文/custom-root可玩回退版，这是已有PATH_CONTRACT规则的必要界限。
+
+全新root没有历史版本：默认保留存档卸载这个实验root；原正版游戏与原9.2根一直未动，不需要用当前9.2覆盖新root。
+python launcher/palcraft.py uninstall --root "<新的owned安装目录>" --dry-run
+python launcher/palcraft.py uninstall --root "<新的owned安装目录>"
+
+安装/回退利用现有 Bundle manifest、_apply事务/owned files；不另起daemon、不改系统代码页/分区/盘符，不覆写 game.exe。此文没有执行任何 install/update/start/rollback。

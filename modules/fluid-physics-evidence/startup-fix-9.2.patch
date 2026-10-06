@@ -1,0 +1,18 @@
+--- a/native/fluid_physics_core.lua
++++ b/native/fluid_physics_core.lua
+@@ -109,9 +109,12 @@
+    else local f=StaticFindObject(p);assert(live(f),'Missing fluid reflection: '..p);s.functions[#s.functions+1]=f:GetAddress()end
+   end
+   s.process_event=o.process_event
+-  if not s.process_event then for line in io.lines(assert(o.log_path,'Current UE4SS log path required'))do
+-   local p=line:match('ProcessEvent address (0x%x+)');if p then s.process_event=tonumber(p)end
+-  end end
++  if not s.process_event then
++   local log_path=assert(o.log_path,'Current UE4SS log path required')
++   for line in io.lines(log_path)do
++    local p=line:match('ProcessEvent address (0x%x+)');if p then s.process_event=tonumber(p)end
++   end
++  end
+   assert(s.process_event,'Current ProcessEvent address unavailable')
+   s.call=o.native_call or assert(package.loadlib(o.dll_path,'palcraft_fluid_physics_batch'))
+  end

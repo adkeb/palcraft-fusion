@@ -1,0 +1,33 @@
+--- a/client/capture/entity_capture_cache.lua
++++ b/client/capture/entity_capture_cache.lua
+@@ -88,13 +88,27 @@
+   for _,entry in pairs(C.rows)do if entry.textures[resource]then return entry.textures[resource]end end
+   return nil,'capture_texture_unavailable'
+  end
++ function C.reset()
++  C.rows={};C.errors={};C.chunks={};C.manifests={};C.bound=nil;C.bounds=nil;C.error=nil
++ end
++ function C.stop(context_alive)
++  local view=context_alive~=false and o.current_view();local fence=view and(view.fence or view)
++  if same(C.bound,fence)and C.bounds then
++   local request=M.binding_request(fence,C.bounds);request.op='unbind';o.send_binding(request)
++  end
++  C.reset();C.assets={}
++ end
+  function C.tick_binding()
+-  local view=o.current_view();if not view then C.rows={};return nil,'capture_view_unavailable'end
++  local view=o.current_view();if not view then C.reset();return nil,'capture_view_unavailable'end
+   local fence=view.fence or view;local changed=not same(C.bound,fence)
+   if not changed and view.bounds then for i=1,6 do if not C.bounds or C.bounds[i]~=view.bounds[i]then changed=true;break end end end
+   if changed then
+-   C.rows={};C.chunks={};C.manifests={};C.bound=fence;C.bounds=view.bounds and{table.unpack(view.bounds)}or nil
+-   if C.bounds and o.send_binding then o.send_binding(M.binding_request(fence,C.bounds))end
++   C.rows={};C.errors={};C.chunks={};C.manifests={};C.bound=nil;C.bounds=nil
++   if not view.bounds or #view.bounds~=6 then return nil,'capture_bounds_unavailable'end
++   local bounds={table.unpack(view.bounds)}
++   local ok,why=o.send_binding(M.binding_request(fence,bounds))
++   if ok~=true then C.last_binding_error=why or'capture_bind_not_queued';return nil,C.last_binding_error end
++   C.bound={};for _,k in ipairs(keys)do C.bound[k]=fence[k]end;C.bounds=bounds;C.last_binding_error=nil
+   end
+   return true
+  end

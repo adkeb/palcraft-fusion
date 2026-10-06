@@ -1,0 +1,50 @@
+--- a/models/models_v5.lua
++++ b/models/models_v5.lua
+@@ -19,6 +19,10 @@
+ local M={version=5,geometry_version=geometry_version,stats={created=0,sections=0,vertices=0,indices=0,updates=0,released=0}}
+ local native,pe,parent,normal,material_provider,update_native,release_native,update_section
+ local model_states,block_animations,block_targets={},{},{}
++local handles,generation,world_context={},1,nil
++local function clear_dead_models()
++ model_states={};block_animations={};block_targets={};handles={};world_context=nil;M.active_fence=nil
++end
+ -- Retain resources separately from each companion's actors/tick closure. A
+ -- replay can reuse textures; it never merges old and new companion state.
+ local resources=_G.PalCraftNativeModelResources or{}
+@@ -152,7 +156,7 @@
+  model_states[actor]=nil;block_animations[actor]=nil;M.stats.released=M.stats.released+1;return true
+ end
+ function M.abandon_models()
+- if not release_native then model_states={};block_animations={};block_targets={};return end
++ if not release_native then clear_dead_models();return end
+  local contexts={};for _,s in pairs(model_states)do contexts[s.pointers[1]]=true end
+  for context in pairs(contexts)do
+   local f=assert(io.open(ROOT..'model-release-request.pending','wb'))
+@@ -160,7 +164,7 @@
+   os.remove(ROOT..'model-release-request.bin');assert(os.rename(ROOT..'model-release-request.pending',ROOT..'model-release-request.bin'));os.remove(ROOT..'model-result.json');release_native()
+   f=assert(io.open(ROOT..'model-result.json','rb'));local result=J.decode(f:read('*a'));f:close();assert(result.ok and result.stage=='abandoned','Native model abandon failed')
+  end
+- model_states={};block_animations={};block_targets={}
++ clear_dead_models()
+ end
+ function M.block_event(event)
+  local e=event.block_event or event
+@@ -194,7 +198,6 @@
+  material_provider=provider
+  for key,value in pairs(implemented_capabilities or{})do M.capabilities[key]=value end
+ end
+-local handles,generation,world_context={},1,nil
+ local function game_thread()
+  if IsInGameThread then assert(IsInGameThread(),'Model transaction requires game thread')end
+ end
+@@ -302,7 +305,9 @@
+  game_thread();assert(math.tointeger(next_generation)and next_generation>generation,'Model generation must increase')
+  if context_alive then local all={};for _,h in pairs(handles)do all[#all+1]=h end;M.unload(all)end
+  if not context_alive then M.abandon_models()end
+- handles={};model_states={};block_animations={};block_targets={};generation=next_generation;world_context=nil;M.active_fence=nil
++ -- Live reset unloads only transactional handles. Legacy/entity/sign callers
++ -- retain their raw lifetime tokens until their explicit release_model cleanup.
++ handles={};block_targets={};generation=next_generation;world_context=nil;M.active_fence=nil
+ end
+ function M.status()return{version=M.version,geometry_version=M.geometry_version,stats=M.stats,asset_root=ASSETS,asset_package=asset_package,capabilities=M.capabilities,verification=M.verification,generation=generation,active_fence=M.active_fence}end
+ return M

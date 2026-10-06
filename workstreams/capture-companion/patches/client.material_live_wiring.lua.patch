@@ -1,0 +1,11 @@
+--- a/client/material_live_wiring.lua
++++ b/client/material_live_wiring.lua
+@@ -43,7 +43,7 @@
+   assert(p.remove_material_handler,'Native material handler removal hook required');p.remove_material_handler(handler)
+   driver:reset();p.tick=old_tick;p.stop=old_stop;p.bind_material_scope=old_bind;p.accept_material_tint=old_accept;p.material_runtime=nil;return true
+  end
+- p.stop=function()detach();return old_stop()end
++ p.stop=function(context_alive)detach();return old_stop(context_alive)end
+  local api={driver=driver,bind_material_scope=function(scope)return p.bind_material_scope(scope)end,stop=detach,status=function()return driver:status()end}
+  p.material_runtime=api;return api
+ end

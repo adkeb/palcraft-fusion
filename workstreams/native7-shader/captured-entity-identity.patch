@@ -1,0 +1,19 @@
+--- d4af/lua/captured_entity_visuals.lua
++++ next/captured_entity_visuals.lua
+@@ -14,13 +14,14 @@
+ function M.capture(frame)
+  if frame.source~='actual_entity_renderer_submit'or frame.space~='minecraft_entity_origin_world_orientation'then return nil,'not_original_renderer_capture' end
+  local groups={};local missing={}
+- for _,batch in ipairs(frame.batches or{})do
++ for batch_index,batch in ipairs(frame.batches or{})do
+   local id=batch.textures and batch.textures.Sampler0
+   local path=id and texture(id)
+   if not path then missing[#missing+1]=id or'missing_Sampler0'
+   else
+    local g={texture=id,texture_path=path,material_root=config.root,entity_visual=true,collision=false,
+-    actual_renderer_capture=true,world_orientation_baked=true,actor_yaw=0,part='renderer_batch',
++    actual_renderer_capture=true,capture_entity_id=frame.id,capture_batch_index=batch_index,
++    capture_seq=frame.seq,world_orientation_baked=true,actor_yaw=0,part='renderer_batch',
+     renderer_source=batch.source,render_type_name=batch.render_type_name,render_order=batch.layer_order,
+     alpha_mode=batch.has_blending and'translucent'or'cutout',shade=true,light_emission=0,
+     mc_overlay=batch.overlay,mc_light=batch.light,vertex_colors={},vertices={},indices={},overlay_uvs={},light_uvs={},

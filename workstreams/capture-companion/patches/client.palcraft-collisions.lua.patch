@@ -1,0 +1,39 @@
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -106,7 +106,9 @@
+  on_upsert=function(g)enqueue('set',g.at[1],g.at[2],g.at[3],g)end,
+  on_remove=function(g)enqueue('clear',g.at[1],g.at[2],g.at[3],g)end,
+  on_lifecycle=function(event)
+-  M.last_lifecycle=event;if models and models.block_event then models.block_event(event)end;observe('on_lifecycle',event,M.ingesting_row,M)
++  M.last_lifecycle=event
++  if visual_pipeline then visual_pipeline.on_lifecycle(event)elseif models and models.block_event then models.block_event(event)end
++  observe('on_lifecycle',event,M.ingesting_row,M)
+   -- Move and acknowledge the host before changing its native view.
+   if event.op=='player_view'then M.pending_view=event;return false end
+  end,
+@@ -238,7 +240,11 @@
+  if M.chunk_consumer then M.chunk_consumer.stop(true);M.chunk_consumer=nil end
+  return M.status()
+ end
+-function M.abandon()if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end;M.running=false;M.actors={};M.items={};if models and models.abandon_models then models.abandon_models()end end
++function M.abandon()
++ if visual_pipeline then visual_pipeline.stop(false)end
++ if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end
++ M.running=false;M.actors={};M.items={};if models and models.abandon_models then models.abandon_models()end
++end
+ local tick
+ tick=function()
+  if not M.running then return end
+@@ -284,6 +290,12 @@
+      -- This is the SAME authenticated native event journal and reader.
+      local accepted,reason=visual_pipeline.accept_material_tint(row)
+      M.material_reply_status={request_id=row.request_id,accepted=accepted,reason=reason}
++    elseif client and(row.t=='entity_visual_asset'or row.t=='entity_visual_cache'or row.t=='entity_visual_cache_chunk')then
++     -- Reuse the sole authenticated journal; capture rows never enter the world reducer.
++     if visual_pipeline then
++      local accepted,reason=visual_pipeline.receive_capture(row)
++      M.capture_reply_status={t=row.t,accepted=accepted,reason=reason}
++     end
+     end
+    end
+   end

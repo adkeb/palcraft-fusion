@@ -1,0 +1,10 @@
+test_actual_private_level_path_without_dedicated_zero_directory (test_standalone_ports.Ports) ... ok
+test_native_singleplayer_authority_tuple_has_no_fake_host_alias (test_standalone_ports.Ports) ... ok
+test_process_binding_requires_fresh_native_identity_and_exact_durable_row (test_standalone_ports.Ports) ... ok
+test_stale_process_does_not_make_a_boot_or_allow_a_save (test_standalone_ports.Ports) ... ok
+test_wine_and_mac_mapping_are_physical_not_alias_claims (test_standalone_ports.Ports) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.006s
+
+OK

@@ -1,0 +1,216 @@
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -89,9 +89,18 @@
+  assert(not M.chunk_consumer or M.chunk_consumer==binding,'Another chunk consumer owns the journal')
+  M.chunk_consumer=binding;return true
+ end
+-function M.set_world_observer(observer)
++local world_observers,world_observer_order={},{}
++function M.set_world_observer(observer,owner)
+  assert(not observer or type(observer)=='table','World observer required')
+- M.world_observer=observer
++ owner=owner or'default'
++ if observer then
++  if not world_observers[owner]then world_observer_order[#world_observer_order+1]=owner end
++  world_observers[owner]=observer
++ else
++  world_observers[owner]=nil
++  for i=#world_observer_order,1,-1 do if world_observer_order[i]==owner then table.remove(world_observer_order,i)end end
++ end
++ if owner=='default'then M.world_observer=observer end
+ end
+ M.context=context
+ function M.context_alive()
+@@ -105,13 +114,21 @@
+  return true
+ end
+ local function observe(method,...)
+- local observer=M.world_observer
+- if observer and observer[method]then
+-  local ok,result=pcall(observer[method],...)
++ -- Snapshot subscriptions before callbacks; each owner sees one reducer row once.
++ local callbacks={}
++ for _,owner in ipairs(world_observer_order)do
++  local observer=world_observers[owner]
++  if observer and observer[method]then callbacks[#callbacks+1]=observer[method]end
++ end
++ local first_ok,first_result
++ for i,callback in ipairs(callbacks)do
++  local ok,result=pcall(callback,...)
+   if not ok then M.observer_error=tostring(result)end
+-  return ok,result
+- end
+-end
++  if i==1 then first_ok,first_result=ok,result end
++ end
++ return first_ok,first_result
++end
++
+ local World=dofile(dir..'world_compat.lua')
+ M.world=World.new({dimension='minecraft:overworld',auto_view=false,
+  on_upsert=function(g)enqueue('set',g.at[1],g.at[2],g.at[3],g)end,
+--- a/server/features.lua
++++ b/server/features.lua
+@@ -16,7 +16,7 @@
+   return api.presence and api.presence.authority==true,api.presence and api.presence.error or'pal_authority_unavailable'
+  end
+  C:register('presence',{interval_ms=1000,factory=function()
+-  local worker=load('session-auth').new{root=auth,json=J,readers=R}
++  local worker=load('session-auth').new{root=auth,json=J,readers=R,local_realm=o.local_realm}
+   api.auth=worker;_G.PalCraftSessionAuth=worker;return worker
+  end,tick=function(worker)api.presence=worker.tick()or api.presence end,
+   status=function()return api.presence end,is_ready=function(s)return s and s.authority==true end,
+@@ -35,11 +35,11 @@
+   local c=o.companion and o.companion();return c and c.running==true,'collision_companion_not_running'
+  end,key=function()return o.companion()end,factory=function()
+   local c=o.companion()
+-  if c.set_world_observer then c.set_world_observer{on_row=function(row,accepted,reason)return api:on_world(row,accepted,reason)end}end
++  if c.set_world_observer then c.set_world_observer({on_row=function(row,accepted,reason)return api:on_world(row,accepted,reason)end},o.world_observer_owner)end
+   api.companion=c;return c
+  end,tick=function(c)assert(c.running and not c.error and not c.observer_error,'Native collision companion failed')end,
+   status=function(c)return J.decode(assert(c.status_json,'Companion-owned status encoder missing')())end,
+-  stop=function(c)if c.set_world_observer then c.set_world_observer(nil)end;api.companion=nil end})
++  stop=function(c)if c.set_world_observer then c.set_world_observer(nil,o.world_observer_owner)end;api.companion=nil end})
+  -- Publishing Pal authority is useful before the MC guest finishes login. Damage still
+  -- requires the worker's fresh authenticated-sessions proof at the mutation boundary.
+  C:register('entities',{enabled=o.entities_enabled~=false,depends={'presence'},interval_ms=o.entity_interval_ms or 250,
+--- a/runtime/server_options.lua
++++ b/runtime/server_options.lua
+@@ -10,6 +10,12 @@
+   companion=assert(o.companion),entities_enabled=cfg.entities_enabled~=false,food_enabled=cfg.food_enabled==true,
+   bootstrap_enabled=cfg.boot_observer_enabled~=false,exchange_enabled=cfg.exchange_enabled==true,
+   fluid_enabled=cfg.fluid_physics_enabled==true or cfg.fluid_enabled==true,travel_enabled=cfg.travel_enabled==true}
++ if o.standalone_world then
++  assert(o.local_realm,'Actual standalone realm provider required')
++  options.local_realm=o.local_realm;options.world_observer_owner='standalone_server'
++  options.companion=o.standalone_world.companion
++  options.resolve_player=o.standalone_world.resolve_player
++ end
+  options.bootstrap={root=exchange,rpc_root=rpc,process_dll=scripts..'PalCraftEscrowBoot-v1.dll'}
+  if cfg.bootstrap_sampling_hold==true then
+   options.bootstrap_hold_reason='actual_native_boot_api_fault_quarantined_pending_repair'
+@@ -48,7 +54,7 @@
+   local journal=Journal.new{json=J,path=rpc..'travel/state.ndjson',ack_path=rpc..'travel/travel-acks.ndjson',flush_file=o.flush_file}
+   local out=Records.append{json=J,path=rpc..'travel/travel-events.ndjson',flush_file=o.flush_file}
+   options.travel_input=Records.tail{json=J,path=rpc..'travel/travel-input.ndjson'}
+-  local view=o.travel_view or dofile(dir..'server_views.lua').new{companion=o.companion,json=J,origin=o.origin,root=rpc,
++  local view=o.travel_view or(o.standalone_world and o.standalone_world.server_views())or dofile(dir..'server_views.lua').new{companion=o.companion,json=J,origin=o.origin,root=rpc,
+    chunk_dir=scripts..'chunks/',models_path=scripts..'models.lua',geometry_version=3,
+    asset_root=bridge..assert(cfg.model_asset_directory,'Frozen model asset directory missing')..'/',
+    collision_dll=scripts..'../../../../PalCraftChunkCollision-v1.dll',log_path=scripts..'../../../UE4SS.log',
+--- a/server/bridge-main.lua
++++ b/server/bridge-main.lua
+@@ -1,7 +1,13 @@
+ -- BridgeLab persistent control endpoint: serial game-thread file queue, no async Lua.
+ local dir=assert(debug.getinfo(1,'S').source:match('^@(.*[/\\])'))
+-assert(dir:gsub('\\','/'):lower():find('d:/palworldserver-lan/bridgelab/',1,true))
+-local ROOT='D:/PalworldServer-LAN/BridgeLab/rpc/'
++local SP=rawget(_G,'PalCraftStandaloneBootstrap')
++local function root_path(p)return assert(p):gsub('\\','/'):gsub('/?$','/')end
++if SP then
++ assert(SP.local_realm and SP.client_worker and root_path(SP.scripts_dir)==root_path(dir),'Selected standalone scripts/provider required')
++else
++ assert(dir:gsub('\\','/'):lower():find('d:/palworldserver-lan/bridgelab/',1,true))
++end
++local ROOT=SP and root_path(SP.rpc_root)or'D:/PalworldServer-LAN/BridgeLab/rpc/' 
+ local J=dofile(dir..'json.lua');local R=dofile(dir..'readers.lua');local active;local palcraft
+ local function exists(p)local f=io.open(p,'rb');if f then f:close();return true end end
+ local function read(p)local f=assert(io.open(p,'rb'));local x=J.decode(f:read('*a'));f:close();return x end
+@@ -29,22 +35,33 @@
+ end
+ local exchange
+ local function exchange_api()if not exchange then exchange=dofile(dir..'palcraft-exchange.lua')end;return exchange end
+-local SHARED='D:/PalworldServer-LAN/PalCraft-Dev/bridge/'
++local SHARED=SP and root_path(SP.bridge_root)or'D:/PalworldServer-LAN/PalCraft-Dev/bridge/'
++local standalone
++if SP then
++ standalone=dofile(dir..'runtime/standalone_world.lua').new{local_realm=SP.local_realm,client_worker=SP.client_worker,game_thread=SP.game_thread}
++ SP.world=standalone
++end
+ local early_boot_observer
+ -- Copy the actual loader while it still owns the save object, before the dispatcher delay.
+ do
+  local cfg=exists(SHARED..'runtime-config.json')and read(SHARED..'runtime-config.json')or{}
+- if cfg.profile=='lab-next9-test'and(cfg.boot_observer_enabled~=false or cfg.exchange_enabled==true)
++ if not SP and cfg.profile=='lab-next9-test'and(cfg.boot_observer_enabled~=false or cfg.exchange_enabled==true)
+   and cfg.bootstrap_sampling_hold~=true then
+   early_boot_observer=dofile(dir..'exchange_bootstrap.lua').new{json=J,readers=R,
+    root=assert(cfg.exchange_root),rpc_root=ROOT,process_dll=dir..'PalCraftEscrowBoot-v1.dll'}
+   early_boot_observer.start_early()
++ elseif SP and SP.start_early_boot then
++  -- Supplied by the standalone save/escrow owner; no dedicated-save getter is faked.
++  early_boot_observer=SP.start_early_boot(cfg,J,R)
+  end
+ end
+ local features,next_runtime_status,next_control_tick
+ local clock_context,clock_lib
+ local function runtime_time_ms()
+- if not live(clock_context)then
++ if standalone then
++  local proof=SP.local_realm:current();clock_context=proof and proof.game_state or nil
++ end
++ if not standalone and not live(clock_context)then
+   clock_context=nil
+   for _,g in ipairs(objects('PalGameStateInGame'))do
+    if g:HasAuthority()then assert(not clock_context,'Ambiguous authority clock');clock_context=g end
+@@ -58,10 +75,11 @@
+   local cfg=exists(SHARED..'runtime-config.json')and read(SHARED..'runtime-config.json')or{}
+   local origin=exists(SHARED..'world-origin.json')and read(SHARED..'world-origin.json')or nil
+   local options
+-  if cfg.profile=='lab-next9-test'then
+-   if cfg.chunk_enabled==true and not palcraft then palcraft=dofile(dir..'palcraft-server.lua')end
++  if cfg.profile=='lab-next9-test'or SP then
++   if not SP and cfg.chunk_enabled==true and not palcraft then palcraft=dofile(dir..'palcraft-server.lua')end
+    options=dofile(dir..'runtime/server_options.lua').new{json=J,readers=R,bridge_root=SHARED,origin=origin,
+-    config=cfg,scripts_dir=dir,rpc_root=ROOT,companion=function()return palcraft end}
++    config=cfg,scripts_dir=dir,rpc_root=ROOT,companion=standalone and standalone.companion or function()return palcraft end,
++    local_realm=SP and SP.local_realm,standalone_world=standalone}
+   else
+    options={json=J,readers=R,bridge_root=SHARED,origin=origin,companion=function()return palcraft end,
+     exchange_factory=exchange_api,entities_enabled=cfg.entities_enabled~=false,exchange_enabled=false,travel_enabled=false,fluid_enabled=false}
+@@ -74,16 +92,20 @@
+ end
+ local function dispatch(req)
+  local p=req.params or {};local method=req.method
++ if standalone then standalone.authorize_ai(p,method~='status'and method~='bases'and method~='catalog'and method~='storage')end
+  local handled,result=feature_api():dispatch(method,p,req);if handled then return result end
+  if method=='status'then return {online_controllers=#objects('PalPlayerController'),offline_building=true,modes={'survival','creative'},adapter='saved_owner_server_spawn',active_operation=active,observed_unix=os.time()}
+  elseif method=='palcraft_start'then
++  if standalone then local c=standalone.companion();return c and J.decode(c.status_json())or{running=false,reason='actual_standalone_client_world_pending'}end
+   if palcraft and not palcraft.running then palcraft.stop();palcraft=nil end
+   if not palcraft then palcraft=dofile(dir..'palcraft-server.lua')end;return J.decode(palcraft.status_json())
+  elseif method=='palcraft_status'then return palcraft and J.decode(palcraft.status_json())or{running=false,blocks=0}
+  elseif method=='palcraft_stop'then
++  assert(not standalone,'Standalone physical consumer is owned by the client world lifecycle')
+   if not palcraft then return{running=false,blocks=0}end
+   palcraft.stop();return J.decode(palcraft.status_json())
+  elseif method=='palcraft_identity'then
++  if standalone then local s=standalone.status();return{server_session_id=s.server_session_id,world_directory=s.world_id}end
+   local a=objects('PalGameStateInGame')[1];assert(a,'No game state')
+   local function str(v)return type(v)=='string'and v or v:ToString()end
+   return {server_session_id=str(a.ServerSessionId),world_directory=str(a:GetWorldSaveDirectoryName())}
+--- a/server/offline-build-main.lua
++++ b/server/offline-build-main.lua
+@@ -1,8 +1,10 @@
+ -- BridgeLab custom survival builder. No connected PlayerController is required.
+ -- Uses the public server spawn entry plus real technology/guild/material checks.
+ local dir=assert(debug.getinfo(1,'S').source:match('^@(.*[/\\])'))
+-assert(dir:gsub('\\','/'):lower():find('d:/palworldserver-lan/bridgelab/',1,true))
+-local ROOT='D:/PalworldServer-LAN/BridgeLab/rpc/'
++local SP=rawget(_G,'PalCraftStandaloneBootstrap')
++if SP then assert(SP.world,'Standalone world authority adapter required')
++else assert(dir:gsub('\\','/'):lower():find('d:/palworldserver-lan/bridgelab/',1,true))end
++local ROOT=SP and assert(SP.rpc_root):gsub('\\','/'):gsub('/?$','/')or'D:/PalworldServer-LAN/BridgeLab/rpc/' 
+ local J,R,cfg,report,mgr,started,before={},nil,nil,nil,nil,nil,nil
+ local function live(o)return o and o:IsValid()and not o:GetFullName():find('Default__',1,true)end
+ local function gid(g)return R.guid_to_string({A=g.A,B=g.B,C=g.C,D=g.D})end
+@@ -28,7 +30,8 @@
+  J=dofile(dir..'json.lua');R=dofile(dir..'readers.lua')
+  local f=assert(io.open(ROOT..'offline-build-arm.json','rb'));cfg=J.decode(f:read('*a'));f:close()
+  if exists(ROOT..'offline-build-'..cfg.nonce..'.json')then return false end
+- cfg.mode=cfg.mode or 'survival';assert(cfg.mode=='survival'or cfg.mode=='creative','Unknown building mode');assert(not cfg.scale,'Create a standard building, then use the creative transform tool for custom scale')
++ if SP then SP.world.authorize_ai(cfg,true)end
++  cfg.mode=cfg.mode or 'survival';assert(cfg.mode=='survival'or cfg.mode=='creative','Unknown building mode');assert(not cfg.scale,'Create a standard building, then use the creative transform tool for custom scale')
+  report={nonce=cfg.nonce,lab_only=true,adapter='custom_server_builder',mode=cfg.mode,status='preparing',started_unix=os.time(),native_build_calls=0,materials=J.array(),observations=J.array()};write()
+  assert(cfg.execute==true and cfg.expires_unix>os.time(),'Request expired or not armed')
+  mgr=one('PalMapObjectManager');local items=one('PalItemContainerManager')

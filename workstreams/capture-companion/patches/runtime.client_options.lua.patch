@@ -1,0 +1,40 @@
+--- a/runtime/client_options.lua
++++ b/runtime/client_options.lua
+@@ -144,6 +144,28 @@
+   end
+   return{fence={world_session=v.world_session,dim=v.dim,view=v.view,mapping=mapping,mc_uuid=v.player},
+    origin=origin,bounds={table.unpack(bounds)}}
++ end
++ if options.entity_visuals_enabled then
++  local function current_host()
++   local w=current;local h=w and not w.stopped and w.features.binding
++   if not h then return end
++   local q=F.read(bridge_root..'session-bind-status.json');local ok,b=pcall(Session.host,q,h,now())
++   if not ok or not Session.same(b,h)then return end
++   return h
++  end
++  options.capture={send_binding=commands.send,now_ms=o.now_ms or function()return now()*1000 end,
++   current_view=function()
++    if not current_host()then return end
++    -- scene() retains the accepted camera/ACK gate and actual committed bounds.
++    return scene()
++   end,
++   verify_host_session=function(envelope,row)
++    local h=current_host();if not h or type(envelope)~='table'or envelope.v~=2 or envelope.legacy~=false then return false end
++    for _,key in ipairs({'world_id','pal_uid','mc_uuid','mc_name','server_session_id','session_id','generation'})do
++     if envelope[key]~=h[key]then return false end
++    end
++    return row.mc_uuid==h.mc_uuid and type(envelope.expires_at)=='number'and envelope.expires_at>now()
++   end}
+  end
+  if options.sign_enabled then
+   options.sign={allow_candidate=cfg.lab_candidate~=false,profiles=cfg.sign_profiles,verified_profiles=cfg.verified_sign_profiles,
+@@ -174,7 +196,7 @@
+     return g,committed==true
+    end}
+  end
+- if options.chunk_enabled or options.fluid_enabled or options.sign_enabled or material_options then
++ if options.chunk_enabled or options.fluid_enabled or options.sign_enabled or options.entity_visuals_enabled or material_options then
+   local Worker={};Worker.__index=Worker
+   options.client_world={key=function(features)
+    local b,v=assert(features.mc_binding),assert(features.mc_view)

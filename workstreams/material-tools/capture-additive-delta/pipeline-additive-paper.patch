@@ -1,0 +1,49 @@
+--- a/client/native_visual_pipeline.lua
++++ b/client/native_visual_pipeline.lua
+@@ -2,13 +2,28 @@
+ local dir=assert(debug.getinfo(1,'S').source:match('^@(.*[/\\])'))
+ local Profiles=dofile(dir..'material_profiles.lua')
+ local ActualMaterials=dofile(dir..'actual_material_consumers.lua')
++local Additive=dofile(dir..'capture_additive_materials.lua')
++local SpriteTranslucent=dofile(dir..'capture_translucent_sprite_materials.lua')
+ local M={version=1}
+ function M.new(o)
+  local Models,J,root=assert(o.models),assert(o.json),assert(o.bridge_root)
+  local entity_root=root..'entity-assets-v3/'
+  local capture_root=root..'entity-capture-v1/textures/'
+  local instances,handlers={},{};local material_scope;local sign_worker,sign_handler,capture_worker;local api={phase='source_candidate_unverified'}
++ local additive_descriptor=o.capture_additive_descriptor
++ if not additive_descriptor then
++  local file=io.open(root..'capture-additive-v1/profile.json','rb')
++  if file then additive_descriptor=J.decode(file:read('*a'));file:close()end
++ end
++ local additive=Additive.new({asset_root=capture_root,descriptor=additive_descriptor})
++ local sprite_translucent=SpriteTranslucent.new({asset_root=capture_root,shader_contract=o.capture_translucent_sprite_contract})
+  local function resolver(ctx,group,asset_root)
++  if group.actual_renderer_capture and group.capture_blend and group.capture_blend.mode=='translucent'then
++   local value,why=sprite_translucent:resolve(ctx,group);assert(value,'Actual translucent sprite pending: '..tostring(why));return value
++  end
++  if group.additive_material_required then
++   local value,why=additive:resolve(ctx,group);assert(value,'Actual additive pending: '..tostring(why));return value
++  end
+   for _,entry in ipairs(handlers)do if entry.accept(group)then return entry.resolve(ctx,group,asset_root)end end
+   local instance=instances[asset_root]
+   if not instance then
+@@ -58,7 +73,7 @@
+   -- A successful profile binding is runnable; shader fidelity remains unverified.
+   local function material_supported(group)
+    if group.actual_renderer_capture~=true or group.material_root~=capture_root then return false,'capture_material_root_mismatch'end
+-   if group.additive_material_required then return false,'capture_additive_profile_missing'end
++   if group.material_binding_reason then return false,group.material_binding_reason end
+    local ok,value=pcall(resolver,o.context(),group,capture_root)
+    if not ok then return false,tostring(value)end
+    return value~=nil
+@@ -124,7 +139,7 @@
+  end
+  function api.stop(context_alive)
+   api.detach_signs(context_alive);api.detach_capture(context_alive)
+-  for _,instance in pairs(instances)do instance:reset()end;instances={};api.last_seconds=nil
++  additive:reset();sprite_translucent:reset();for _,instance in pairs(instances)do instance:reset()end;instances={};api.last_seconds=nil
+  end
+  function api.status()
+   local profiles={};for path,p in pairs(instances)do profiles[path]={actual_shader_verified=false,runnable_consumer='actual_material_consumers_v1'}end

@@ -1,0 +1,13 @@
+--- a/mc/MaterialTintFeature.java
++++ b/mc/MaterialTintFeature.java
+@@ -21,7 +21,9 @@
+         JsonObject lifecycle=trustedView.getAsJsonArray("lifecycle").get(0).getAsJsonObject();
+         String uuid=mc.player.getUUID().toString(),session=trustedView.get("session").getAsString(),dim=trustedView.get("dim").getAsString();
+         long view=lifecycle.get("view").getAsLong();
+-        if(lifecycle.get("waiting_ack").getAsBoolean()||
++        // Read-only hidden prepare can sample before view ACK. The real client
++        // level must already be in the current trusted dimension.
++        if(!dim.equals(mc.level.dimension().identifier().toString())||
+            !uuid.equals(request.get("mc_uuid").getAsString())||
+            !session.equals(request.get("world_session").getAsString())||
+            !dim.equals(request.get("dim").getAsString())||view!=request.get("view").getAsLong())

@@ -1,0 +1,22 @@
+import {readFileSync} from 'node:fs';
+import {decompress as ooz} from '../../palworld-save-toolkit/docs/vendor/ooz-wasm/index.js';
+import {decompressSav} from '../../palworld-save-toolkit/docs/js/sav.js';
+import {GvasFile,FReader,PALWORLD_TYPE_HINTS} from '../../palworld-save-toolkit/docs/js/gvas.js';
+import {LEVEL_CUSTOM_PROPERTIES} from '../../palworld-save-toolkit/docs/js/paldata.js';
+const arr=v=>Array.isArray(v)?v:v?.values??[];
+const {gvas}=await decompressSav(readFileSync(process.argv[2]),ooz);
+const g=GvasFile.read(gvas,PALWORLD_TYPE_HINTS,LEVEL_CUSTOM_PROPERTIES),w=g.properties.worldSaveData.value;
+const iid='00000000-0000-4000-8000-00000000002e';
+console.log('world',Object.keys(w));
+const chr=arr(w.CharacterSaveParameterMap.value).find(e=>String(e.key.InstanceId.value)===iid);
+console.log('CHAR',JSON.stringify(chr,(k,v)=> v instanceof Uint8Array?'BYTES:'+v.length:typeof v==='bigint'?String(v):v,2));
+const works=arr(w.WorkSaveData.value);
+console.log('WORKS',JSON.stringify(works.slice(0,1),(k,v)=> v instanceof Uint8Array?'BYTES:'+v.length:typeof v==='bigint'?String(v):v,2));
+const obj=arr(w.MapObjectSaveData.value).find(e=>e.MapObjectId.value==='ItemChest');
+console.log('BOX',JSON.stringify(obj,(k,v)=> v instanceof Uint8Array?'BYTES:'+v.length:typeof v==='bigint'?String(v):v,2));
+function scan(o,p='',d=0){if(d>30||o===null||typeof o!=='object'||o instanceof Uint8Array)return;for(const[k,v]of Object.entries(o)){if(/fixed|assign/i.test(k))console.log('HIT',p+'.'+k,JSON.stringify(v,(k,x)=>x instanceof Uint8Array?'BYTES:'+x.length:typeof x==='bigint'?String(x):x).slice(0,4000));scan(v,p+'.'+k,d+1)}}
+scan(w.BaseCampSaveData,'BASE');
+for(const e of arr(w.CharacterSaveParameterMap.value)) scan(e.value.RawData.value,'CHAR.'+String(e.key.InstanceId.value));
+const ws=arr(w.WorkSaveData.value).find(e=>String(new FReader(e.RawData.value.values).guid())==='00000000-0000-4000-8000-000000000020');
+console.log('TARGETWORK',JSON.stringify(ws,(k,v)=>v instanceof Uint8Array?'HEX:'+Buffer.from(v).toString('hex'):typeof v==='bigint'?String(v):v,2));
+console.log('BASES',JSON.stringify(arr(w.BaseCampSaveData.value).slice(0,1),(k,v)=>v instanceof Uint8Array?'BYTES:'+v.length:typeof v==='bigint'?String(v):v,2));

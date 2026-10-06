@@ -1,0 +1,29 @@
+--- a/server/bridge-main.lua
++++ b/server/bridge-main.lua
+@@ -30,6 +30,18 @@
+ local exchange
+ local function exchange_api()if not exchange then exchange=dofile(dir..'palcraft-exchange.lua')end;return exchange end
+ local SHARED='D:/PalworldServer-LAN/PalCraft-Dev/bridge/'
++local early_boot_observer
++-- Begin the read-only loader copy before the normal 30-second dispatcher
++-- delay. The existing game feature lifecycle still starts at its own time.
++do
++ local cfg=exists(SHARED..'runtime-config.json')and read(SHARED..'runtime-config.json')or{}
++ if cfg.profile=='lab-next9-test'and(cfg.boot_observer_enabled~=false or cfg.exchange_enabled==true)
++  and cfg.bootstrap_sampling_hold~=true then
++  early_boot_observer=dofile(dir..'exchange_bootstrap.lua').new{json=J,readers=R,
++   root=assert(cfg.exchange_root),rpc_root=ROOT,process_dll=dir..'PalCraftEscrowBoot-v1.dll'}
++  early_boot_observer.start_early()
++ end
++end
+ local features,next_runtime_status,next_control_tick
+ local clock_context,clock_lib
+ local function runtime_time_ms()
+@@ -54,6 +66,7 @@
+    options={json=J,readers=R,bridge_root=SHARED,origin=origin,companion=function()return palcraft end,
+     exchange_factory=exchange_api,entities_enabled=cfg.entities_enabled~=false,exchange_enabled=false,travel_enabled=false,fluid_enabled=false}
+   end
++  if early_boot_observer and options.bootstrap then options.bootstrap.early_observer=early_boot_observer end
+   features=dofile(dir..'features.lua').new(options)
+   _G.PalCraftServerFeatures=features
+  end

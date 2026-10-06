@@ -1,0 +1,15 @@
+--- a/capture_shader_mid_bindings.lua
++++ b/capture_shader_mid_bindings.lua
+@@ -85,6 +85,12 @@
+   for parameter,v in pairs(vectors)do value.material:SetVectorParameterValue(name(parameter),color(v))end
+   for parameter,v in pairs(scalars)do value.material:SetScalarParameterValue(name(parameter),v)end
+   value.group=g;value.original_shader_inputs=g.mc_shader_inputs;value.vertex_rgba=g.vertex_colors;value.overlay_uvs=g.overlay_uvs;value.light_uvs=g.light_uvs
++  -- Retain cache references only for textures in current live MID slots.
++  -- PNGs and Unreal objects are not deleted/destroyed; shared MID refs stay.
++  local used={};for _,retained in pairs(self.materials)do
++   if valid(retained.material)then for _,texture in pairs(retained.textures)do used[texture]=true end end
++  end
++  for key,texture in pairs(self.textures)do if not used[texture]then self.textures[key]=nil end end
+   value.shader_verified=contract.actual_game_image==true;self.stats.updates=self.stats.updates+1;return value
+  end
+  function self:reset()self.materials={};self.textures={}end

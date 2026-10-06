@@ -1,0 +1,45 @@
+--- a/src/client/java/dev/rehan/passthrough/client/HostLink.java
++++ b/src/client/java/dev/rehan/passthrough/client/HostLink.java
+@@ -162,6 +162,17 @@
+         if (!conn.isOpen() || (lease != null && !sessions.current(conn, lease, now()))) return;
+         JsonObject out = response.deepCopy(); if (strict && lease != null) out.add("host_session", lease.json()); conn.send(out.toString());
+     }
++    private static String requestId(JsonObject query) {
++        if (!query.has("request_id")) return null;
++        String id = query.get("request_id").getAsString();
++        if (!UUID.fromString(id).toString().equals(id)) throw new IllegalArgumentException("Invalid request_id");
++        return id;
++    }
++    private void respond(WebSocket conn, SessionHandle lease, JsonObject query, JsonObject response) {
++        String id = requestId(query); JsonObject out = response.deepCopy();
++        if (id != null) out.addProperty("request_id", id);
++        respond(conn, lease, out);
++    }
+     private void dispatch(WebSocket conn, SessionHandle lease, JsonObject m) {
+ 			switch (m.get("t").getAsString()) {
+ 				case "cam" -> HostState.update(lease, m);
+@@ -176,10 +187,11 @@
+ 				case "clear" -> WorldBridge.clearSolid();
+ 				case "cmd" -> WorldBridge.command(m.get("c").getAsString());
+ 				case "gta", "gtastate", "gtainfo", "director" -> this.relay(conn, lease, m.toString());
+-				case "blockinspect" -> execute(conn, lease, ()->{if(ClientBridge.remote())ClientBridge.request(m,r->{respond(conn, lease, r);});else WorldBridge.inspectAt(m.get("x").getAsInt(),m.get("y").getAsInt(),m.get("z").getAsInt(),r -> respond(conn, lease, r));});
+-                case "blocksync" -> execute(conn, lease, ()->{if(ClientBridge.remote())ClientBridge.send(m);else WorldBridge.sync(m.has("r") ? m.get("r").getAsInt() : 48);});
++				case "blockinspect" -> execute(conn, lease, ()->{requestId(m);if(ClientBridge.remote())ClientBridge.request(m,r->{respond(conn, lease, m, r);});else WorldBridge.inspectAt(m.get("x").getAsInt(),m.get("y").getAsInt(),m.get("z").getAsInt(),r -> respond(conn, lease, m, r));});
++                case "blocksync" -> execute(conn, lease, ()->{String id=requestId(m);if(ClientBridge.remote())ClientBridge.send(m);else WorldBridge.sync(m.has("r") ? m.get("r").getAsInt() : 48,id);});
+ 				case "shutdown" -> execute(conn, lease, () -> Minecraft.getInstance().stop());
+ 				case "inspect" -> execute(conn, lease, () -> {
++                    requestId(m);
+ 					Minecraft mc = Minecraft.getInstance();
+ 					JsonObject report = new JsonObject(); report.addProperty("t", "inspection");
+                     report.addProperty("screen",mc.gui.screen()==null ? "none" : mc.gui.screen().getClass().getSimpleName());
+@@ -210,8 +222,8 @@
+                             if(Float.isFinite(progress))aim.addProperty("progress_per_tick",progress);
+ 						}
+ 					}
+-					if(ClientBridge.remote())ClientBridge.request(m,authority->{report.add("server",authority);respond(conn, lease, report);});
+-                    else WorldBridge.inspect(authority -> {report.add("server",authority);respond(conn, lease, report);});
++					if(ClientBridge.remote())ClientBridge.request(m,authority->{report.add("server",authority);respond(conn, lease, m, report);});
++                    else WorldBridge.inspect(authority -> {report.add("server",authority);respond(conn, lease, m, report);});
+ 				});
+ 				case "projhit" -> {
+ 					JsonArray at = m.getAsJsonArray("pos");

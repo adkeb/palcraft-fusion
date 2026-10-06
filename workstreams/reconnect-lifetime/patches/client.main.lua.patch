@@ -1,0 +1,53 @@
+--- a/client/main.lua
++++ b/client/main.lua
+@@ -202,14 +202,17 @@
+   fov=2*math.atan(math.tan(horizontal*math.pi/360)/aspect)*180/math.pi,grounded=pawn.CharacterMovement:IsMovingOnGround(),width=width,height=height}
+ end
+ local feature_reset_error
+-local function reset_features(reason)
+- local ok,result=pcall(features.reset,features,reason,{context_alive=false})
++local function reset_features(reason,context_alive)
++ local ok,result=pcall(features.reset,features,reason,{context_alive=context_alive==true})
+  feature_reset_error=not ok and tostring(result)or(result==false and'feature_reset_incomplete'or nil)
+ end
+ _G.PalCraftReloadCollisions=function()
+- client_view.reset('collision_replay')
+- reset_features('collision_replay')
+- if collisions then collisions.stop()end
++ local alive=collisions and collisions.context_alive and collisions.context_alive()==true
++ -- Retire the companion's legacy/body visuals BEFORE a shared Models reset.
++ -- A live unknown lifetime must still fail here; never destroy an unowned Actor.
++ client_view.reset('collision_replay',alive)
++ if collisions then collisions.stop(alive)end
++ reset_features('collision_replay',alive)
+  collisions=nil;session=nil;_G.PalCraftCollisionCompanion=nil
+  return 'collision_and_model_replay_queued'
+ end
+@@ -236,10 +239,12 @@
+  view_state.watermark=watermark
+ end
+ local function reset(reason)
+- client_view.reset(reason)
++ local alive=collisions and collisions.context_alive and collisions.context_alive()==true
++ client_view.reset(reason,alive)
+  form.stop(reason)
+- reset_features(reason)
+- if collisions then collisions.abandon();collisions=nil;session=nil;_G.PalCraftCollisionCompanion=nil end
++ if collisions then collisions.stop(alive)end
++ reset_features(reason,alive)
++ collisions=nil;session=nil;_G.PalCraftCollisionCompanion=nil
+  terrain_origin=nil;queue={};columns=J.array();game_cache=nil;world_address=nil;next_game=0
+  if camera_file then
+   publish(string.pack('<c8I4I4dddddddffffff','PALCRFT1',2,0,os.time(),0,0,0,0,0,0,0,0,0,60,.1,1000000))
+@@ -349,7 +354,10 @@
+  end
+  connection('in_bridgelab')
+  if not collisions or session~=identity.server_session_id then
+-  if collisions then collisions.abandon()end
++  if collisions then
++   local alive=collisions.context_alive and collisions.context_alive()==true
++   collisions.stop(alive);reset_features('server_session_changed',alive)
++  end
+   collisions=dofile(dir..'palcraft-collisions.lua');_G.PalCraftCollisionCompanion=collisions;session=identity.server_session_id
+  end
+  stage('discovery',started);started=os.clock()

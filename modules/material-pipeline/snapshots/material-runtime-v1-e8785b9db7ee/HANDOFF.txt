@@ -1,0 +1,43 @@
+Complete independent next material handoff; current 9.2 remains frozen.
+
+Constructor and actual call path:
+1. Install mapped material-owned modules, helper DLL, exact private pixel index/raws,
+   material-runtime-v1.json and installer-owned next proxy delta. Select the SAME
+   models-v4-761ddea057ce model-assets.json from the fixed9.2 baseline.
+2. Apply/rebase only the guarded owner hunks, retaining Native6 capture hooks and
+   any actual9.2 repair. The whole proposals are reviewable baselines, not a license
+   to overwrite another owner's newer file. Owners return final merged hashes.
+3. The actual client_world Worker:tick calls MaterialLiveWiring.attach BEFORE
+   chunks capture Models.geometry. It binds bootstrap's current verified MC UUID,
+   world_session, dimension and view on every existing worker tick.
+4. Models.geometry copies per-block groups and retains authoritative coordinates,
+   state and water/block tint role. The companion's original visual pipeline tick
+   batches <=32 missing color rows into the SAME Records.commands command.json.
+5. Native render's existing authenticated proxy/HostLink world.read round trip
+   appends material_tint to the SAME native palcraft-events journal. The companion's
+   original read loop dispatches it to pipeline.accept_material_tint.
+6. Reply UUID/session/dim/view/request/state/source/index checks precede any cache
+   update. A valid reply invokes companion.retry_material_block: existing section
+   tile/revision invalidation or the original missing per-block visual spawn.
+   It never inserts a synthetic world row, starts a second world reader, nor
+   destroys/replaces the existing collider. The rebuilt groups carry actual RGB
+   BEFORE merge, so separate biomes do not share one tint material.
+7. The selected model root resolves its real namespaced raw RGBA index. The
+   existing PalCraftMaterial-v1 helper multiplies RGB while preserving straight
+   alpha and caches a PNG. Existing material providers bind that texture.
+8. Normal Worker.stop removes the owned material handler/geometry decorator and
+   resets requests; view rebind cannot resume a stale scene. No new timer/socket.
+
+Necessary next Java compile (old Java10 JAR/source stays immutable):
+MaterialTintFeature base3b316b -> proposal42951867 only permits read-only prepare
+before ACK and requires actual client level dimension identifier to match the
+trusted/request scope. All thread/identity/session/view/loaded-chunk/budget checks
+remain. Visible commit and final ACK remain the existing WorldView transaction.
+
+Acceptance: 26 directed offline runtime/factory/queue/retry checks +13 consumer
+checks passed. Private pixels:38 selected tinted model sprites+water_flow,
+126 exact RGBA sidecars; no original model package modified, no interpolated
+intermediate frames precomputed. Existing three-sample capture proves static
+UV0/alpha-clear parent sampling only. Actual tint image/query, intermediate alpha,
+overlap sorting, shader vertex color, full animation/performance remain pending.
+This handoff starts no game/process/service and claims no current runtime green.

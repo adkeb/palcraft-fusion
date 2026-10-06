@@ -1,0 +1,31 @@
+PalCraft 实机故障独立修复交接
+
+交付包含只读崩溃定位、最小早期保存观察器候选、备份布尔限制的必要修正及针对性证据。未修改任何已安装模块、旧 owner 源、游戏进程、正式服或存档。本分支所有写入均在新增 escrow-startup-repair/；运行操作者 00000000-0000-4000-8000-00000000000a 选择下一次必要的正常装载窗口。运行负责人已产生真实早采loaded receipt；本分支未改该不可变记录，最终恢复证书尚未通过。
+
+实际崩溃证据：920480B minidump 的 UE4SS.dll CodeView 和时间戳与本地/5090 DLL SHA256 21b691a69a20c0801f465369d4fcbca7d7444764022fac2a7e8edc7709ef92b8 完全匹配。异常线程18132，UE4SS+0x1e89cd 在 GetChildProperties 返回后解引用；上层 +0x3c2155 是 FindProperty，+0x270425 是 Lua 原生 UObject 成员查找。实际 receiver R12=0x24dfbfcb800，vtable=0x7377180a17ba8916、ClassPrivate=0x2ed1e68796937 已损坏；这个 ClassPrivate 与 FindProperty 本次入参一致。
+
+实际 FName 入参为 CAB9 / number0。同 build 旧 dump 将 CAB9 映射为 CanUseItemToCharacter；当前 minidump 没有可读的活动 lua_State/键字符串/NamePool entry，所以成员文字仅是旧 dump 匹配线索。接收对象和 class 失效本身已直接确认。食品负责人据此修复了 engine ownership / 跨 tick 缓存；本分支未改食品代码。Runtime 在 optional boot sampler factory/tick 都为0时仍重现相同崩溃点，证明 sampler 不是必要触发路径。
+
+单次实机只读 loader 探针：evidence/actual-loader-probe.json，SHA256 9e0389300e7a7f868de84e9c4622e1975541f320cc0fd69625ca55c8aaa5e826。实际 BP_PalSaveGameManager_C 正确，loaded API/field flags 均true；getter/LoadedWorldSaveData 均 present=true、valid=false，活动 PalWorldSaveGame 为0；InitIndex8，canReferToWorld=true。PalUtility 和 KismetMathLibrary 默认对象都 valid=true，原 live() 却排除 Default__，属于后续必然失败的判断。
+
+精确 PalServer binary SHA256 6f929673e7ac637d591d6f3454dbd396be7911093311cb8b24af3a152b217f49 已与5090实际校验相同。Native function metadata及反汇编确认 GetLoadedWorldSaveData RVA0x1d85050 直接读 manager UObject字段+0x118；IsLoadedWorldData thunk0x298e0f0调用0x30bda30，单独读取 bool+0x113。加载完成标志不能推出保存对象仍有效。原 dispatcher 初次 tick 延迟30000ms，observer还在presence之后启动；早期窗口现已在boot1d3044de的实机装载中捕获并发布，见下述完整比较。
+
+candidate/exchange_bootstrap.lua 在最早的真实 game-thread frame 调度中读取 getter 与 reflected property，只接受二者指向同一有效保存对象，然后一次复制纯Lua header及全部container内容。只缓存引擎拥有的manager，发现后不在每帧重枚举；不跨tick保留save UObject/UScriptStruct，不root或改写任何对象。使用该build实际实现的 ExecuteInGameThreadAfterFrames(integer, callback)，没有虚构加载UFunction，也没有hook getter再重入它。早采最多60秒，成功即停。
+
+晚tick核验同manager、failure状态、真实loaded flag、HasAuthority、IsAllLevelLoaded和真实交易槽，再输出观察。candidate/early-startup-repair.patch 仅增加main在30秒延迟前启动同一observer、传入options.bootstrap.early_observer，以及features工厂复用/停止它的两个小hunk。main hunk基于9.2冻结dispatcher，只供runtime合入最新自有dispatcher，不能将旧完整main覆盖回去。当前bootstrap_sampling_hold仍会跳过早采，撤销隔离和部署均由runtime决定。
+
+备份字段审阅：实机 bIsUseBackupSaveData=true、failed_directory为空。SDK和精确binary中同名字段还存在于 PalOptionWorldSettings+0x180，manager字段为+0x219；对应UHT SetBit callbacks确认这两个偏移，但不证明实际加载选择或构造默认值。完整字段语义尚未还原，不能从名字/true断定本次回滚。
+
+原escrow负责人和主负责人明确认可最小修正：原始backup bool照实保留，去掉未经证明的独立false限制；不同实际header/全部containers/transaction beforeimages仍被精确比较拒绝，完全相同checkpoint副本具有相同库存恢复效果。原owner已在自己的Python源完成两处gate修正；candidate/escrow_bootstrap.py是其精确副本，SHA256 8f987d208ab8f6d5578f089c19ec7518ebd21e8fe606c50bab23b56d1abcc4ad。OS/native boot、world/session、loaded/readiness、failed_directory、seal不可变性、完整内容/交易槽及finalize不可替换检查全部保留。Lua也不额外要求早晚backup值相等，记录capture和late两个真实值；没有改假false，未降低完整header/containers要求。
+
+实际早采验证及最小读取修正：ca47候选在新Pal32664 / boot1d3044de-246a-4123-ac7a-6360f50ab0fa成功loader_captured并发布loaded.json。只读比较发现1372个container及其全部slot完全相等，version100/revision102999/timestamp[2026,10,6,7,7,24,267]完全相同，transaction_slots均空且相等；唯一差异是expected.header.real_date_time_ticks=1896354490000而loaded漏了该key。原finalize严格比较正确拒绝，不能把该消息解释成已经证实存档数据损失。
+
+实际FPalGameTimeSaveData反射结构只含GameDateTimeTicks(Int64@0)和RealDateTimeTicks(Int64@8)，没有RawData。旧Lua先访问不存在的RawData，整个pcall中止，后面的RealDateTimeTicks分支未执行，随后错误被吞为header缺key。新版直接val(world.GameTimeSaveData.RealDateTimeTicks)，要求Lua integer后格式化为准确十进制字符串；失败会显式报错。日期库局部math改名date_math，保留真正Lua math.type。既不做时间单位转换，也不从expected/sealed补实际值。
+
+仅ca47到新版的最小补丁为candidate/native-game-time-read.patch；新版完整observer SHA256 767f2ebcf92ad097aa7a3b5694cbe2e6eb7992ce9aba28cd3e8a35640bc8ccd8。全内容/身份比较及Python8f987不变，当前1d不可变loaded/Level/cert不修改。定向回归使用仅含真实两个Int64且RawData访问必抛的结构：ca47 baseline失败，新版PASS；123456789012345678（大于2^53）准确保留。该回归仍只是fixture证据；下次必要next10.1正常加载再生成完整实际记录并执行原finalize，不为此单独重启。
+
+验证：一条早期复制→对象释放→晚期世界就绪的针对性生命周期回归PASS，同时确认backup值照实记录、不会颁发模拟运行证书。Lua syntax PASS。原owner提供两项focused回归PASS：true且完全相同内容可核验并幂等；true但header、container或targetslot不同均拒绝。全部离线结果均明确fixture_only，未重跑旧六fixture矩阵。另有实机晚期probe与实际early capture/1372全container比较；新版直接读取Int64及最终签证尚待下一必要正常加载验证。
+
+下一步只占用下一次必要的next10.1正常装载窗口：runtime按正常prepare→新PID bind装载候选，验证早采复制来自本次实际manager/getter/property，并让原finalize比较sealed checkpoint、完整header/containers、真实transaction beforeimages和OS/native身份。捕获不到、真实时间字段不可读或内容/身份不等时仍pending，其他场景功能继续；不凭布尔值、历史Level替代读取或盲重试判PASS。当前轮不另重启。
+
+证据与复现：analyze_crash.py；evidence/crash-analysis.json、crash-disassembly.txt、actual-reflection-and-state.txt、actual-loader-probe.json、selected-signatures.txt、save-manager-native-metadata.json、backup-typed-field-accessors.txt、backup-flag-review.json、bootstrap-backup-guard-evidence.json。新增实际比较与反射依据见evidence/actual-early-content-comparison.json、native-game-time-signatures.txt、native-game-time-regression.json。机器状态、输入基线和全部文件SHA256见status.json/candidate-input-hashes.json。模拟数据和未定型反汇编候选仅在work/，不会打包或放进实际runtime路径。

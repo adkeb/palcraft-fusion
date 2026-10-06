@@ -1,0 +1,19 @@
+--- a/client/companion_chunk_bridge.lua
++++ b/client/companion_chunk_bridge.lua
+@@ -47,6 +47,16 @@
+  binding.stop=function(alive)return self:stop(alive)end
+  binding.block_render_entry=function(dim,at)return self:block_render_entry(dim,at)end
+  binding.status=function()return self:status()end
++ binding.retry_material_block=function(block)
++  local n=0;local at={block.x,block.y,block.z}
++  for _,region in pairs(self.views.regions)do
++   local b=region.window
++   if not region.retiring and region.dim==block.dim and at[1]>=b[1]and at[1]<b[4]
++    and at[2]>=b[2]and at[2]<b[5]and at[3]>=b[3]and at[3]<b[6]
++    and region.scheduler:invalidate_material(block.dim,at)then n=n+1 end
++  end
++  return n>0
++ end
+  self.binding=binding;return self
+ end
+ -- Complete executable factory for the runtime owner. No external fake installer

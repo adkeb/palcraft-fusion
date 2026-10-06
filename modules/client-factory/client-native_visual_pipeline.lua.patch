@@ -1,0 +1,11 @@
+--- a/client/native_visual_pipeline.lua
++++ b/client/native_visual_pipeline.lua
+@@ -52,7 +52,7 @@
+   local scene=Scene.per_block({json=J,companion=assert(o.companion),confirmed_view=assert(options.confirmed_view),
+    visible_bounds=options.visible_bounds,model_live=options.model_live})
+   sign_worker=Consumer.new({json=J,root=root..'sign-text-v1/',renderer=Renderer.new({models=Models,materials=material}),
+-   send_binding=assert(options.send_binding),block_at=scene.block_at,view_provider=scene.view_provider})
++   send_binding=assert(options.send_binding),block_at=options.block_at or scene.block_at,view_provider=options.view_provider or scene.view_provider})
+   sign_handler=api.add_material_handler(function(g)return g.text_plane==true end,function(ctx,g)return material:resolve(ctx,g)end)
+   api.sign_materials=material;api.sign_worker=sign_worker;return sign_worker
+  end

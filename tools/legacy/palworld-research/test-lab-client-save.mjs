@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {FReader} from '../../palworld-save-toolkit/docs/js/gvas.js';
+import {loadSave,verifyWorld,decodeWorkAssignment} from './verify-lab-client-save.mjs';
+const file='work/palworld-live/lab/client-acceptance-worker-Level.sav',expect=JSON.parse(readFileSync('work/palworld-live/research/lab-client-save-expectations.json'));
+const arr=v=>Array.isArray(v)?v:v?.values??[];const hash=()=>createHash('sha256').update(readFileSync(file)).digest('hex');
+const beforeHash=hash();let n=0;
+async function test(name,fn){const {world}=await loadSave(file);await fn(world);n++;console.log('PASS '+name);}
+await test('actual saved identity chains and sparse ten-slot chest',w=>{const r=verifyWorld(w,expect);assert(r.ok);assert(r.workers[0].fixedWorkSaved);assert.equal(r.workers[0].saved_fixed_matches,1);assert.equal(r.chests[0].capacity,10);assert.equal(r.chests[0].saved_slot_records,2);assert.equal(r.restart_persistence_verified,false);});
+await test('wrong expected model container guild base and worker identity fail',w=>{for(const [scope,key]of[['chests','model_id'],['chests','container_id'],['chests','guild_id'],['workers','base_id'],['workers','individual_id'],['workers','work_id']]){const e=structuredClone(expect);e[scope][0][key]='00000000-0000-4000-8000-00000000000f';assert(!verifyWorld(w,e).ok,key);}});
+await test('fixed=false and truncated assignment cannot pass',w=>{const record=arr(w.WorkSaveData.value).find(x=>arr(x.WorkAssignMap.value).some(a=>{try{return decodeWorkAssignment(a.value.RawData.value.values).individual_id===expect.workers[0].individual_id;}catch{return false;}}));assert(record);const a=arr(record.WorkAssignMap.value)[0];a.value.RawData.value.values[54]=0;assert(!verifyWorld(w,expect).workers[0].ok);a.value.RawData.value.values=a.value.RawData.value.values.subarray(0,57);assert(!verifyWorld(w,expect).workers[0].ok);});
+await test('duplicate target work assignment is ambiguous and rejected',w=>{const record=arr(w.WorkSaveData.value).find(x=>arr(x.WorkAssignMap.value).some(a=>decodeWorkAssignment(a.value.RawData.value.values).individual_id===expect.workers[0].individual_id));record.WorkAssignMap.value.push(record.WorkAssignMap.value[0]);assert(!verifyWorld(w,expect).workers[0].ok);});
+await test('container record duplication and invalid capacity reject',w=>{const boxes=arr(w.ItemContainerSaveData.value),box=boxes.find(x=>String(x.key.ID.value)===expect.chests[0].container_id);box.value.SlotNum.value=1;assert(!verifyWorld(w,expect).chests[0].ok);box.value.SlotNum.value=10;boxes.push(box);assert(!verifyWorld(w,expect).chests[0].ok);});
+await test('construction-in-progress and wrong concrete backlink reject',w=>{const maps=arr(w.MapObjectSaveData.value);const box=maps.find(x=>String(new FReader(x.Model.value.RawData.value.values).guid())===expect.chests[0].model_id);assert(box);const b=box.Model.value.BuildProcess.value.RawData.value.values;b[0]=0;assert(!verifyWorld(w,expect).chests[0].ok);b[0]=1;box.ConcreteModel.value.RawData.value.values[16]^=1;assert(!verifyWorld(w,expect).chests[0].ok);});
+await test('Lab scope is explicit and input bytes remain unchanged',w=>{assert.throws(()=>verifyWorld(w,{...expect,lab_only:false}));assert.equal(hash(),beforeHash);});
+console.log('OK '+n+' offline save verification groups; input SAV unchanged');

@@ -1,0 +1,17 @@
+--- a/client/material_live_wiring.lua
++++ b/client/material_live_wiring.lua
+@@ -14,7 +14,13 @@
+  local driver=Driver.new(settings);local raw_geometry=models.geometry;local old_tick,old_stop=p.tick,p.stop
+  local old_bind,old_accept=p.bind_material_scope,p.accept_material_tint
+  local handler=p.add_material_handler(function(g)return not g.entity_visual and not g.text_plane end,function(ctx,g,root)
+-  local material,why=driver:resolve(ctx,g,root);assert(material,'Material scene pending: '..tostring(why));return material
++  -- Preserve the existing rigid block-entity cutout rule before this handler
++  -- returns: lids/locks must not inherit the Foliage wind/WPO candidate.
++  local candidate=g
++  if g.block_entity and g.alpha_mode=='cutout'then
++   candidate={};for k,v in pairs(g)do candidate[k]=v end;candidate.shade=false
++  end
++  local material,why=driver:resolve(ctx,candidate,root);assert(material,'Material scene pending: '..tostring(why));return material
+  end)
+  local function geometry(id,state,x,y,z,opts)
+   local groups,why,detail=raw_geometry(id,state,x,y,z,opts);if not groups then return nil,why,detail end

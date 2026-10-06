@@ -1,0 +1,16 @@
+--- a/client/main.lua
++++ b/client/main.lua
+@@ -41,10 +41,9 @@
+ local runtime_config={}
+ local runtime_file=open('runtime-config.json','rb')
+ if runtime_file then runtime_config=J.decode(runtime_file:read('*a'));runtime_file:close()end
+-local features=dofile(dir..'features.lua').new{json=J,bridge_root=ROOT,origin=O,identity=runtime_config.identity,
+- entities_enabled=runtime_config.entities_enabled~=false,travel_enabled=runtime_config.travel_enabled==true,
+- fluid_enabled=runtime_config.fluid_physics_enabled==true,entity_visuals_enabled=runtime_config.entity_visuals_enabled==true,
+- sign_enabled=runtime_config.sign_text_enabled==true,native_mc_bootstrap_enabled=true,view_bridge=client_view}
++local feature_options=dofile(dir..'runtime/client_options.lua').new{json=J,bridge_root=ROOT,origin=O,
++ config=runtime_config,scripts_dir=dir,view_bridge=client_view}
++local features=dofile(dir..'features.lua').new(feature_options)
+ _G.PalCraftClientFeatures=features
+ local blocked_input={build=false,focus=false,stale=true}
+ local function host_allowed(pc)

@@ -1,0 +1,13 @@
+--- a/client/chunk_geometry.lua
++++ b/client/chunk_geometry.lua
+@@ -114,6 +114,10 @@
+   shade=group.shade~=false,light_emission=group.light_emission or 0,part=group.part,
+   texture_meta=group.texture_meta,animation=group.animation,
+   tint_rgb=rgb,
++  -- Pending colors cannot be merged across biome coordinates. After a reply,
++  -- the existing tile rebuild merges by the actual RGB normally.
++  authoritative_block=group.material_pending and group.authoritative_block or nil,
++  material_pending=group.material_pending or nil,
+   tint_value=(block.tint_values and(block.tint_values[group.tint]or block.tint_values[tostring(group.tint)]))or group.tint_value or group.tint_color,
+   lighting=block.lighting,render_layer=block.render_layer}
+  return m

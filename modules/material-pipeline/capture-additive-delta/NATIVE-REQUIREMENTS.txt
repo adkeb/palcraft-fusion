@@ -1,0 +1,42 @@
+Source and actual-asset state; no shader acceptance claim
+
+MC26.3 ordinary EYES is actually BlendFunction.TRANSLUCENT, with EMISSIVE,
+NO_OVERLAY and NO_CARDINAL_LIGHTING defines. The producer must send actual
+RenderPipeline target factors/ops, coverage, defines, depth and cull. Layer names
+and hasBlending alone cannot select Additive. OIT/multiple targets stay pending
+until their real accumulation/coverage path is implemented.
+
+Existing real Additive descriptor:
+ /Engine/EngineMaterials/EmissiveMeshMaterial.EmissiveMeshMaterial
+ cooked/actual Blend3, Surface0, Unlit, TwoSided. Pinned cooked RuntimeEntries[3]
+ TextureParameterInfo Name LinearColor / GlobalParameter / index -1;
+ TextureValues[0] DefaultWhiteGrid_Low. Vector entry[1] is separately named Color.
+ Exact cooked proof: native_renderer/rgba-shader-delta/asset-inspector/
+ cooked-parent-metadata.json SHAca870058c03602eb5dd294ebf6e95258fd548c6164c6c6db98b0fd04984853b4.
+ Six-parent runtime metadata already proves Blend3/Surface0/Unlit. Its earlier
+ guessed-name getter list did not include LinearColor, so no negative conclusion
+ about this actual sampler is valid. The runtime owner will verify this one
+ inherited FName/ByInfo getter inside the already planned 3Actor color/alpha probe.
+
+Missing acceptance inputs (handled by the native/model owners):
+ - Actual LocalVertexFactory material samples original UV0 and vertex RGBA.
+ - Actual MC color/alpha factors and pre-vertex-alpha cutout threshold match.
+ - MC light/overlay semantics come from shader defines and original per-vertex
+   UV1/UV2, real Sampler1/Sampler2 and Lighting/ColorModulator inputs. Packed
+   mc_light/mc_overlay fields are not substitutes and do not become emission.
+ - No WPO, particle-only stream, time-dependent UV distortion or hidden scalar
+   tint alters captured pixels. Culling/depth and intermediate alpha are checked.
+
+If this actual parent cannot satisfy those inputs, minimum native material work:
+ one cooked Surface Additive parent with an inherited Sampler0 texture parameter,
+ original UV0, vertex RGBA, and explicit MC light/overlay/color-modulator equation
+ inputs as required by the actual pipeline defines. Bind on the existing Models6
+ primitive/MID path. No second renderer, service, socket or timer; do not mutate
+ BlendMode on an existing compiled parent or replace actual Additive with ordinary
+ Translucent. Return exact asset/parameter/equation evidence to this descriptor.
+
+The conditional resolver is wired into the existing pipeline's actual provider
+ and material_supported path. It requires an actual descriptor, Blend3/Surface0,
+ an inherited parameter before override, original content-addressed PNG, and an
+ evidence-backed shader_contract. No shader_contract is currently manufactured;
+ unresolved real Additive therefore remains pending rather than false supported.

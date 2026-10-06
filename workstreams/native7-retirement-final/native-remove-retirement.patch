@@ -1,0 +1,13 @@
+--- d8c/captured_native_consumer.lua
++++ next/captured_native_consumer.lua
+@@ -78,7 +78,9 @@
+  end
+  function A.remove(h,context_alive)
+   if not retained[h]then return end
+-  Models.release_model(h.model,context_alive~=false)
++  local released=Models.release_model(h.model,context_alive~=false)
++  assert(released==true,'Capture native model release not confirmed')
++  if o.retire_materials then o.retire_materials(h.groups)end
+   if context_alive~=false and valid(h.binding.mesh)then h.binding.mesh:SetVisibility(h.binding.was_visible,false)end
+   retained[h]=nil;stats.removed=stats.removed+1
+  end

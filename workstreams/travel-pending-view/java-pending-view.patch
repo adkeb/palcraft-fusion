@@ -1,0 +1,87 @@
+--- a/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
++++ b/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
+@@ -464,6 +464,25 @@
+         return view;
+     }
+ 
++    /** Republish the actual pending view after authenticated consumers attach; never advances its generation or ACKs it. */
++    public static JsonObject syncPendingView(ServerPlayer player) {
++        if (server == null || !server.isSameThread() || player.level().getServer() != server
++                || server.getPlayerList().getPlayer(player.getUUID()) != player) return transitionError("current_server_player_required");
++        View view = views.get(player.getUUID());
++        if (view == null || view.identity != player || !view.dimension.equals(dimension(player.level())))
++            return transitionError("current_pending_world_view_required");
++        JsonObject result = new JsonObject(); result.addProperty("ok", true); result.addProperty("published", false);
++        result.add("world_view", playerView(player));
++        if (!view.waitingAck) return result;
++        JsonObject event = lifecycle("player_view"); event.addProperty("reason", "reconnect");
++        event.addProperty("player", player.getUUID().toString()); event.addProperty("to", view.dimension);
++        event.addProperty("view", view.generation); event.addProperty("waiting_ack", true);
++        event.add("pos", WorldStateCodec.vector(player.position()));
++        event.addProperty("yaw", player.getYRot()); event.addProperty("pitch", player.getXRot());
++        emitLifecycle(view.dimension, event); result.addProperty("published", true);
++        return result;
++    }
++
+     /** Server-only entry for an actual respawn/reconnect/rebase; it creates no portal, items, or client-selected destination. */
+     public static JsonObject beginViewTransition(ServerPlayer player, String reason) {
+         observeView(player, reason == null ? "rebase" : reason, true);
+--- a/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
++++ b/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
+@@ -56,6 +56,8 @@
+         BridgeNetwork.registerOperation("world", "blockinspect", (server, player, query, reply) ->
+             WorldBridge.inspectAt(player.level(), query.get("x").getAsInt(), query.get("y").getAsInt(), query.get("z").getAsInt(), reply));
+         BridgeNetwork.registerOperation("world", "worldcompat_status", (server, player, query, reply) -> reply.accept(WorldCompatibility.status()));
++        BridgeNetwork.registerOperation("world", "world_view_sync", (server, player, query, reply) ->
++            reply.accept(WorldCompatibility.syncPendingView(player)));
+         BridgeNetwork.registerOperation("travel", "travel_status", (server, player, query, reply) -> reply.accept(BridgeTravelGate.status()));
+         for(String operation:new String[]{"travel_ready","travel_observed","travel_abort"})BridgeNetwork.registerOperation("travel",operation,BridgeTravelGate::clientSignal);
+         BridgeNetwork.registerOperation("world", "world_view_ack", (server, player, query, reply) -> {
+--- a/src/client/java/dev/rehan/passthrough/client/HostLink.java
++++ b/src/client/java/dev/rehan/passthrough/client/HostLink.java
+@@ -119,7 +119,10 @@
+                     HostState.bind(h); Minecraft.getInstance().execute(() -> sessions.runIfCurrent(conn, h, now(), () -> { releaseInput(); PlayerSync.reset(); }));
+                 } else readers.add(conn);
+                 JsonObject bound = new JsonObject(); bound.addProperty("t", "bound"); bound.add("session", h.json()); conn.send(bound.toString());
+-                execute(conn,h,()->{JsonObject view=ClientBridge.trustedWorldView();if(view!=null)respond(conn,h,view);});
++                execute(conn,h,()->{
++                    JsonObject view=ClientBridge.trustedWorldView();if(view!=null)respond(conn,h,view);
++                    if(SessionPolicy.controls(h.scopes()))ClientBridge.requestPendingWorldView();
++                });
+                 return;
+             }
+             SessionHandle accepted;
+--- a/src/client/java/dev/rehan/passthrough/client/ClientBridge.java
++++ b/src/client/java/dev/rehan/passthrough/client/ClientBridge.java
+@@ -93,6 +93,12 @@
+         // This client has only confirmed the MC tuple. Native mapping/bounds require separate committed scene evidence.
+         confirmed.add("mapping",com.google.gson.JsonNull.INSTANCE);confirmed.add("bounds",com.google.gson.JsonNull.INSTANCE);event.add("world_view",confirmed);
+         return event;
++    }
++
++    /** A normal authenticated MC request; the server supplies every lifecycle field. */
++    static void requestPendingWorldView() {
++        if (!remote() || !GuestSession.ready() || worldView == null || !worldView.waitingAck()) return;
++        JsonObject query = new JsonObject(); query.addProperty("t", "world_view_sync"); send(query);
+     }
+ 
+     static void initialize() {
+@@ -125,6 +131,7 @@
+                         JsonObject view=result.getAsJsonObject("world_view");
+                         if(view.has("player")&&Minecraft.getInstance().player!=null&&Minecraft.getInstance().player.getUUID().toString().equals(view.get("player").getAsString()))
+                             observeTrustedWorldView(new WorldView(view.get("world_session").getAsString(),view.get("dim").getAsString(),view.get("view").getAsLong(),view.get("waiting_ack").getAsBoolean()));
++                        requestPendingWorldView();
+                     }
+                 });
+             }
+--- a/src/main/java/dev/rehan/passthrough/session/SessionPolicy.java
++++ b/src/main/java/dev/rehan/passthrough/session/SessionPolicy.java
+@@ -9,7 +9,7 @@
+             case "cam", "host_pose", "world_view_ack", "travel_ready", "travel_observed", "travel_abort" -> "pose";
+             case "key", "mode", "slot", "scroll" -> "input";
+             case "inventory_toggle", "pointer", "wheel", "gui_key", "text", "hud", "view" -> "gui";
+-            case "inspect", "blockinspect", "blocksync", "worldcompat_status", "travel_status", "sign_text_view", "entity_visual_view", "material_tint_query" -> "world.read";
++            case "inspect", "blockinspect", "blocksync", "worldcompat_status", "world_view_sync", "travel_status", "sign_text_view", "entity_visual_view", "material_tint_query" -> "world.read";
+             case "ground" -> "terrain";
+             case "exchange", "exchange_balance" -> "inventory";
+             case "gta", "gtastate", "gtainfo", "director" -> "relay";

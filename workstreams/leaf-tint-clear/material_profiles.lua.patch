@@ -1,0 +1,25 @@
+--- base/material_profiles.lua
++++ next/material_profiles.lua
+@@ -38,7 +38,12 @@
+  if mode~='opaque'and mode~='cutout'and mode~='translucent'then return nil,'invalid_alpha_mode'end
+  -- Group semantics take precedence over PNG classification (glass, water, skull).
+  if mode=='translucent'then return nil,'translucent_parent_not_probed'end
+- local profile=mode=='cutout'and(g.shade==false and profiles.cutout_unlit or profiles.cutout)or profiles.opaque
++ -- MC biome-tinted rigid block quads use the already sampled Paper surface.
++ -- A Pal foliage material adds its own wind/colour behavior to voxel leaves.
++ -- Keep entities, text and all translucent routes with their existing owners.
++ local biome_cutout=mode=='cutout'and not g.entity_visual and not g.actual_renderer_capture and not g.text_plane
++  and((g.tint or-1)>=0 or(g.texture_meta and g.texture_meta.baked_diffuse_tint==true))
++ local profile=mode=='cutout'and((g.shade==false or biome_cutout)and profiles.cutout_unlit or profiles.cutout)or profiles.opaque
+  if mode=='opaque'and g.shade==false then return nil,'unlit_opaque_parent_not_evidenced'end
+  local tint,available=tint_color(g,block)
+  if not available then return nil,'minecraft_block_color_required'end
+@@ -58,7 +63,7 @@
+   baked_diffuse_tint=g.texture_meta and g.texture_meta.baked_diffuse_tint==true,
+   texture_path=path,captured_texture_path=g.actual_renderer_capture==true and g.texture_path or nil,
+   animation=animation,emission=emission,requires_game_thread=true,
+-  shader_verified=false,group=g}
++  shader_verified=false,biome_rigid_cutout=biome_cutout,group=g}
+ end
+ local Instance={};Instance.__index=Instance
+ function M.new(options)

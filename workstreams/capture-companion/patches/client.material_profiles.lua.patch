@@ -1,0 +1,37 @@
+--- a/client/material_profiles.lua
++++ b/client/material_profiles.lua
+@@ -56,7 +56,8 @@
+  return{id=profile.id,parent_asset=profile.parent,texture_parameter=profile.texture,
+   expected_blend=profile.blend,lit=profile.lit,alpha_mode=mode,tint_rgb=tint,
+   baked_diffuse_tint=g.texture_meta and g.texture_meta.baked_diffuse_tint==true,
+-  texture_path=path,animation=animation,emission=emission,requires_game_thread=true,
++  texture_path=path,captured_texture_path=g.actual_renderer_capture==true and g.texture_path or nil,
++  animation=animation,emission=emission,requires_game_thread=true,
+   shader_verified=false,group=g}
+ end
+ local Instance={};Instance.__index=Instance
+@@ -139,6 +140,15 @@
+ end
+ function Instance:_texture(ctx,d)
+  local path=self.asset_root..d.texture_path
++ if d.captured_texture_path then
++  -- The authenticated capture cache publishes only content-addressed PNGs.
++  local direct=d.captured_texture_path
++  local file=type(direct)=='string'and direct:sub(#self.asset_root+1)
++  if not file or direct:sub(1,#self.asset_root)~=self.asset_root
++   or #file~=68 or file:sub(-4)~='.png'or file:sub(1,64):find('[^0-9a-f]')then return nil,'capture_png_path_outside_cache'end
++  if d.tint_rgb or d.animation then return nil,'capture_png_must_preserve_original_pixels'end
++  path=direct
++ end
+  if d.tint_rgb then local why;path,why=self:_bake(d.texture_path,d.tint_rgb);if not path then return nil,why end end
+  local key=tostring(ctx:GetAddress())..':'..path
+  local old=self.textures[key]
+@@ -155,7 +165,7 @@
+  local seconds=self.now(ctx)
+  local d,why=M.descriptor(g,block,{seconds=seconds})
+  if not d then self.stats.rejected=self.stats.rejected+1;return nil,why end
+- local key=tostring(ctx:GetAddress())..':'..g.texture..':'..d.id..':'..tostring(d.tint_rgb or'baked_or_none')..':'..d.emission
++ local key=tostring(ctx:GetAddress())..':'..g.texture..':'..d.id..':'..tostring(d.tint_rgb or'baked_or_none')..':'..d.emission..':'..tostring(d.captured_texture_path or'')
+  local old=self.materials[key]
+  if old and valid(old.material)and valid(old.texture)then return old end
+  local p;p,why=self:_parent(ctx,d);if not p then return nil,why end

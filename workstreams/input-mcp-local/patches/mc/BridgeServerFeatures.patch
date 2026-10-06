@@ -1,0 +1,11 @@
+--- a/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
++++ b/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
+@@ -51,7 +51,7 @@
+             WorldBridge.solid(player.level(), columns);
+         });
+         BridgeNetwork.registerOperation("world", "blocksync", (server, player, query, reply) ->
+-            WorldBridge.syncFor(player, Math.clamp(query.has("r") ? query.get("r").getAsInt() : 32, 1, 64)));
++            WorldBridge.syncFor(player, Math.clamp(query.has("r") ? query.get("r").getAsInt() : 32, 1, 64), query.has("request_id") ? query.get("request_id").getAsString() : null));
+         BridgeNetwork.registerOperation("world", "inspect", (server, player, query, reply) -> WorldBridge.inspect(reply));
+         BridgeNetwork.registerOperation("world", "blockinspect", (server, player, query, reply) ->
+             WorldBridge.inspectAt(player.level(), query.get("x").getAsInt(), query.get("y").getAsInt(), query.get("z").getAsInt(), reply));

@@ -1,0 +1,71 @@
+--- a/palcraft/server/main.lua
++++ b/palcraft/server/main.lua
+@@ -72,11 +72,22 @@
+ end
+ local function key(x,y,z)return('%d:%d:%d'):format(x,y,z)end
+ local function enqueue(kind,x,y,z,geometry)
++ if M.chunk_consumer and M.chunk_consumer.filter_legacy(kind,x,y,z,geometry)==false then return end
+  local k=key(x,y,z);local pending=M.queued[k]
+  if pending then pending[1]=kind;pending[5]=geometry;return end
+  local q={kind,x,y,z,geometry};M.queued[k]=q;M.queue[#M.queue+1]=q
+ end
+ local function queued_count()return #M.queue-M.queue_head+1 end
++-- The existing reducer/journal/timer remains the sole owner. Installing a
++-- binding does not destroy old actors: its postcommit callback retires each section.
++function M.install_consumer(binding)
++ assert(type(binding)=='table'and type(binding.filter_legacy)=='function'
++  and type(binding.on_row)=='function'and type(binding.tick)=='function'
++  and type(binding.stop)=='function'and type(binding.block_render_entry)=='function','Chunk consumer binding required')
++ assert(M.running and not M.error,'Companion is not running')
++ assert(not M.chunk_consumer or M.chunk_consumer==binding,'Another chunk consumer owns the journal')
++ M.chunk_consumer=binding;return true
++end
+ function M.set_world_observer(observer)
+  assert(not observer or type(observer)=='table','World observer required')
+  M.world_observer=observer
+@@ -93,7 +104,7 @@
+ local World=dofile(dir..'world_compat.lua')
+ M.world=World.new({dimension='minecraft:overworld',auto_view=false,
+  on_upsert=function(g)enqueue('set',g.at[1],g.at[2],g.at[3],g)end,
+- on_remove=function(g)enqueue('clear',g.at[1],g.at[2],g.at[3])end,
++ on_remove=function(g)enqueue('clear',g.at[1],g.at[2],g.at[3],g)end,
+  on_lifecycle=function(event)
+   M.last_lifecycle=event;if models and models.block_event then models.block_event(event)end;observe('on_lifecycle',event,M.ingesting_row,M)
+   -- Move and acknowledge the host before changing its native view.
+@@ -196,10 +207,11 @@
+ end
+ M.status_json=function()return J.encode(M.status())end
+ function M.stop()
++ if M.chunk_consumer then M.chunk_consumer.stop(true);M.chunk_consumer=nil end
+  if visual_pipeline then visual_pipeline.stop()end
+  M.running=false;for _,d in pairs(M.items)do if live(d.actor)then d.actor:K2_DestroyActor()end end;M.items={};for _,a in pairs(M.actors)do for _,h in ipairs(a.handles)do invoke(1,h,0,64,0)end;if a.model then destroy_model(a.model)end end;M.actors={};return M.status()
+ end
+-function M.abandon()M.running=false;M.actors={};M.items={};if models and models.abandon_models then models.abandon_models()end end
++function M.abandon()if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end;M.running=false;M.actors={};M.items={};if models and models.abandon_models then models.abandon_models()end end
+ local tick
+ tick=function()
+  if not M.running then return end
+@@ -236,6 +248,10 @@
+      local accepted,reason=M.world:ingest(row)
+      M.ingesting_row=nil
+      if not accepted then M.world_error={reason=reason}end
++     if M.chunk_consumer then
++      local routed,why=M.chunk_consumer.on_row(row,accepted,reason)
++      if routed==false then M.chunk_consumer_error=why end
++     end
+      observe('on_row',row,accepted,reason,M)
+     end
+    end
+@@ -243,9 +259,11 @@
+   M.item_tick=(M.item_tick or 0)+1;if client and M.item_tick%4==0 then update_items()end
+   for _=1,math.min(4,queued_count())do
+    local q=M.queue[M.queue_head];M.queue[M.queue_head]=false;M.queue_head=M.queue_head+1
+-   M.queued[key(q[2],q[3],q[4])]=nil;apply(table.unpack(q))
++   M.queued[key(q[2],q[3],q[4])]=nil
++   if not M.chunk_consumer or M.chunk_consumer.filter_legacy(q[1],q[2],q[3],q[4],q[5])~=false then apply(table.unpack(q))end
+   end
+   if M.queue_head>#M.queue then M.queue={};M.queue_head=1 end
++  if M.chunk_consumer then M.chunk_consumer.tick()end
+   if visual_pipeline then
+    local time=StaticFindObject('/Script/Engine.Default__GameplayStatics')
+    visual_pipeline.tick(time:GetWorldDeltaSeconds(context()),time:GetTimeSeconds(context()))

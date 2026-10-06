@@ -1,0 +1,922 @@
+--- a/mc/src/main/java/dev/rehan/passthrough/PalEntityBridge.java
++++ b/mc/src/main/java/dev/rehan/passthrough/PalEntityBridge.java
+@@ -29,10 +29,13 @@
+             "D:/PalworldServer-LAN/PalCraft-Dev/bridge"));
+     private static final EntityCombatLedger ledger = new EntityCombatLedger(8192);
+     private static final Map<String, Long> pending = new LinkedHashMap<>();
++    private static final Map<Path,JsonObject> deferredPublications=new LinkedHashMap<>();
++    private static String publicationError;
+     private static final Map<String, HostEntity> hostStates = new HashMap<>();
+     private static Function<UUID,String> playerUid = uuid -> null;
+     private static Function<ServerPlayer,JsonObject> playerSession = player -> null;
+     private static final Map<UUID,ServerPlayer> healthAvatars=new HashMap<>();
++    private static JsonObject foodCapabilities;
+     private static MinecraftServer attached;
+     private static String session, palEpoch, epoch;
+     private static long palRevision = -1, revision, ticks;
+@@ -52,9 +55,10 @@
+         incoming = outgoing = rejected = 0;
+         phase = "waiting_for_pal_server";
+         error = null;
+-        pending.clear();
++        pending.clear();deferredPublications.clear();publicationError=null;
+         hostStates.clear();
+         healthAvatars.clear();
++        foodCapabilities=null;PalFoodBridge.attach(ROOT);
+     }
+ 
+     public static void tick(MinecraftServer server) {
+@@ -63,11 +67,12 @@
+         if (ticks % 2 != 0) return;
+         try {
+             Files.createDirectories(ROOT);
++            flushPublications();
+             readPalState();
+             if (ready()) readPalHits(server);
+             if (session != null && ticks % 10 == 0) EntityCombatLab.tick(server,ROOT,session);
+             if (ticks % 4 == 0) { publish(server); writeHitIndex(); }
+-            if (ticks % 20 == 0) { pollResults(); write(ROOT.resolve("mc-status.json"), status()); }
++            if (ticks % 20 == 0) { pollResults();PalFoodBridge.tick();publishLater(ROOT.resolve("mc-status.json"), status()); }
+             error = null;
+         } catch (IOException | RuntimeException e) {
+             error = e.toString();
+@@ -140,6 +145,7 @@
+         palRevision = nextRevision;
+         lastPalTick = ticks;
+         phase = "active";
++        foodCapabilities=state.has("food")?state.getAsJsonObject("food").deepCopy():null;
+         hostStates.clear();
+         for(HostEntity h:parsed)hostStates.put(h.id(),h);
+         MobWar.replaceHostEntities(parsed);
+@@ -212,6 +218,18 @@
+     /** Only the verified multiplayer owner may provide this connection-scoped binding. */
+     public static void bindPlayerUidResolver(Function<UUID,String> resolver){playerUid=Objects.requireNonNull(resolver);}
+     public static void bindPlayerSessionResolver(Function<ServerPlayer,JsonObject> resolver){playerSession=Objects.requireNonNull(resolver);}
++    public static JsonObject authorityContext(){JsonObject r=envelope("entity_authority","mc_server");r.addProperty("epoch",epoch);r.addProperty("source_epoch",epoch);r.addProperty("target_epoch",palEpoch);return r;}
++    public static JsonObject foodContext(ServerPlayer p){
++        if(!ready()||!ownsHealth(p))return null;HostEntity h=playerState(p);JsonObject proof=playerSession.apply(p);
++        if(h==null||!h.alive()||h.dying()||proof==null)return null;
++        JsonObject r=authorityContext();r.addProperty("source",EntityCombatLedger.mcId(p.getUUID()));r.addProperty("target",h.id());r.add("player_session",proof.deepCopy());return r;
++    }
++    public static boolean foodReady(ServerPlayer p){
++        JsonObject context=foodContext(p);if(context==null||foodCapabilities==null||!foodCapabilities.has("enabled")||!foodCapabilities.get("enabled").getAsBoolean())return false;
++        String target=context.get("target").getAsString();
++        for(JsonElement id:foodCapabilities.getAsJsonArray("ready_players"))if(target.equals(id.getAsString()))return true;
++        return false;
++    }
+     public static ServerPlayer boundPlayer(MinecraftServer server,String uid){
+         if(uid==null||uid.isEmpty())return null;
+         for(ServerPlayer p:server.getPlayerList().getPlayers())if(uid.equals(playerUid.apply(p.getUUID())))return p;
+@@ -239,6 +257,7 @@
+             v.addProperty("player_uid",h.playerUid());v.addProperty("hp",h.hp());v.addProperty("max_hp",h.maxHp());
+             v.addProperty("shield",h.shield());v.addProperty("max_shield",h.maxShield());v.addProperty("alive",h.alive());v.addProperty("dying",h.dying());
+             v.addProperty("full_stomach",h.fullStomach());v.addProperty("max_full_stomach",h.maxFullStomach());v.addProperty("food_authority","pal_server");
++            v.addProperty("life_active",true);v.addProperty("pal_epoch",palEpoch);v.addProperty("mc_epoch",epoch);
+             BridgeNetwork.eventFor(p,v.toString());
+         }
+     }
+@@ -279,20 +298,25 @@
+         if (host == null || !host.alive()) return false;
+         Entity attacker = damage.getEntity();
+         if (attacker == null) attacker = damage.getDirectEntity();
+-        if (attacker == null || MobWar.isProxy(attacker)) return false; // imported damage never echoes back
++        String kind=damage.typeHolder().unwrapKey().map(k -> k.identifier().toString()).orElse("minecraft:generic");
++        boolean environment=attacker==null;
++        if(environment&&(host.player()||!Set.of("minecraft:lava","minecraft:in_fire","minecraft:on_fire").contains(kind)))return false;
++        if (attacker != null && MobWar.isProxy(attacker)) return false; // imported damage never echoes back
+         String id = UUID.randomUUID().toString();
+         JsonObject event = envelope("entity_damage", "mc_server");
+         event.addProperty("id", id);
+         event.addProperty("source_epoch", epoch);
+         event.addProperty("target_epoch", palEpoch);
+         event.addProperty("target", host.id());
+-        event.addProperty("source", EntityCombatLedger.mcId(attacker.getUUID()));
+-        event.addProperty("source_kind", BuiltInRegistries.ENTITY_TYPE.getKey(attacker.getType()).toString());
++        event.addProperty("source", EntityCombatLedger.mcId((environment?proxy:attacker).getUUID()));
++        event.addProperty("source_kind",environment?"minecraft:environment_proxy":BuiltInRegistries.ENTITY_TYPE.getKey(attacker.getType()).toString());
++        event.addProperty("environment",environment);event.addProperty("source_proxy",environment);
+         event.addProperty("source_player", attacker instanceof ServerPlayer);
+         if(attacker instanceof ServerPlayer p){JsonObject binding=playerSession.apply(p);if(binding==null)return false;event.add("player_session",binding);}
+         event.addProperty("amount", amount);
+-        event.addProperty("kind", damage.typeHolder().unwrapKey().map(k -> k.identifier().toString()).orElse("minecraft:generic"));
+-        event.addProperty("x", attacker.getX()); event.addProperty("y",attacker.getY()); event.addProperty("z",attacker.getZ());
++        event.addProperty("kind",kind);
++        Entity from=environment?proxy:attacker;
++        event.addProperty("x", from.getX()); event.addProperty("y",from.getY()); event.addProperty("z",from.getZ());
+         try {
+             write(ROOT.resolve("mc-hit-"+id+".json"),event);
+             pending.put(id,ticks);
+@@ -330,6 +354,7 @@
+             }
+         }
+         state.add("entities", rows);
++        state.add("host_proxies",MobWar.proxySnapshot());
+         JsonArray players=new JsonArray();
+         for(ServerPlayer p:server.getPlayerList().getPlayers()){
+             if(!ownsHealth(p))continue;HostEntity h=playerState(p);if(h==null)continue;
+@@ -340,7 +365,7 @@
+             v.addProperty("food",p.getFoodData().getFoodLevel());v.addProperty("full_stomach",h.fullStomach());v.addProperty("max_full_stomach",h.maxFullStomach());
+         }
+         state.add("player_vitals",players);
+-        write(ROOT.resolve("mc-state.json"), state);
++        publishLater(ROOT.resolve("mc-state.json"), state);
+         Passthrough.events.accept(state.toString());
+     }
+ 
+@@ -357,12 +382,22 @@
+         if (e instanceof LivingEntity living) {
+             r.addProperty("hp",living.getHealth()); r.addProperty("max_hp",living.getMaxHealth());
+             r.addProperty("baby",living.isBaby()); r.addProperty("hurt",living.hurtTime>0);
++            r.addProperty("age",e.tickCount);r.addProperty("walk_pos",living.walkAnimation.position());r.addProperty("walk_speed",living.walkAnimation.speed());
++            r.addProperty("scale",living.getScale());r.addProperty("age_scale",living.getAgeScale());
++            r.addProperty("hurt_time",living.hurtTime);r.addProperty("death_time",living.deathTime);r.addProperty("attack_time",living.getSwingAnimation(1));
++            r.addProperty("body_yaw",living.yBodyRot);r.addProperty("head_yaw",net.minecraft.util.Mth.wrapDegrees(living.yHeadRot-living.yBodyRot));
++            r.addProperty("head_pitch",living.getXRot());r.addProperty("current_swing",living.isSwinging());
++            var swing=living.getCurrentSwing();r.addProperty("swing_arm",(swing==null?living.getMainArm():swing.hand().asArm(living.getMainArm())).name().toLowerCase(Locale.ROOT));
++            if(swing!=null)r.addProperty("swing_hand",swing.hand().name().toLowerCase(Locale.ROOT));
+         }
+         if (e instanceof Mob mob) {
+             r.addProperty("hostile",mob instanceof net.minecraft.world.entity.monster.Enemy);
++            r.addProperty("aggressive",mob.isAggressive());
+             LivingEntity target = mob.getTarget();
+             if (target != null) { HostEntity h=MobWar.hostFor(target); r.addProperty("target",h!=null?h.id():EntityCombatLedger.mcId(target.getUUID())); }
+         }
++        if(e instanceof net.minecraft.world.entity.monster.Creeper creeper)r.addProperty("swelling",creeper.getSwelling(1));
++        if(e instanceof net.minecraft.world.entity.animal.pig.Pig pig)r.addProperty("pig_variant",pig.getVariant().unwrapKey().map(k->k.identifier().toString()).orElse("minecraft:temperate"));
+         if (e instanceof Projectile p && p.getOwner()!=null) r.addProperty("owner",EntityCombatLedger.mcId(p.getOwner().getUUID()));
+         return r;
+     }
+@@ -381,14 +416,16 @@
+     private static void writeHitIndex() throws IOException {
+         JsonObject index=envelope("entity_hits","mc_server");index.addProperty("epoch",epoch);
+         JsonArray ids=new JsonArray();for(String id:pending.keySet())ids.add(id);index.add("ids",ids);
+-        write(ROOT.resolve("mc-hits.json"),index);
++        publishLater(ROOT.resolve("mc-hits.json"),index);
+     }
+     public static JsonObject status() {
+         JsonObject r=envelope("entity_status","mc_server");r.addProperty("epoch",epoch);r.addProperty("phase",phase);
+         r.addProperty("incoming",incoming);r.addProperty("outgoing",outgoing);r.addProperty("rejected",rejected);
+-        r.addProperty("pending",pending.size());r.addProperty("pal_revision",palRevision);
++        r.addProperty("pending",pending.size());r.addProperty("publication_pending",deferredPublications.size());
++        if(publicationError!=null)r.addProperty("publication_error",publicationError);r.addProperty("pal_revision",palRevision);
+         r.addProperty("proxies",MobWar.proxyCount());r.addProperty("legacy_damage_enabled",false);
+         r.addProperty("player_health_authority","pal_server");
++        r.add("food",PalFoodBridge.status());
+         if(error!=null)r.addProperty("error",error);return r;
+     }
+     public static void detach(MinecraftServer server) {
+@@ -398,6 +435,21 @@
+         try { write(ROOT.resolve("mc-status.json"),status()); } catch(IOException e){Passthrough.LOG.warn("entity detach: {}",e.toString());}
+         attached=null;session=palEpoch=null;pending.clear();hostStates.clear();healthAvatars.clear();
+     }
++    /** Publication can wait for a Windows rb reader. Damage intents/receipts still use strict write(). */
++    private static boolean publishLater(Path path,JsonObject value)throws IOException{
++        try{write(path,value);deferredPublications.remove(path);if(deferredPublications.isEmpty())publicationError=null;return true;}
++        catch(AccessDeniedException busy){
++            Path temp=path.resolveSibling(path.getFileName()+".tmp");
++            if(!Files.exists(path)||!Files.exists(temp))throw busy;
++            deferredPublications.put(path,value.deepCopy());publicationError=busy.toString();return false;
++        }
++    }
++    private static void flushPublications()throws IOException{
++        int budget=4;
++        for(var e:new ArrayList<>(deferredPublications.entrySet())){
++            if(budget--==0)break;publishLater(e.getKey(),e.getValue());
++        }
++    }
+     public static void write(Path path,JsonObject value) throws IOException {
+         Path tmp=path.resolveSibling(path.getFileName()+".tmp");Files.writeString(tmp,value.toString());
+         try{Files.move(tmp,path,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}
+--- a/mc/src/main/java/dev/rehan/passthrough/MobWar.java
++++ b/mc/src/main/java/dev/rehan/passthrough/MobWar.java
+@@ -3,6 +3,7 @@
+ import dev.rehan.passthrough.mixin.MobAccessor;
+ import java.util.*;
+ import java.util.concurrent.ThreadLocalRandom;
++import com.google.gson.*;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.registries.BuiltInRegistries;
+ import net.minecraft.network.chat.Component;
+@@ -44,6 +45,16 @@
+     static PalEntityBridge.HostEntity hostFor(Entity e){return hostOf.get(e.getUUID());}
+     static LivingEntity proxyFor(String id){Villager v=proxies.get(id);return v!=null&&!v.isRemoved()?v:null;}
+     public static int proxyCount(){return proxies.size();}
++    static JsonArray proxySnapshot(){
++        JsonArray rows=new JsonArray();
++        for(var e:proxies.entrySet()){
++            Villager v=e.getValue();if(v.isRemoved())continue;
++            JsonObject r=new JsonObject();r.addProperty("id",EntityCombatLedger.mcId(v.getUUID()));r.addProperty("pal_id",e.getKey());
++            r.addProperty("dimension",v.level().dimension().identifier().toString());r.addProperty("x",v.getX());r.addProperty("y",v.getY());r.addProperty("z",v.getZ());rows.add(r);
++            r.addProperty("width",v.getBoundingBox().getXsize());r.addProperty("height",v.getBoundingBox().getYsize());
++        }
++        return rows;
++    }
+     static void replaceHostEntities(List<PalEntityBridge.HostEntity> next){newest=List.copyOf(next);}
+     static void clearHostEntities(){clearProxies();newest=List.of();}
+ 
+@@ -95,6 +106,9 @@
+                 proxies.put(h.id(),v);hostOf.put(v.getUUID(),h);
+                 if(!level.addFreshEntity(v)){proxies.remove(h.id());hostOf.remove(v.getUUID());continue;}
+             }else{v.setPos(h.x(),h.y(),h.z());v.setYRot(h.yaw());hostOf.put(v.getUUID(),h);}
++            // The native capsule's actual bounds drive MC contact, rather than a default villager's height/width.
++            double half=h.width()/2;
++            v.setBoundingBox(new net.minecraft.world.phys.AABB(h.x()-half,h.y(),h.z()-half,h.x()+half,h.y()+h.height(),h.z()+half));
+         }
+         for(var entry:new ArrayList<>(proxies.entrySet()))if(!next.containsKey(entry.getKey())){
+             Villager v=entry.getValue();hostOf.remove(v.getUUID());windows.remove(v.getUUID());v.discard();proxies.remove(entry.getKey());
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/PalFoodBridge.java
+@@ -0,0 +1,87 @@
++package dev.rehan.passthrough;
++
++import com.google.gson.*;
++import java.io.IOException;
++import java.nio.file.*;
++import java.util.*;
++import net.minecraft.core.component.DataComponents;
++import net.minecraft.core.registries.BuiltInRegistries;
++import net.minecraft.network.chat.Component;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.effect.MobEffectInstance;
++import net.minecraft.world.food.FoodProperties;
++import net.minecraft.world.item.ItemStack;
++
++/** Original vanilla consumption is the payment. Native Pal item effects receive one completion receipt. */
++public final class PalFoodBridge {
++    private record Token(String id,ItemStack stack,int before,JsonObject event,Map<String,String> effects){}
++    private static final Map<UUID,Token> consuming=new HashMap<>();
++    private static final Map<String,JsonObject> pending=new LinkedHashMap<>();
++    private static final Map<UUID,String> waiting=new HashMap<>();
++    private static Path root;
++    private PalFoodBridge(){}
++    static void attach(Path directory){root=directory;consuming.clear();pending.clear();waiting.clear();}
++    public static boolean canConsume(ServerPlayer p,ItemStack stack){
++        return !p.getAbilities().instabuild && stack.has(DataComponents.FOOD) && PalEntityBridge.foodReady(p)
++                && !waiting.containsKey(p.getUUID());
++    }
++    public static boolean begin(ServerPlayer p,ItemStack stack){
++        if(!canConsume(p,stack))return false;
++        FoodProperties food=stack.get(DataComponents.FOOD);if(food==null||stack.getCount()<1)return false;
++        if(food.nutrition()<0||food.nutrition()>20||!Float.isFinite(food.saturation())||food.saturation()<0||food.saturation()>40)return false;
++        JsonObject event=PalEntityBridge.foodContext(p);if(event==null)return false;
++        String id=UUID.randomUUID().toString();event.addProperty("id",id);event.addProperty("t","entity_consume");
++        event.addProperty("item",BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
++        event.addProperty("nutrition",food.nutrition());event.addProperty("saturation",food.saturation());event.addProperty("before_count",stack.getCount());
++        event.addProperty("phase","prepared");event.addProperty("creative",false);
++        try{PalEntityBridge.write(root.resolve("mc-food-"+id+".json"),event);}
++        catch(IOException e){Passthrough.LOG.warn("Food receipt preparation failed: {}",e.toString());return false;}
++        consuming.put(p.getUUID(),new Token(id,stack,stack.getCount(),event,effects(p)));return true;
++    }
++    public static void complete(ServerPlayer p,ItemStack original){
++        Token token=consuming.remove(p.getUUID());if(token==null||token.stack()!=original)return;
++        JsonObject event=token.event();int after=original.getCount();
++        event.addProperty("after_count",after);event.addProperty("consumed_count",token.before()-after);
++        boolean paid=after==token.before()-1&&!p.getAbilities().instabuild;
++        event.addProperty("vanilla_completed",paid);event.addProperty("phase",paid?"consumed":"cancelled_unpaid");
++        JsonArray effects=new JsonArray();
++        for(MobEffectInstance e:p.getActiveEffects()){
++            String kind=e.getEffect().unwrapKey().map(k->k.identifier().toString()).orElse("");
++            String value=e.getAmplifier()+":"+e.getDuration();
++            if(!value.equals(token.effects().get(kind))){JsonObject r=new JsonObject();r.addProperty("id",kind);r.addProperty("amplifier",e.getAmplifier());r.addProperty("duration",e.getDuration());effects.add(r);}
++        }
++        event.add("effects",effects);event.addProperty("effects_json",effects.toString());
++        try{
++            PalEntityBridge.write(root.resolve("mc-food-"+token.id()+".json"),event);
++            if(paid){pending.put(token.id(),event);waiting.put(p.getUUID(),token.id());writeIndex();}
++        }catch(IOException e){Passthrough.LOG.error("Paid food completion receipt uncertain {}: {}",token.id(),e.toString());
++            waiting.put(p.getUUID(),token.id());p.sendSystemMessage(Component.literal("补给同步未确认，消费凭据已保留"));}
++        var state=PalEntityBridge.playerState(p);
++        if(state!=null){p.getFoodData().setFoodLevel(EntityVitals.food(state.fullStomach(),state.maxFullStomach()));p.getFoodData().setSaturation(0);}
++    }
++    private static Map<String,String> effects(ServerPlayer p){
++        Map<String,String> r=new HashMap<>();for(MobEffectInstance e:p.getActiveEffects())r.put(e.getEffect().unwrapKey().map(k->k.identifier().toString()).orElse(""),e.getAmplifier()+":"+e.getDuration());return r;
++    }
++    static void tick(){
++        if(root==null)return;
++        for(var entry:new ArrayList<>(pending.entrySet())){
++            Path file=root.resolve("pal-food-result-"+entry.getKey()+".json");if(!Files.exists(file))continue;
++            try{
++                JsonObject result=JsonParser.parseString(Files.readString(file)).getAsJsonObject();
++                if(!entry.getKey().equals(result.get("id").getAsString()))continue;
++                pending.remove(entry.getKey());
++                String source=entry.getValue().get("source").getAsString();UUID uuid=UUID.fromString(source.substring(3));
++                if(result.get("ok").getAsBoolean())waiting.remove(uuid,entry.getKey());
++                // Failed/uncertain paid food keeps the player-specific gate; never re-eat or issue a free replacement.
++                Passthrough.events.accept(result.toString());
++            }catch(IOException|RuntimeException e){Passthrough.LOG.debug("Food receipt read: {}",e.toString());}
++        }
++        try{writeIndex();}catch(IOException e){Passthrough.LOG.warn("Food outbox: {}",e.toString());}
++    }
++    private static void writeIndex()throws IOException{
++        JsonObject index=PalEntityBridge.authorityContext();index.addProperty("t","entity_foods");
++        JsonArray ids=new JsonArray();for(String id:pending.keySet())ids.add(id);index.add("ids",ids);
++        PalEntityBridge.write(root.resolve("mc-foods.json"),index);
++    }
++    public static JsonObject status(){JsonObject r=new JsonObject();r.addProperty("pending",pending.size());r.addProperty("blocked_paid_recovery",waiting.size());return r;}
++}
+--- a/mc/src/main/java/dev/rehan/passthrough/mixin/PalFoodUseMixin.java
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/PalFoodUseMixin.java
+@@ -1,6 +1,7 @@
+ package dev.rehan.passthrough.mixin;
+ 
+ import dev.rehan.passthrough.PalEntityBridge;
++import dev.rehan.passthrough.PalFoodBridge;
+ import net.minecraft.core.component.DataComponents;
+ import net.minecraft.network.chat.Component;
+ import net.minecraft.server.level.ServerPlayer;
+@@ -11,14 +12,14 @@
+ import org.spongepowered.asm.mixin.injection.Inject;
+ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+ 
+-/** Until native MC food use is mapped, do not consume a player's MC food while their only metabolism is Pal. */
++/** Native readiness and a single pending paid consumption protect the real stack. */
+ @Mixin(LivingEntity.class)
+ abstract class PalFoodUseMixin {
+     @Inject(method="startUsingItem(Lnet/minecraft/world/InteractionHand;)V",at=@At("HEAD"),cancellable=true)
+     private void palcraft$foodUse(InteractionHand hand,CallbackInfo ci){
+         if((Object)this instanceof ServerPlayer player && PalEntityBridge.ownsHealth(player)
+-                && player.getItemInHand(hand).has(DataComponents.FOOD)){
+-            player.sendSystemMessage(Component.literal("请使用帕鲁食物补充饱食度"));
++                && player.getItemInHand(hand).has(DataComponents.FOOD)&&!PalFoodBridge.canConsume(player,player.getItemInHand(hand))){
++            player.sendSystemMessage(Component.literal("补给同步中，请稍候"));
+             ci.cancel();
+         }
+     }
+--- /dev/null
++++ b/mc/src/main/java/dev/rehan/passthrough/mixin/PalFoodConsumeMixin.java
+@@ -0,0 +1,28 @@
++package dev.rehan.passthrough.mixin;
++
++import dev.rehan.passthrough.PalEntityBridge;
++import dev.rehan.passthrough.PalFoodBridge;
++import net.minecraft.core.component.DataComponents;
++import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.world.entity.LivingEntity;
++import net.minecraft.world.item.ItemStack;
++import net.minecraft.world.item.component.Consumable;
++import net.minecraft.world.level.Level;
++import org.spongepowered.asm.mixin.Mixin;
++import org.spongepowered.asm.mixin.injection.At;
++import org.spongepowered.asm.mixin.injection.Inject;
++import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
++
++/** MC 26.3 Consumable.onConsume shrinks the original stack by one at its RETURN. */
++@Mixin(Consumable.class)
++abstract class PalFoodConsumeMixin {
++    @Inject(method="onConsume(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/item/ItemStack;",at=@At("HEAD"),cancellable=true)
++    private void palcraft$prepare(Level level,LivingEntity entity,ItemStack stack,CallbackInfoReturnable<ItemStack> cir){
++        if(entity instanceof ServerPlayer p && PalEntityBridge.ownsHealth(p)&&stack.has(DataComponents.FOOD)
++                && !PalFoodBridge.begin(p,stack))cir.setReturnValue(stack);
++    }
++    @Inject(method="onConsume(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/entity/LivingEntity;Lnet/minecraft/world/item/ItemStack;)Lnet/minecraft/world/item/ItemStack;",at=@At("RETURN"))
++    private void palcraft$completed(Level level,LivingEntity entity,ItemStack stack,CallbackInfoReturnable<ItemStack> cir){
++        if(entity instanceof ServerPlayer p && PalEntityBridge.ownsHealth(p))PalFoodBridge.complete(p,stack);
++    }
++}
+--- /dev/null
++++ b/mc/src/client/java/dev/rehan/passthrough/client/ClientPalLife.java
+@@ -0,0 +1,25 @@
++package dev.rehan.passthrough.client;
++
++import com.google.gson.JsonObject;
++import java.util.UUID;
++import net.minecraft.client.Minecraft;
++import net.minecraft.client.gui.screens.DeathScreen;
++
++/** A bound avatar uses the real Pal death/revive UI. This never sends a respawn or writes health. */
++public final class ClientPalLife {
++    private static UUID player;
++    private static String session;
++    private static long observedNanos;
++    private ClientPalLife(){}
++    public static void observe(JsonObject event){
++        Minecraft mc=Minecraft.getInstance();
++        if(mc.player==null||!event.has("mc_uuid")||!mc.player.getUUID().toString().equals(event.get("mc_uuid").getAsString()))return;
++        if(event.has("life_active")&&!event.get("life_active").getAsBoolean()){clear();return;}
++        player=mc.player.getUUID();session=event.get("session").getAsString();observedNanos=System.nanoTime();
++    }
++    public static void clear(){player=null;session=null;observedNanos=0;}
++    public static boolean mirrorsCurrentPlayer(){Minecraft mc=Minecraft.getInstance();return session!=null&&player!=null&&mc.player!=null&&player.equals(mc.player.getUUID())&&System.nanoTime()-observedNanos<5_000_000_000L;}
++    public static void suppressDeathScreen(Minecraft mc){
++        if(mirrorsCurrentPlayer()&&mc.gui.screen() instanceof DeathScreen)mc.gui.setScreen(null);
++    }
++}
+--- a/server/entities.lua
++++ b/server/entities.lua
+@@ -69,7 +69,7 @@
+   a.CharacterMovement:DisableMovement()
+   ip:SetUncapturable(true);ip:SetDisableNaturalHealing(true);ip:SetDisableNaturalUpdate(true)
+   ip:SetCanTargetFromAI(true)
+-  e.actor,e.cp,e.ip=a,cp,ip;M.by_actor[a:GetAddress()]=e;M.by_parameter[cp:GetAddress()]=e
++  e.actor,e.cp,e.ip=a,cp,ip;e.native_id=id_for(a);M.by_actor[a:GetAddress()]=e;M.by_parameter[cp:GetAddress()]=e
+   if not e.guard_registered then e.original_hp=numeric(cp:GetHP());e.guard_registered=true end
+   a:SetActiveActor(true);controller=a:GetController()
+   if not live(controller)then e.phase='awaiting_native_controller';return false end
+@@ -101,6 +101,7 @@
+   end
+   local p=world(r);local half=e.actor.CapsuleComponent:GetScaledCapsuleHalfHeight();p.Z=p.Z+half
+   e.actor:K2_SetActorLocation(p,false,{},true);e.actor:K2_SetActorRotation({Pitch=0,Yaw=-90-r.yaw,Roll=0},false)
++  e.actor:SetActorEnableCollision(r.alive==true);e.ip:SetCanTargetFromAI(r.alive==true)
+   e.actor:ForceNetUpdate()
+   -- HP is never written to a real Pal. Native bodies retain their spawn HP and cannot produce native death loot.
+   if numeric(e.cp:GetHP())~=e.original_hp then
+@@ -125,6 +126,21 @@
+   end
+   return nil,'unbound_or_offline_source_player'
+  end
++ local function environmental_proxy(q,target)
++  assert(not target.player and q.source_proxy==true,'Native non-player proxy environment required')
++  assert(q.kind=='minecraft:lava'or q.kind=='minecraft:in_fire'or q.kind=='minecraft:on_fire','Non-player environment currently supports actual fire/lava; aquatic drowning is native')
++  local state=read('mc-state.json');assert(state and state.session==session and state.epoch==M.protocol.source_epoch and now()-state.unix>=-5 and now()-state.unix<=3,'Fresh MC proxy authority required')
++  local pos=target.actor:K2_GetActorLocation();local half=target.actor.CapsuleComponent:GetScaledCapsuleHalfHeight()
++  local x,y,z=mc{X=pos.X,Y=pos.Y,Z=pos.Z-half}
++  for _,r in ipairs(state.host_proxies or{})do
++   if r.id==q.source and r.pal_id==q.target and r.dimension==active_dimension then
++    assert((r.x-x)^2+(r.y-y)^2+(r.z-z)^2<=25,'Native target moved out of MC contact proxy bounds')
++    if o.environment_contact then assert(o.environment_contact(q,target)==true,'Native exact committed fluid contact not proven')end
++    return true
++   end
++  end
++  error('MC environment source is not the target native Pal proxy')
++ end
+  local function apply(q)
+   assert(IsInGameThread(),'Native combat requires game thread')
+   local target=M.native[q.target];assert(target and live(target.actor),'Real Pal target unavailable')
+@@ -136,8 +152,9 @@
+   local alive_before,dying_before=not cp:IsDead(),cp:IsDying()
+   local power=math.max(1,math.floor(q.amount*scale+.5))
+   if q.environment then
+-   assert(target.player,'Environmental MC damage is only for the bound avatar')
+-   local bound=authenticated_player(q.source:sub(4),q.player_session);assert(bound and bound:GetAddress()==target.actor:GetAddress(),'Environmental damage player mismatch')
++   if target.player then
++    local bound=authenticated_player(q.source:sub(4),q.player_session);assert(bound and bound:GetAddress()==target.actor:GetAddress(),'Environmental damage player mismatch')
++   else environmental_proxy(q,target)end
+    local dead={['minecraft:fall']=4,['minecraft:drown']=7,['minecraft:on_fire']=6,['minecraft:in_fire']=6,['minecraft:lava']=6,['minecraft:starve']=0,['minecraft:poison']=5}
+    local kind=dead[q.kind];assert(kind~=nil,'Environmental damage kind pending native mapping: '..q.kind)
+    target.actor.DamageReactionComponent:SlipDamage(power,true,kind,false)
+@@ -169,6 +186,20 @@
+   if not ok then error(result)end;return result
+  end}
+  M.protocol=protocol
++ local food_native,food_protocol,food_error
++ if o.food_enabled~=false then
++  local good,worker=pcall(function()return dofile(dir..'food_native.lua').new{game_state=gs,epoch=epoch,fixed=fp,now=now}end)
++  if good then
++   food_native=worker
++   food_protocol=dofile(dir..'food_protocol.lua').new{protocol=P,session=session,epoch=epoch,source_epoch=function()return protocol.source_epoch end,
++    read=read,write=write,apply=function(q)
++     local target=assert(M.native[q.target],'Food target not in native authority snapshot')
++     local a,b=authenticated_player(q.source:sub(4),q.player_session)
++     assert(a and target.player and a:GetAddress()==target.actor:GetAddress(),'Food consumer identity mismatch')
++     return food_native.apply(q,target)
++    end}
++  else food_error=tostring(worker)end
++ end
+  local function native_damage(context,damage_param)
+   local cp=unwrap(context);if not live(cp)then return end
+   local owner=cp:GetOwner();if not live(owner)or not owner:HasAuthority()then return end
+@@ -255,13 +286,25 @@
+     end
+    end
+   end
+-  M.revision=M.revision+1;write('pal-state.json',{v=1,t='entity_snapshot',authority='pal_server',session=session,epoch=epoch,revision=M.revision,unix=now(),entities=rows})
++  local food={v=1,enabled=food_native~=nil,ready_players=J.array(),confirmed_native_effects=food_native and food_native.confirmed or 0,error=food_error}
++  if food_native then
++   if M.food_cap_unix~=now()then
++    M.food_cap_unix=now();M.food_ready={}
++    for id,e in pairs(M.native)do e.id=id;if e.player and not e.cp:IsDead()and not e.cp:IsDying()and food_native.readiness(e)then M.food_ready[id]=true end end
++   end
++   for id in pairs(M.food_ready or{})do food.ready_players[#food.ready_players+1]=id end
++  end
++  local bodies=J.array()
++  for id,e in pairs(M.bodies)do if e.native_id and e.phase=='active'and live(e.actor)then
++   bodies[#bodies+1]={id=id,native_id=e.native_id,kind=e.state.kind,dimension=e.state.dimension,phase=e.phase,source_epoch=protocol.source_epoch,body_epoch=epoch,actor_name=e.actor:GetFullName()}
++  end end
++  M.revision=M.revision+1;write('pal-state.json',{v=1,t='entity_snapshot',authority='pal_server',session=session,epoch=epoch,revision=M.revision,unix=now(),entities=rows,food=food,bodies=bodies})
+  end
+  function M.tick()
+   assert(IsInGameThread(),'Entity tick must run on game thread');if not M.running then return M.status()end
+   local ok,why=pcall(function()
+    assert(live(gs)and str(gs.ServerSessionId)==session,'Pal world changed')
+-   M.ticks=M.ticks+1;scan()
++   M.ticks=M.ticks+1;if food_native then food_native.tick()end;scan()
+    local q=read('mc-state.json')
+    if q and q.session==session and P.finite(q.unix)and now()-q.unix<=3 and now()-q.unix>=-5 then
+     local changed,new_epoch=protocol.snapshot(q)
+@@ -270,7 +313,7 @@
+      M.mc_seen=now();M.phase='active';local wanted={};M.unprojected={}
+      local spawned=0
+      for _,r in ipairs(q.entities)do
+-      if r.category=='mob'and r.alive and r.dimension==active_dimension then
++      if r.category=='mob'and(r.alive or(r.death_time or 0)>0 and(r.death_time or 0)<=20)and r.dimension==active_dimension then
+        wanted[r.id]=true;local e=M.bodies[r.id]
+        if not e and spawned<4 then e=spawn(r);spawned=spawned+1 end
+        if e then update_body(e,r)end
+@@ -287,6 +330,12 @@
+      if P.uuid(id)then local hit=read('mc-hit-'..id..'.json');if hit then assert(hit.id==id,'Hit index/file identity mismatch');local result=protocol.hit(hit);M.last_result=result end end
+     end
+    end
++   local meals=read('mc-foods.json')
++   if food_protocol and meals and meals.session==session and meals.epoch==protocol.source_epoch then
++    for i,id in ipairs(meals.ids or{})do if i>8 then break end
++     if P.uuid(id)then local q=read('mc-food-'..id..'.json');if q then assert(q.id==id,'Food index/file mismatch');M.last_food_result=food_protocol.consume(q)end end
++    end
++   end
+   end)
+   if not ok then M.phase='runtime_error';M.errors.tick=tostring(why);M.running=false end
+   write('pal-status.json',M.status());return M.status()
+@@ -296,10 +345,13 @@
+   return {v=1,t='entity_status',authority='pal_server',running=M.running,phase=M.phase,session=session,epoch=epoch,
+    bodies=n,mappings=bodies,errors=M.errors,confirmed=M.confirmed,pending={mc_models_and_animations=true,native_spawn_and_hooks=M.confirmed.spawns==0,native_despawn_confirmation=M.cleanup_pending or 0},
+    unprojected=M.unprojected,applied=protocol.applied,rejected=protocol.rejected,uncertain=protocol.uncertain,suppressed_surrogate_attacks=M.suppressed_surrogate_attacks or 0,
+-   player_health_authority='pal_server',food_authority='pal_server',mc_food_use='pending_native_mapping'}
++   player_health_authority='pal_server',food_authority='pal_server',mc_food_use=food_native and'paid_vanilla_to_native_processor'or'pending_native_food_classes',
++   food=food_native and food_native.status()or{error=food_error},food_ledger=food_protocol and{applied=food_protocol.applied,pending=food_protocol.pending,rejected=food_protocol.rejected}or nil,
++   nonplayer_environment='original_mc_proxy_lava_fire_to_single_native_SlipDamage'}
+  end
+  function M.stop()
+   assert(IsInGameThread(),'Entity stop must run on game thread');M.running=false
++  if food_native then food_native.stop()end
+   M.cleanup_pending=0
+   for _,e in pairs(M.bodies)do remove(e);if live(e.handle)and live(e.handle:TryGetIndividualActor())then M.cleanup_pending=M.cleanup_pending+1 end end;M.bodies={}
+   for _,h in pairs(M.hooks)do UnregisterHook(h.path,h.pre,h.post)end;M.hooks={};M.phase=M.cleanup_pending>0 and'stop_requested_pending_native_despawn'or'stopped'
+--- a/server/entity_protocol.lua
++++ b/server/entity_protocol.lua
+@@ -25,7 +25,7 @@
+ -- Include all combat semantics; reusing an ID for a different attacker/amount is a conflict, not another hit.
+ function P.fingerprint(q)
+  return table.concat({tostring(q.session),tostring(q.target_epoch),tostring(q.source_epoch),tostring(q.target),tostring(q.source),P.finite(q.amount)and('%.17g'):format(q.amount)or tostring(q.amount),tostring(q.kind),
+-  tostring(q.environment==true),tostring(q.source_player==true),q.player_session and tostring(q.player_session.session_id)or'',
++  tostring(q.environment==true),tostring(q.source_player==true),tostring(q.source_proxy==true),q.player_session and tostring(q.player_session.session_id)or'',
+   q.player_session and tostring(q.player_session.generation)or''},'|')
+ end
+ function P.validate_snapshot(q,session,now)
+--- /dev/null
++++ b/server/food_protocol.lua
+@@ -0,0 +1,45 @@
++-- A completed vanilla MC consume pays for one native Pal use. No item credit or direct HP/stomach writes.
++local F={}
++local function finite(n)return type(n)=='number'and n==n and n~=math.huge and n~=-math.huge end
++function F.fingerprint(q)
++ local s=q.player_session or{}
++ return table.concat({tostring(q.session),tostring(q.source_epoch),tostring(q.target_epoch),tostring(q.source),tostring(q.target),
++  tostring(q.item),tostring(q.before_count),tostring(q.after_count),tostring(q.nutrition),tostring(q.saturation),tostring(q.effects_json),
++  tostring(s.session_id),tostring(s.generation)},'|')
++end
++function F.validate(q,o)
++ local P=o.protocol
++ assert(q.v==1 and q.t=='entity_consume'and q.authority=='mc_server','Food authority envelope required')
++ assert(P.uuid(q.id)and q.session==o.session and q.source_epoch==o.source_epoch()and q.target_epoch==o.epoch,'Stale food authority')
++ assert(P.entity_id(q.source)and q.source:sub(1,3)=='mc:'and P.entity_id(q.target)and q.target:sub(1,4)=='pal:','Food actor identities required')
++ assert(type(q.item)=='string'and q.item:match('^[%w_.%-]+:[%w_./%-]+$')and #q.item<=128,'Food item identifier required')
++ assert(type(q.before_count)=='number'and q.before_count%1==0 and q.before_count>=1 and q.before_count<=99,'Invalid before stack')
++ assert(q.after_count==q.before_count-1 and q.consumed_count==1 and q.vanilla_completed==true and q.creative~=true,'One paid vanilla consume required')
++ assert(finite(q.nutrition)and q.nutrition>=0 and q.nutrition<=20 and finite(q.saturation)and q.saturation>=0 and q.saturation<=40,'Food properties range')
++ assert(type(q.effects)=='table'and #q.effects<=16 and type(q.effects_json)=='string'and #q.effects_json<=8192,'Food effects bounds')
++ for _,e in ipairs(q.effects)do assert(type(e.id)=='string'and e.id:match('^[%w_.%-]+:[%w_./%-]+$')and finite(e.duration)and e.duration>=1 and e.duration<=72000 and e.duration%1==0 and finite(e.amplifier)and e.amplifier>=0 and e.amplifier<=10 and e.amplifier%1==0,'Food effect range')end
++ assert(q.player_session and q.player_session.mc_uuid==q.source:sub(4),'Verified food source session required')
++end
++function F.new(o)
++ assert(o.read and o.write and o.apply and o.protocol,'Food durable apply adapter required')
++ local M={applied=0,pending=0,rejected=0}
++ function M.consume(q)
++  assert(o.protocol.uuid(q.id),'Food event UUID required')
++  local file='pal-food-result-'..q.id..'.json';local prior=o.read(file);local fp=F.fingerprint(q)
++  if prior then return prior.fingerprint==fp and prior or{v=1,t='food_result',id=q.id,ok=false,status='id_conflict'}end
++  local ok,why=pcall(F.validate,q,o)
++  local r={v=1,t='food_result',id=q.id,session=o.session,epoch=o.epoch,source=q.source,target=q.target,item=q.item,fingerprint=fp,ok=false,paid_mc_count=1,native_items_credited=0}
++  if not ok then r.status='rejected';r.error=tostring(why);M.rejected=M.rejected+1;o.write(file,r);return r end
++  r.status='in_flight';o.write(file,r)
++  local applied,result=pcall(o.apply,q)
++  if not applied then r.status='needs_recovery_paid_not_fed';r.error=tostring(result);M.pending=M.pending+1
++  else
++   assert(type(result)=='table','Observed native food result required');for k,v in pairs(result)do r[k]=v end
++   r.ok=result.ok==true;r.status=result.status or(r.ok and'applied'or'pending_native_effect_confirmation')
++   if r.ok then M.applied=M.applied+1 else M.pending=M.pending+1 end
++  end
++  o.write(file,r);return r -- uncertain result never repeats native use or consumes another MC stack
++ end
++ return M
++end
++return F
+--- /dev/null
++++ b/server/food_native.lua
+@@ -0,0 +1,96 @@
++-- Normal native item-effect processor over transient MC food data; the MC stack was already consumed once.
++local N={}
++local function valid(o)return o and o:IsValid()end
++local function name(v)return type(v)=='string'and v or v:ToString()end
++function N.new(o)
++ assert(IsInGameThread(),'Native food game thread required')
++ local gs=assert(o.game_state);local epoch=assert(o.epoch);local data_class=StaticFindObject('/Script/Pal.PalStaticConsumeItemData')
++ local proc_class=StaticFindObject('/Script/Pal.PalItemUseProcessor_CommonEffectToIndividualParameter')
++ assert(valid(data_class)and valid(proc_class),'Native food classes unavailable')
++ for _,path in ipairs({'/Script/Pal.PalItemUseProcessor:UseItemToCharacter_ServerInternal','/Script/Pal.PalItemUseProcessor:CanUseItemToCharacter',
++  '/Script/Pal.PalStaticConsumeItemData:GetRestoreSatiety','/Script/Pal.PalStaticConsumeItemData:GetRestoreHP'})do assert(valid(StaticFindObject(path)),'Missing native food function '..path)end
++ local proc=StaticConstructObject(proc_class,gs,FName('PalCraftFoodProcessor_'..epoch:gsub('%-','')),64,0)
++ assert(valid(proc),'Native food processor construction failed')
++ local M={confirmed=0,effects={},night_modes={},errors={},caps={},data={},serial=0,native_route='PalItemUseProcessor:UseItemToCharacter_ServerInternal'}
++ local function numeric(v)return type(v)=='number'and v or o.fixed:Convert_FixedPoint64ToFloat(v)end
++ local function template(q,target)
++  local max=target.cp:GetMaxFullStomach();assert(type(max)=='number'and max>0,'Native max full stomach required')
++  local heal=0
++  for _,e in ipairs(q.effects or{})do
++   if e.id=='minecraft:regeneration'then heal=heal+math.floor((e.duration or 0)/math.max(1,50/2^(e.amplifier or 0)))end
++  end
++  local satiety=math.max(0,math.floor(q.nutrition/20*max+.5));local hp=math.max(0,math.floor(heal/20*numeric(target.cp:GetMaxHP())+.5))
++  local key=q.item..':'..satiety..':'..hp
++  if valid(M.data[key])then return M.data[key]end
++  M.serial=M.serial+1
++  local d=StaticConstructObject(data_class,gs,FName('PalCraftFood_'..epoch:gsub('%-','')..'_'..M.serial),64,0)
++  assert(valid(d),'Native food data construction failed')
++  d.ID=FName('PalCraftMC_'..q.item:gsub('[^%w_]','_'));d.ItemBaseName=d.ID;d.TypeA=8;d.TypeB=53;d.MaxStackCount=64
++  d.RestoreSatiety=satiety;d.RestoreHP=hp
++  d.RestoreSP=0;d.RestoreSanity=0;d.WazaID=0;d.bNotConsumed=false
++  assert(d:GetRestoreSatiety()==math.floor(q.nutrition/20*max+.5)and d:GetRestoreHP()==math.floor(heal/20*numeric(target.cp:GetMaxHP())+.5),'Native food data getter mismatch')
++  M.data[key]=d;return d
++ end
++ function M.readiness(target)
++  local q={id=epoch,item='minecraft:bread',nutrition=5,saturation=6,effects={}}
++  local ok,r=pcall(function()local d=template(q,target);return proc:CanUseItemToCharacter(d,target.handle:GetIndividualID())end)
++  if not ok then M.errors[target.id]=tostring(r);return false end
++  M.caps[target.id]=r==true;return r==true
++ end
++ local function status_component(a)
++  local c=a.StatusComponent;assert(valid(c),'Native status component unavailable');return c
++ end
++ local function nightvision(target,e)
++  local pc=target.actor:GetController();assert(valid(pc),'Night vision owner controller unavailable')
++  local c=pc.BP_PalNightVisionComponent;assert(valid(c),'Real player night vision component unavailable')
++  local key=c:GetAddress();local active=M.night_modes[key]
++  if not active then active={component=c,before=c:IsNightVisionEnabled_ForServer(),expires=0};M.night_modes[key]=active end
++  active.expires=math.max(active.expires,o.now()+e.duration/20)
++  c:SetNightVisionEnabled_ForServer(true);c:SetNightVisionEnabled_ToClient(true,1)
++  assert(c:IsNightVisionEnabled_ForServer(),'Native night vision state was not confirmed')
++  return {id=e.id,native='PalNightVisionComponent:SetNightVisionEnabled_ForServer/ToClient',duration=e.duration/20,native_server_enabled=true,client_visual_pending=true}
++ end
++ function M.apply(q,target)
++  assert(IsInGameThread(),'Native food game thread required');assert(target.player and not target.cp:IsDead()and not target.cp:IsDying(),'Real live Pal player required')
++  local d=template(q,target);local individual=target.handle:GetIndividualID()
++  assert(proc:CanUseItemToCharacter(d,individual),'Native food rejected by normal item rules')
++  local before=target.cp:GetFullStomach();local hp_before=numeric(target.cp:GetHP())
++  local accepted=proc:UseItemToCharacter_ServerInternal(d,individual)
++  local applied_effects,unsupported={},{}
++  -- Saturation is a temporary modifier of Pal's existing metabolism, never another starvation or healing loop.
++  if accepted and q.saturation>0 then
++   local key='PalCraftMCSaturation_'..q.id;target.ip:SetDecreaseFullStomachRates(FName(key),0)
++   M.effects[key]={target=target,expires=o.now()+math.min(1200,q.saturation*30),kind='saturation'};applied_effects[#applied_effects+1]={id='minecraft:saturation',native='SetDecreaseFullStomachRates',duration=q.saturation*30}
++  end
++  if accepted then for _,e in ipairs(q.effects)do
++   if e.id=='minecraft:hunger'then
++    local key='PalCraftMCHunger_'..q.id;target.ip:SetDecreaseFullStomachRates(FName(key),1+.1*((e.amplifier or 0)+1))
++    M.effects[key]={target=target,expires=o.now()+e.duration/20,kind='hunger'};applied_effects[#applied_effects+1]={id=e.id,native='SetDecreaseFullStomachRates',duration=e.duration/20}
++   elseif e.id=='minecraft:poison'then
++    local c=status_component(target.actor);c:AddStatusParameter(5,{GeneralIndex=e.amplifier or 0,GeneralFloatValue=e.duration/20,GeneralName=FName('PalCraftMCFood')})
++    local s=c:GetExecutionStatus(5);if valid(s)then s.Duration=e.duration/20;applied_effects[#applied_effects+1]={id=e.id,native='PalStatusComponent:AddStatusParameter',duration=e.duration/20}else unsupported[#unsupported+1]={id=e.id,status='native_status_pending'}end
++   elseif e.id=='minecraft:regeneration'then applied_effects[#applied_effects+1]={id=e.id,native='ordinary_consume_RestoreHP',heal_budget=d:GetRestoreHP()}
++   elseif e.id=='minecraft:night_vision'then
++    local good,r=pcall(nightvision,target,e);if good then applied_effects[#applied_effects+1]=r else unsupported[#unsupported+1]={id=e.id,status='native_nightvision_pending',error=tostring(r)}end
++   else unsupported[#unsupported+1]={id=e.id,status='native_equivalent_pending'}end
++  end end
++  local after=target.cp:GetFullStomach();local hp_after=numeric(target.cp:GetHP())
++  local changed=after~=before or hp_after~=hp_before
++  if changed then M.confirmed=M.confirmed+1 end
++  return {ok=accepted==true and changed,status=accepted and(changed and(#unsupported==0 and'applied'or'applied_with_pending_status_equivalents')or'pending_native_effect_confirmation')or'native_item_rules_rejected',
++   native_route=M.native_route,before_full_stomach=before,after_full_stomach=after,before_hp=hp_before,after_hp=hp_after,
++   native_restore_satiety=d:GetRestoreSatiety(),native_restore_hp=d:GetRestoreHP(),native_items_credited=0,
++   effects=applied_effects,unsupported_effects=unsupported,semantics='native_nutrition_and_native_status_equivalents'}
++ end
++ function M.tick()
++  for key,e in pairs(M.effects)do if o.now()>=e.expires then if valid(e.target.ip)then e.target.ip:RemoveDecreaseFullStomachRates(FName(key))end;M.effects[key]=nil end end
++  for key,e in pairs(M.night_modes)do if o.now()>=e.expires then if valid(e.component)then e.component:SetNightVisionEnabled_ForServer(e.before);e.component:SetNightVisionEnabled_ToClient(e.before,e.before and 1 or 0)end;M.night_modes[key]=nil end end
++ end
++ function M.stop()
++  for key,e in pairs(M.effects)do if valid(e.target.ip)then e.target.ip:RemoveDecreaseFullStomachRates(FName(key))end end;M.effects={}
++  for _,e in pairs(M.night_modes)do if valid(e.component)then e.component:SetNightVisionEnabled_ForServer(e.before);e.component:SetNightVisionEnabled_ToClient(e.before,e.before and 1 or 0)end end;M.night_modes={}
++ end
++ function M.status()return {native_route=M.native_route,confirmed=M.confirmed,errors=M.errors,unsupported_status_equivalents={'minecraft:absorption','minecraft:resistance','minecraft:fire_resistance'},inventory_credit_calls=0}end
++ return M
++end
++return N
+--- a/client/entities.lua
++++ b/client/entities.lua
+@@ -27,16 +27,25 @@
+   if not live(pc)or not session(pc)then clear_views();M.phase='other_or_unloaded_session';return end
+   local state=read('mc-state.json');local pal=read('pal-state.json')
+   if not fresh(state)or not fresh(pal)or state.session~=o.session or pal.session~=o.session then clear_views();M.phase='authority_stale';return end
+-  local actors={}
++  local actors={};local utility=StaticFindObject('/Script/Pal.Default__PalUtility')
+   for _,a in ipairs(FindAllOf('PalCharacter')or{})do
+-   if live(a)then local id=a:GetFullName():match('PalCraftMC_(%x+)');if id then actors[id]=a end end
++   if live(a)and utility and utility:IsValid()then
++    local good,id=pcall(function()
++     local cp=a:GetCharacterParameterComponent();local ip=cp:GetIndividualParameter();local manager=utility:GetCharacterManager(a)
++     local handle=manager:GetIndividualHandleFromCharacterParameter(ip);local value=handle:GetIndividualID()
++     return 'pal:'..guid(value.PlayerUId)..'/'..guid(value.InstanceId)
++    end)
++    if good then actors[id]=a end
++   end
+   end
++  local bindings={}
++  for _,b in ipairs(pal.bodies or{})do if b.source_epoch==state.epoch and b.body_epoch==pal.epoch and b.phase=='active'then bindings[b.id]=b end end
+   local next_views={};local rendered=0
+   for _,r in ipairs(state.entities or{})do
+-   if r.category=='mob'and r.alive then
+-    local a=actors[r.id:sub(4):gsub('%-','')]
++   if r.category=='mob'and(r.alive or(r.death_time or 0)>0 and(r.death_time or 0)<=20)then
++    local binding=bindings[r.id];local a=binding and binding.dimension==r.dimension and actors[binding.native_id]
+     if a then
+-     local prior=M.views[r.id];local view={id=r.id,kind=r.kind,actor=a,state=r,render='native_pal_surrogate_pending_mc_model'}
++     local prior=M.views[r.id];local view={id=r.id,kind=r.kind,actor=a,state=r,native_id=binding.native_id,body_epoch=pal.epoch,render='native_pal_surrogate_pending_mc_model'}
+      -- A renderer may be supplied by the native owner only when it implements real world meshes/animations.
+      if o.renderer then
+       local handle=prior and prior.render_handle or o.renderer.spawn(r,a)
+--- /dev/null
++++ b/tests/entity-combat-v2/food_protocol_test.lua
+@@ -0,0 +1,23 @@
++local root=assert(arg[1]);local J=dofile(assert(arg[2]));local P=dofile(root..'/server/entity_protocol.lua');local F=dofile(root..'/server/food_protocol.lua')
++local function clone(v)return J.decode(J.encode(v))end
++local A='00000001-0000-0000-0000-000000000001';local B='00000002-0000-0000-0000-000000000002';local cases={}
++local function test(n,f)local ok,e=pcall(f);assert(ok,n..': '..tostring(e));cases[#cases+1]=n end
++local function meal()
++ return {v=1,t='entity_consume',authority='mc_server',id=A,session='lab',source_epoch='mc',target_epoch='pal',source='mc:'..A,target='pal:'..A..'/'..B,
++  item='minecraft:bread',before_count=3,after_count=2,consumed_count=1,vanilla_completed=true,creative=false,nutrition=5,saturation=6,effects={},effects_json='[]',player_session={mc_uuid=A,session_id=B,generation=1}}
++end
++local function setup(apply,write)
++ local store={};local calls=0
++ local m=F.new{protocol=P,session='lab',epoch='pal',source_epoch=function()return'mc'end,read=function(k)return store[k]end,
++  write=write or function(k,v)store[k]=clone(v)end,apply=function(q)calls=calls+1;assert(store['pal-food-result-'..q.id..'.json'].status=='in_flight');return apply and apply(q)or{ok=true,before_full_stomach=0,after_full_stomach=25}end}
++ return m,store,function()return calls end
++end
++test('one real vanilla count decrement permits one normal native effect',function()local m,s,n=setup();assert(m.consume(meal()).ok and n()==1);assert(m.consume(meal()).after_full_stomach==25 and n()==1)end)
++test('same ID with different paid food is conflict',function()local m,s,n=setup();m.consume(meal());local q=meal();q.item='minecraft:apple';assert(m.consume(q).status=='id_conflict'and n()==1)end)
++test('unpaid creative or cancelled consumption never feeds',function()for _,field in ipairs({'creative','vanilla_completed','after_count','consumed_count'})do local m,s,n=setup();local q=meal();if field=='creative'then q[field]=true elseif field=='vanilla_completed'then q[field]=false else q[field]=3 end;assert(not m.consume(q).ok and n()==0)end end)
++test('stale native or MC generation epoch does not feed',function()for _,field in ipairs({'source_epoch','target_epoch','session'})do local m,s,n=setup();local q=meal();q[field]='stale';assert(not m.consume(q).ok and n()==0)end end)
++test('native crash preserves paid uncertain intent without another consume',function()local m,s,n=setup(function()error('native failure')end);assert(m.consume(meal()).status=='needs_recovery_paid_not_fed');m.consume(meal());assert(n()==1)end)
++test('storage failure occurs before native nutrition',function()local m,s,n=setup(nil,function()error('disk failure')end);assert(not pcall(m.consume,meal())and n()==0)end)
++test('malformed food status cannot modify native state',function()local m,s,n=setup();local q=meal();q.effects={{id='minecraft:poison',amplifier=0,duration=math.huge}};assert(not m.consume(q).ok and n()==0)end)
++test('status effects are part of replay identity',function()local m,s,n=setup();m.consume(meal());local q=meal();q.effects={{id='minecraft:hunger',amplifier=0,duration=600}};q.effects_json=J.encode(q.effects);assert(m.consume(q).status=='id_conflict'and n()==1)end)
++print(J.encode({ok=true,suite='food_protocol_v2',cases=cases,tests=#cases,real_game_runtime_verified=false,execution_mode='night_low_power'}))
+--- /dev/null
++++ b/tests/entity-combat-v2/food_native_test.lua
+@@ -0,0 +1,35 @@
++local root=assert(arg[1]);local J=dofile(assert(arg[2]));local cases={}
++local function test(n,f)local ok,e=pcall(f);assert(ok,n..': '..tostring(e));cases[#cases+1]=n end
++local function object(p)p=p or{};p.IsValid=function()return true end;return p end
++local function setup()
++ local t=100;local calls=0;local credits=0;IsInGameThread=function()return true end;FName=function(s)return{ToString=function()return s end}end
++ local gs=object();local fixed=object{Convert_FixedPoint64ToFloat=function(_,v)return v.Value end}
++ local target={id='pal:fixture',player=true,cp=object{hp=1,stomach=0,GetMaxFullStomach=function()return 100 end,
++  GetFullStomach=function(s)return s.stomach end,GetHP=function(s)return{Value=s.hp}end,GetMaxHP=function()return{Value=2370}end,IsDead=function()return false end,IsDying=function()return false end},
++  ip=object{rates={},SetDecreaseFullStomachRates=function(s,k,r)s.rates[k:ToString()]=r end,RemoveDecreaseFullStomachRates=function(s,k)s.rates[k:ToString()]=nil end},
++  handle=object{GetIndividualID=function()return{PlayerUId={A=1,B=0,C=0,D=1},InstanceId={A=2,B=0,C=0,D=2}}end},actor=object()}
++ target.actor.StatusComponent=object{AddStatusParameter=function(s,id,p)s.last=id;s.duration=p.GeneralFloatValue end,GetExecutionStatus=function(s,id)return object{Duration=s.duration}end}
++ local nv=object{enabled=false,GetAddress=function()return 90 end,IsNightVisionEnabled_ForServer=function(s)return s.enabled end,SetNightVisionEnabled_ForServer=function(s,v)s.enabled=v end,SetNightVisionEnabled_ToClient=function(s,v,w)s.client=v end}
++ target.actor.GetController=function()return object{BP_PalNightVisionComponent=nv}end;target.nv=nv
++ StaticFindObject=function(path)return object{path=path}end
++ StaticConstructObject=function(class,outer,name,flags)
++  assert(outer==gs and flags==64)
++  if class.path:find('CommonEffect',1,true)then return object{CanUseItemToCharacter=function()return true end,UseItemToCharacter_ServerInternal=function(_,d,id)
++   calls=calls+1;target.cp.stomach=math.min(100,target.cp.stomach+d:GetRestoreSatiety());target.cp.hp=math.min(2370,target.cp.hp+d:GetRestoreHP());return true
++  end}end
++  return object{GetRestoreSatiety=function(s)return s.RestoreSatiety end,GetRestoreHP=function(s)return s.RestoreHP end}
++ end
++ local m=dofile(root..'/server/food_native.lua').new{game_state=gs,epoch='00000001-0000-0000-0000-000000000001',fixed=fixed,now=function()return t end}
++ return m,target,function()return calls end,function(v)t=v end
++end
++local function q()return{id='00000003-0000-0000-0000-000000000003',item='minecraft:bread',nutrition=5,saturation=6,effects={}}end
++test('readiness does not feed or heal the existing 1HP player',function()local m,p,n=setup();assert(m.readiness(p));assert(p.cp.hp==1 and p.cp.stomach==0 and n()==0)end)
++test('paid bread uses ordinary processor, no native stack credit or direct HP setter',function()local m,p,n=setup();local r=m.apply(q(),p);assert(r.ok and r.after_full_stomach==25 and p.cp.hp==1 and n()==1 and r.native_items_credited==0)end)
++test('saturation modifies only existing metabolism and expires',function()local m,p,n,t=setup();m.apply(q(),p);assert(next(p.ip.rates));t(281);m.tick();assert(not next(p.ip.rates))end)
++test('actual hunger outcome adjusts native metabolism with one effect expiry',function()local m,p,n,t=setup();local e=q();e.effects={{id='minecraft:hunger',duration=600,amplifier=0}};local r=m.apply(e,p);assert(r.ok and #r.effects==2);t(131);m.tick();local count=0;for _ in pairs(p.ip.rates)do count=count+1 end;assert(count==1)end)
++test('actual poison status uses native status component',function()local m,p,n=setup();local e=q();e.effects={{id='minecraft:poison',duration=100,amplifier=0}};local r=m.apply(e,p);assert(r.ok and p.actor.StatusComponent.last==5 and r.effects[2].native=='PalStatusComponent:AddStatusParameter')end)
++test('actual regeneration food maps paid healing through normal consume data',function()local m,p,n=setup();local e=q();e.effects={{id='minecraft:regeneration',duration=100,amplifier=1}};local r=m.apply(e,p);assert(r.ok and r.native_restore_hp==474 and p.cp.hp==475 and n()==1)end)
++test('unmapped special status remains visible pending rather than fake applied',function()local m,p,n=setup();local e=q();e.effects={{id='minecraft:absorption',duration=2400,amplifier=0}};local r=m.apply(e,p);assert(r.ok and r.status=='applied_with_pending_status_equivalents'and #r.unsupported_effects==1)end)
++test('stop removes only registered food metabolism modifiers',function()local m,p,n=setup();m.apply(q(),p);m.stop();assert(not next(p.ip.rates)and p.cp.hp==1)end)
++test('paid night vision uses real native component and restores prior state on expiry',function()local m,p,n,t=setup();local e=q();e.effects={{id='minecraft:night_vision',duration=100,amplifier=0}};local r=m.apply(e,p);assert(r.ok and p.nv.enabled and p.nv.client and #r.unsupported_effects==0);t(106);m.tick();assert(not p.nv.enabled and not p.nv.client and p.cp.hp==1)end)
++print(J.encode({ok=true,suite='food_native_boundary_mock_v2',tests=#cases,cases=cases,real_game_runtime_verified=false,execution_mode='night_low_power'}))
+--- /dev/null
++++ b/tests/entity-combat-v2/nonplayer_environment_test.lua
+@@ -0,0 +1,92 @@
++-- Models the reflected SDK boundary; this does not pretend to prove an actual UE native call or hook.
++local root=assert(arg[1]);local J=dofile(assert(arg[2]));local cases={};local passed=0
++local function clone(x)return J.decode(J.encode(x))end
++local function test(name,f)local ok,why=pcall(f);assert(ok,name..': '..tostring(why));passed=passed+1;cases[#cases+1]=name end
++local ADDR=100;local function obj(name,methods)
++ ADDR=ADDR+1;local a=methods or{};a.addr=ADDR;a.name=name;a.valid=true
++ a.IsValid=function(s)return s.valid end;a.GetFullName=function(s)return s.name end;a.GetAddress=function(s)return s.addr end
++ return a
++end
++local function wrap(x)return {get=function()return x end}end
++local function g(n)return {A=n,B=0,C=0,D=n}end
++local function gid(n)return ('%08x-0000-0000-0000-%012x'):format(n,n)end
++local UID=gid(1);local PID='pal:'..UID..'/'..gid(2);local MOB='mc:'..gid(3)
++local function setup()
++ local store={};local clock=100;local hooks={};local counts={spawn=0,despawn=0,damage=0,drops=0,unhook=0,slip=0,ai=0}
++ local all={};local handles={};local serial=10;local hook_serial=0
++ IsInGameThread=function()return true end
++ FName=function(s)return {ToString=function()return s end}end
++ local function actor(name,uid,instance,player)
++  local a=obj(name,{HasAuthority=function()return true end,IsA=function(_,c)return c=='/Script/Pal.PalPlayerCharacter'and player or c=='/Script/Pal.PalCharacter'end})
++  a.pos={X=0,Y=0,Z=90};a.rotation={Pitch=0,Yaw=0,Roll=0}
++  a.K2_GetActorLocation=function(s)return s.pos end;a.K2_GetActorRotation=function(s)return s.rotation end
++  a.K2_SetActorLocation=function(s,p,sweep,hit,teleport)assert(not sweep and teleport);s.pos=p;return true end
++  a.K2_SetActorRotation=function(s,r)s.rotation=r end;a.ForceNetUpdate=function()end;a.SetActiveActor=function()end
++  a.CharacterMovement=obj('movement',{DisableMovement=function()end})
++  a.CapsuleComponent=obj('capsule',{GetScaledCapsuleHalfHeight=function()return 90 end,GetScaledCapsuleRadius=function()return 30 end})
++  local ip=obj('individual',{GetCharacterID=function()return FName(player and'Player'or'SheepBall')end,GetGroupId=function()return g(0)end,
++   GetShieldHP=function()return 0 end,GetShieldMaxHP=function()return 0 end,SetUncapturable=function(_,v)assert(v)end,
++   SetDisableNaturalHealing=function(_,v)assert(v)end,SetDisableNaturalUpdate=function(_,v)assert(v)end,SetCanTargetFromAI=function(_,v)assert(v)end})
++  local cp=obj('component',{hp=1000,GetOwner=function()return a end,GetIndividualParameter=function()return ip end,
++   GetHP=function(s)return {Value=s.hp}end,GetMaxHP=function()return {Value=1000}end,GetFullStomach=function()return 10 end,GetMaxFullStomach=function()return 100 end,
++   IsDead=function(s)return s.hp<=0 end,IsDying=function()return false end})
++  a.GetCharacterParameterComponent=function()return cp end;a.IsInitialized=function()return true end
++  local hate=obj('hate',{FindMostHateTarget=function()end})
++  local controller=obj('AIController',{IsA=function(_,c)return c=='/Script/Pal.PalAIController'end,
++   SetActiveAI=function(_,v)assert(not v);counts.ai=counts.ai+1 end,GetHateSystem=function()return hate end})
++  a.GetController=function()return controller end
++  local handle=obj('handle',{GetIndividualID=function()return {PlayerUId=g(uid),InstanceId=g(instance)}end,TryGetIndividualActor=function()return a end})
++  handles[ip]=handle;all[#all+1]=a
++  return a,cp,ip,handle
++ end
++ local player,player_cp=actor('RealPlayer',1,2,true)
++ local target,target_cp=actor('RealWildPal',0,4,false)
++ local pc=obj('PlayerController',{HasAuthority=function()return true end,Pawn=player,GetPlayerUId=function()return g(1)end})
++ local gs=obj('GameState',{HasAuthority=function()return true end,ServerSessionId='lab-session',GetWorldSaveDirectoryName=function()return 'world-lab'end})
++ local function damage(attacker,defender,power)
++  local cp=defender:GetCharacterParameterComponent();local info={Attacker=attacker,Defender=defender,Damage=power,ActualDamage=power,bCannotKill=false}
++  local h=hooks['/Script/Pal.PalCharacterParameterComponent:OnDamage'];if h and h.pre then h.pre(wrap(cp),wrap(info))end
++  cp.hp=math.max(0,cp.hp-info.Damage)
++  if cp.hp==0 then counts.drops=counts.drops+1;local d=hooks['/Script/Pal.PalCharacter:OnDeadCharacter'];if d and d.post then d.post(wrap(defender),wrap({}))end end
++  return info
++ end
++ player.DamageReactionComponent=obj('reaction',{SlipDamage=function(_,power,ignore,kind,clear)assert(ignore and not clear);counts.slip=counts.slip+1;damage(player,player,power)end})
++ local manager=obj('Manager',{GetIndividualHandleFromCharacterParameter=function(_,ip)return handles[ip]end,
++  SpawnNewCharacter=function(_,save,spawn,delegate)
++   assert(delegate==nil,'Unbound delegate required');assert(spawn.bStartAsInactivePalCharacter,'Register HP guard before activation')
++   counts.spawn=counts.spawn+1;local a,cp,ip,h=actor(spawn.Name:ToString(),0,100+counts.spawn,false);a.pos=spawn.SpawnLocation
++   return h
++  end,DespawnCharacterByHandle=function(_,h,delegate)assert(delegate==nil);counts.despawn=counts.despawn+1;h:TryGetIndividualActor().valid=false end})
++ local util=obj('Default__PalUtility',{GetCharacterManager=function()return manager end,MakeDamageInfo=function(_,q)return clone{Power=q.Power}end,
++  ProcessDamageAndPlayEffectsByDamageInfo=function(_,a,d,info,fx,exceed)assert(fx and exceed==0);counts.damage=counts.damage+1;damage(a,d,info.Power)end})
++ local fp=obj('Default__FixedPoint64MathLibrary',{Convert_FixedPoint64ToFloat=function(_,v)return v.Value end})
++ local ids=obj('Default__KismetGuidLibrary',{NewGuid=function()serial=serial+1;return g(serial)end})
++ local db=obj('Database',{SetupSaveParameter=function(_,name,level,owner,out)assert(level==1 and owner.A==0);out.CharacterID=name;return true end})
++ StaticFindObject=function(path)
++  if path=='/Script/Pal.Default__PalUtility'then return util elseif path=='/Script/Pal.Default__FixedPoint64MathLibrary'then return fp
++  elseif path=='/Script/Engine.Default__KismetGuidLibrary'then return ids else return obj('Function '..path)end
++ end
++ FindAllOf=function(c)if c=='PalGameStateInGame'then return {gs}elseif c=='PalDatabaseCharacterParameter'then return {db}elseif c=='PalPlayerController'then return {pc}elseif c=='PalCharacter'then return all end;return {}end
++ RegisterHook=function(path,pre,post)hook_serial=hook_serial+2;hooks[path]={pre=pre,post=post};return hook_serial-1,hook_serial end
++ UnregisterHook=function(path,pre,post)assert(pre and post);counts.unhook=counts.unhook+1;hooks[path]=nil end
++ local M=dofile(root..'/server/entities.lua').new{root='fixture/',json=J,origin={X=0,Y=0,Z=0},session='lab-session',now=function()return clock end,
++  read=function(k)return store[k]and clone(store[k])end,write=function(k,v)store[k]=clone(v)end}
++ store['mc-state.json']={v=1,t='entity_snapshot',authority='mc_server',session='lab-session',epoch='mc-epoch',revision=1,unix=clock,
++  entities={{id=MOB,kind='minecraft:zombie',category='mob',dimension='minecraft:overworld',x=0,y=64,z=0,yaw=0,width=.6,height=1.8,hp=20,max_hp=20,alive=true}}}
++ M.tick();assert(M.running and counts.spawn==1,J.encode(M.status()))
++ local function hit(id,source,targetId)return {v=1,t='entity_damage',authority='mc_server',id=gid(id),session='lab-session',target_epoch=M.epoch,source_epoch='mc-epoch',target=targetId or'pal:'..gid(0)..'/'..gid(4),source=source or MOB,amount=2,kind='minecraft:mob_attack'}end
++ return {m=M,store=store,counts=counts,player=player,player_cp=player_cp,target=target,target_cp=target_cp,damage=damage,pc=pc,
++  hit=hit,clock=function(v)clock=v end,hooks=hooks,proof={v=2,world_id='world-lab',server_session_id='lab-session',pal_uid=UID,mc_uuid=gid(5),session_id=gid(6),generation=1,expires_at=110,legacy=false}}
++end
++local function fire_setup()
++ local s=setup();local proxy='mc:'..gid(77);local target='pal:'..gid(0)..'/'..gid(4)
++ s.store['mc-state.json'].host_proxies={{id=proxy,pal_id=target,dimension='minecraft:overworld',x=0,y=64,z=0}}
++ s.target.DamageReactionComponent=obj('reaction',{SlipDamage=function(_,power,ignore,kind,clear)assert(ignore and kind==6 and not clear);s.counts.slip=s.counts.slip+1;s.damage(s.target,s.target,power)end})
++ local q=s.hit(40,proxy,target);q.environment=true;q.source_proxy=true;q.kind='minecraft:lava';return s,q
++end
++ test('real non-player proxy lava uses one normal SlipDamage',function()local s,q=fire_setup();local r=s.m.protocol.hit(q);assert(r.ok and r.native_route=='SlipDamage'and s.target_cp.hp==900 and s.counts.slip==1);s.m.protocol.hit(q);assert(s.counts.slip==1 and s.target_cp.hp==900)end)
++ test('unproven source proxy cannot damage another native creature',function()local s,q=fire_setup();s.store['mc-state.json'].host_proxies[1].pal_id='pal:'..gid(0)..'/'..gid(99);assert(not s.m.protocol.hit(q).ok and s.counts.slip==0 and s.target_cp.hp==1000)end)
++ test('stale MC proxy snapshot cannot submit environmental damage',function()local s,q=fire_setup();s.store['mc-state.json'].unix=90;assert(not s.m.protocol.hit(q).ok and s.counts.slip==0)end)
++ test('aquatic Pal does not inherit villager drowning clock',function()local s,q=fire_setup();q.kind='minecraft:drown';assert(not s.m.protocol.hit(q).ok and s.counts.slip==0)end)
++ test('moved native Pal is outside stale proxy contact proof',function()local s,q=fire_setup();s.target.pos.X=600;assert(not s.m.protocol.hit(q).ok and s.counts.slip==0)end)
++ print(J.encode({ok=true,suite='nonplayer_environment_v2',tests=passed,cases=cases,real_game_runtime_verified=false,execution_mode='night_low_power'}))
+--- /dev/null
++++ b/tests/entity-combat-v2/lab_observe_v2.lua
+@@ -0,0 +1,27 @@
++-- Read-only receipt collector for one scheduled real eat/contact. No inventory, HP, game input or actor mutations.
++local Q={}
++function Q.run(o)
++ assert(IsInGameThread(),'Read actual authority on game thread')
++ local J=assert(o.json);local root=assert(o.root):gsub('\\','/'):gsub('/?$','/')
++ local function read(name)local f=io.open(root..name,'rb');if not f then return end;local s=f:read('*a');f:close();return J.decode(s)end
++ local pal=read('pal-state.json');local mc=read('mc-state.json');local out={observed_unix=os.time(),read_only=true,items_granted=0,actual_native=true}
++ if not pal or not mc then out.ok=false;out.status='authority_snapshot_missing';return out end
++ out.session=pal.session;out.pal_epoch=pal.epoch;out.mc_epoch=mc.epoch;out.food_capabilities=pal.food
++ out.pal_players={};out.mc_players=mc.player_vitals
++ for _,r in ipairs(pal.entities)do if r.player then out.pal_players[#out.pal_players+1]=r end end
++ if o.food_event_id then
++  assert(o.food_event_id:match('^[%x%-]+$')and #o.food_event_id==36,'Food event UUID required')
++  out.food_event=read('mc-food-'..o.food_event_id..'.json');out.food_result=read('pal-food-result-'..o.food_event_id..'.json')
++  local q,r=out.food_event,out.food_result
++  out.food_paid_once=q and q.vanilla_completed and q.before_count-q.after_count==1 or false
++  out.food_native_observed=r and r.ok and r.native_route=='PalItemUseProcessor:UseItemToCharacter_ServerInternal'and(r.after_full_stomach>r.before_full_stomach or r.after_hp>r.before_hp)or false
++ end
++ if o.environment_event_id then
++  assert(o.environment_event_id:match('^[%x%-]+$')and #o.environment_event_id==36,'Environment event UUID required')
++  out.environment_event=read('mc-hit-'..o.environment_event_id..'.json');out.environment_result=read('pal-result-'..o.environment_event_id..'.json')
++  local q,r=out.environment_event,out.environment_result
++  out.proxy_environment_observed=q and q.source_proxy==true and q.environment==true and r and r.ok and r.native_route=='SlipDamage'and r.after_hp<r.before_hp or false
++ end
++ out.ok=true;out.status='real_snapshots_read';return out
++end
++return Q

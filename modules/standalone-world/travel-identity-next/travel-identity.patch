@@ -1,0 +1,20 @@
+--- a/runtime/server_options.lua
++++ b/runtime/server_options.lua
+@@ -76,6 +76,17 @@
+   options.travel={module_dir=scripts..'travel/',journal=journal,send=out.send,
+    view=view,config=travel_config,rebase_supported=cfg.rebase_enabled==true,
+    recovery_scenes=view.recovery_scenes,retain_scene=view.retain_scene}
++  if o.standalone_world then
++   options.travel.verify_identity=function(pc,b,authority)
++    if authority~=true or type(b)~='table'then return false,'standalone_travel_authority_scope_required'end
++    local proof=o.local_realm:current()
++    if not proof or o.local_realm:validate(proof,pc)~=true or o.local_realm:same_world(pc,proof)~=true then
++     return false,'standalone_travel_context_changed'
++    end
++    return b.pal_uid==proof.host_uid and b.world_id==proof.world_id
++     and b.server_session_id==proof.server_session_id,'standalone_travel_identity_changed'
++   end
++  end
+   options.verify_travel_request=function()return false end -- Guest RPC cannot impersonate the trusted Java file writer.
+  end
+  return options

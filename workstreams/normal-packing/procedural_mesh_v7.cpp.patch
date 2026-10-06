@@ -1,0 +1,21 @@
+--- 387db/procedural_mesh_v7.cpp
++++ next/procedural_mesh_v7.cpp
+@@ -84,7 +84,8 @@
+  }
+  g.tangents.resize(g.positions.size());
+  for(size_t i=0;i<g.positions.size();i++){
+-  Vec3 n=unit(g.normals[i]),x=subtract(tx[i],multiply(n,dot(n,tx[i])));
++  Vec3 n=dot(g.normals[i],g.normals[i])<1e-12?Vec3{0,0,1}:unit(g.normals[i]);
++  Vec3 x=subtract(tx[i],multiply(n,dot(n,tx[i])));
+   if(dot(x,x)<1e-12)x=cross(std::abs(n.z)<.9?Vec3{0,0,1}:Vec3{0,1,0},n);
+   x=unit(x);g.tangents[i].x=x;g.tangents[i].flip=dot(cross(n,x),ty[i])<0;
+  }
+@@ -122,7 +123,7 @@
+   g.positions.reserve(h.vertices);g.normals.reserve(h.vertices);g.uv.reserve(h.vertices);
+   for(const auto&v:input){
+    const double normal_squared=dot(v.normal,v.normal);
+-   if(!finite(v.position)||!finite(v.normal)||!std::isfinite(normal_squared)||normal_squared<1e-12||
++   if(!finite(v.position)||!finite(v.normal)||!std::isfinite(normal_squared)||(!r.shader_vertices&&normal_squared<1e-12)||
+       std::abs(v.position.x)>1e8||std::abs(v.position.y)>1e8||std::abs(v.position.z)>1e8||
+       !std::isfinite(v.uv.u)||!std::isfinite(v.uv.v)||std::abs(v.uv.u)>1e6||std::abs(v.uv.v)>1e6)return fail("geometry_vertex");
+    g.positions.push_back(v.position);g.normals.push_back(r.shader_vertices?v.normal:unit(v.normal));g.uv.push_back(v.uv);

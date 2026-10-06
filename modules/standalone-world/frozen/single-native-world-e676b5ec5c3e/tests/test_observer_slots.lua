@@ -1,0 +1,12 @@
+local ROOT=assert(arg[1]);local f=assert(io.open(ROOT..'/source/client/palcraft-collisions.lua','rb'));local s=f:read('*a');f:close()
+local first=s:sub(assert(s:find('local world_observers',1,true)),assert(s:find('M.context=context',1,true))-1)
+local second=s:sub(assert(s:find('local function observe(method,',1,true)),assert(s:find('local World=dofile',1,true))-1)
+local api=assert(load('local M={}\n'..first..second..'\nreturn{set=M.set_world_observer,observe=observe,state=M}'))()
+local checks=0;local function ck(x,m)checks=checks+1;assert(x,m)end
+local a,b=0,0;api.set({on_row=function()a=a+1 end});api.set({on_row=function()b=b+1 end},'server')
+api.observe('on_row',{},true);ck(a==1 and b==1,'One accepted reducer row dispatches once per owner')
+api.set({on_row=function()b=b+1 end},'server');api.observe('on_row',{},true);ck(a==2 and b==2,'Same owner replacement does not duplicate callback')
+api.set(nil,'server');api.observe('on_row',{},true);ck(a==3 and b==2,'Server stop leaves default client observer')
+api.set({on_row=function()b=b+1 end},'server');api.set(nil);api.observe('on_row',{},true);ck(a==3 and b==3,'Default stop leaves separate server observer')
+api.set({on_row=function()error('actual_observer_error')end},'server');api.observe('on_row',{},true);ck(api.state.observer_error:find('actual_observer_error',1,true),'Observer errors retain fail-closed error signal')
+print('PASS observer slots '..checks..' checks; actual candidate functions, no journal/timer/game')

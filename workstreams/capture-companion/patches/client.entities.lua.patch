@@ -1,0 +1,82 @@
+--- a/client/entities.lua
++++ b/client/entities.lua
+@@ -8,7 +8,7 @@
+  assert(IsInGameThread(),'Entity observer must run on game thread')
+  local J=assert(o.json);local root=assert(o.root):gsub('\\','/'):gsub('/?$','/')
+  local now=o.now or os.time
+- local M={running=true,views={},revision=-1,pending_models=true,phase='waiting_for_authority'}
++ local M={running=true,views={},revision=-1,pending_models=true,phase='waiting_for_authority'};local actor_bindings={}
+  local function read(name)
+   if o.read then return o.read(name)end
+   local f=io.open(root..name,'rb');if not f then return end;local raw=f:read('*a');f:close();assert(#raw<=1048576,'Observer snapshot too large');return J.decode(raw)
+@@ -17,14 +17,19 @@
+  local function session(pc)
+   for _,g in ipairs(FindAllOf('PalGameStateInGame')or{})do if live(g)then local id=type(g.ServerSessionId)=='string'and g.ServerSessionId or g.ServerSessionId:ToString();if id==o.session then return id end end end
+  end
+- local function clear_views()
+-  if o.renderer then for _,v in pairs(M.views)do if v.render_handle then o.renderer.remove(v.render_handle)end end end
+-  M.views={};M.rendered=0
++ local function clear_views(context_alive)
++  if o.renderer then for _,v in pairs(M.views)do if v.render_handle then o.renderer.remove(v.render_handle,context_alive)end end end
++  M.views={};M.rendered=0;M.pending_models=true;actor_bindings={}
++ end
++ function M.verify_actor(row,actor)
++  local binding=actor_bindings[row.id]
++  return M.running and binding~=nil and binding.row==row and binding.row.dimension==row.dimension
++   and binding.actor==actor and live(actor)and actor:GetAddress()==binding.address
+  end
+  function M.tick(pc)
+   assert(IsInGameThread(),'Observer tick must run on game thread')
+   if not M.running then return end
+-  if not live(pc)or not session(pc)then clear_views();M.phase='other_or_unloaded_session';return end
++  if not live(pc)or not session(pc)then clear_views(false);M.phase='other_or_unloaded_session';return end
+   local state=read('mc-state.json');local pal=read('pal-state.json')
+   if not fresh(state)or not fresh(pal)or state.session~=o.session or pal.session~=o.session then clear_views();M.phase='authority_stale';return end
+   local actors={};local utility=StaticFindObject('/Script/Pal.Default__PalUtility')
+@@ -40,16 +45,33 @@
+   end
+   local bindings={}
+   for _,b in ipairs(pal.bodies or{})do if b.source_epoch==state.epoch and b.body_epoch==pal.epoch and b.phase=='active'then bindings[b.id]=b end end
++  -- Publish the actual current snapshot/native_id/Actor pairing BEFORE calling
++  -- the captured renderer, including the first spawn. No nearest-Actor lookup.
++  actor_bindings={}
++  for _,r in ipairs(state.entities or{})do
++   if r.category=='mob'and(r.alive or(r.death_time or 0)>0 and(r.death_time or 0)<=20)then
++    local b=bindings[r.id];local a=b and b.dimension==r.dimension and actors[b.native_id]
++    if a then actor_bindings[r.id]={row=r,actor=a,address=a:GetAddress(),native_id=b.native_id,body_epoch=pal.epoch}end
++   end
++  end
+   local next_views={};local rendered=0
+   for _,r in ipairs(state.entities or{})do
+    if r.category=='mob'and(r.alive or(r.death_time or 0)>0 and(r.death_time or 0)<=20)then
+     local binding=bindings[r.id];local a=binding and binding.dimension==r.dimension and actors[binding.native_id]
+     if a then
+-     local prior=M.views[r.id];local view={id=r.id,kind=r.kind,actor=a,state=r,native_id=binding.native_id,body_epoch=pal.epoch,render='native_pal_surrogate_pending_mc_model'}
++     local prior=M.views[r.id]
++     if prior and prior.render_handle and(prior.native_id~=binding.native_id or prior.body_epoch~=pal.epoch
++      or not live(prior.actor)or prior.actor:GetAddress()~=a:GetAddress())then
++      o.renderer.remove(prior.render_handle);prior=nil
++     end
++     local view={id=r.id,kind=r.kind,actor=a,state=r,native_id=binding.native_id,body_epoch=pal.epoch,render='native_pal_surrogate_pending_mc_model'}
+      -- A renderer may be supplied by the native owner only when it implements real world meshes/animations.
+      if o.renderer then
+       local handle=prior and prior.render_handle or o.renderer.spawn(r,a)
+-      if handle then o.renderer.update(handle,r,a);view.render_handle=handle;view.render='mc_world_model';rendered=rendered+1 end
++      if handle then
++       local ready=o.renderer.update(handle,r,a);view.render_handle=handle
++       if ready~=false then view.render='mc_world_model';rendered=rendered+1 end
++      end
+      end
+      next_views[r.id]=view
+     end
+@@ -78,8 +100,8 @@
+   return {running=M.running,phase=M.phase,authority='observer_only',native_bodies=n,mc_models=M.rendered or 0,
+    pending_mc_models_and_animations=M.pending_models,damage_events_sent=0,combat_bodies_spawned=0,revision=M.revision}
+  end
+- function M.stop()
+-  clear_views();M.running=false;M.phase='stopped';return M.status()
++ function M.stop(context_alive)
++  clear_views(context_alive);M.running=false;M.phase='stopped';return M.status()
+  end
+  return M
+ end

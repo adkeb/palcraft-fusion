@@ -1,0 +1,12 @@
+{
+  "case": "A01",
+  "world_id": "REPLACE_WITH_RUNTIME_CURRENT_WORLD_ID",
+  "server_session_id": "REPLACE_WITH_NEW_MAINTENANCE_SERVER_SESSION",
+  "player_uid": "22222222-0000-0000-0000-000000000000",
+  "guild_id": "00000000-0000-4000-8000-00000000001b",
+  "base_id": "00000000-0000-4000-8000-000000000031",
+  "container_id": "00000000-0000-4000-8000-000000000025",
+  "context_evidence": "REPLACE_WITH_EXISTING_CURRENT_RUNTIME_IDENTITY_OR_PRESENCE_RECEIPT",
+  "note": "IDs are historical candidate seeds, not asserted current stock. Runtime derives/validates actual owner/base/ordinary-container for the new ready window; this flat wrapper is not another world certificate."
+}
+

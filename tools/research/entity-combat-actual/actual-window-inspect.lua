@@ -1,0 +1,6 @@
+assert(IsInGameThread())
+local f=assert(_G.PalCraftClientFeatures);local cmd=assert(f.composition.features.commands)
+assert(cmd.phase=='running'and cmd.instance)
+local J=dofile('D:/PalworldServer-LAN/PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/json.lua')
+assert(cmd.instance.send({t='inspect',request='entity_food_readonly_1791249800'})==true)
+return J.encode({readonly=true,queued=cmd.instance.status().queued,host={session_id=f.binding.session_id,generation=f.binding.generation},native={session_id=f.mc_binding.session_id,generation=f.mc_binding.generation,mc_epoch=f.mc_binding.mc_epoch},view=f.mc_view})

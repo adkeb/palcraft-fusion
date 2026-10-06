@@ -1,0 +1,8 @@
+UE4SS Palworld fork: Okaetsu/RE-UE4SS tag2281fa31.
+Release: https://github.com/Okaetsu/RE-UE4SS/releases/tag/2281fa31
+License: https://github.com/Okaetsu/RE-UE4SS/blob/2281fa31/LICENSE
+Cached release SHA256: f7543d57f8fdf5eab3731ac52121e6e7ff142fb3bfa17156e931037d0e44875b
+Stock-provider dwmapi.dll / UE4SS.dll byte hashes match the release archive and isolated Mac installation.
+Portable provider ue4ss-scoped-iat-v1 derives its UE4SS.dll from that same pinned Core by adding an early import dependency on PalCraftUE4SSUtf8.dll. Its Core bytes differ from the stock release; the original sections, RVAs and existing import descriptors remain identical. The paired candidate manifest records the exact Core and shim hashes and their source. The shim adapts UTF-8 file/environment/module interfaces only inside this Core's imports. Early Lua component checks do not constitute full Core/game or ordinary player-install acceptance.
+MemberVariableLayout.ini is supplied by the same release. No stock Mods, mappings, caches, logs, game saves or account data are packaged.
+Internal integration candidate. Remaining embedded-dependency/public-distribution review is separate from runtime acceptance.

@@ -1,0 +1,68 @@
+--- a/client/chunk_scheduler.lua
++++ b/client/chunk_scheduler.lua
+@@ -6,6 +6,18 @@
+ local function key(dim,cx,cy,cz)return #dim..':'..dim..':'..cx..':'..cy..':'..cz end
+ local function count(t)local n=0;for _ in pairs(t)do n=n+1 end;return n end
+ local function empty_handles()return{visual={},collision={},special={}}end
++local function step_phase(ch)
++ if ch.cleanup then return'cleanup_retry'end
++ if ch.job and(ch.job.revision~=ch.revision)then return'stale_discard'end
++ if ch.removed then return'unload'end
++ local job=ch.job
++ if not job then return'build_init'end
++ if job.phase=='build'then return'build_resume'end
++ if job.phase=='visual'then return'visual_prepare'end
++ if job.phase=='collision'then return'collision_prepare'end
++ if job.phase=='special'then return'special_prepare'end
++ return job.phase
++end
+ function M.new(options)
+  assert(options and options.geometry and options.adapter,'Geometry and adapter required')
+  local size,tile=options.chunk_size or 16,options.tile_size or 4
+@@ -13,7 +25,8 @@
+  local self=setmetatable({options=options,geometry=options.geometry,adapter=options.adapter,size=size,tile=tile,
+   chunks={},queue={},head=1,tail=0,snapshots={},coverage={},views={},regions={},view_counter=0,session=options.session,generation=1,last_seq=-1,
+   clock=options.clock or os.clock,stats={changes=0,noops=0,stale_rows=0,cancelled_jobs=0,commits=0,
+-   prepared_pages=0,tiles_built=0,unloads=0,resets=0,native_calls=0,budget_overruns=0,max_tick_ms=0},errors={}},Scheduler)
++   prepared_pages=0,tiles_built=0,unloads=0,resets=0,native_calls=0,budget_overruns=0,max_tick_ms=0,
++   step_timing={clock='os.clock (same runtime CRT)',phases={},peak=nil}},errors={}},Scheduler)
+  return self
+ end
+ function Scheduler:_chunk(dim,x,y,z,create)
+@@ -265,6 +278,7 @@
+  if not job then if next(ch.dirty)==nil then return false end;job=self:_new_job(ch)end
+  if job.phase=='build'then
+   local ok,value,tiles=coroutine.resume(job.co);assert(ok,value)
++  job.last_yield=coroutine.status(job.co)=='dead'and'assembled'or tostring(value)
+   if coroutine.status(job.co)=='dead'then
+    job.packet=value;job.tiles=tiles
+    local supported,why=self:_requirements(value);assert(supported,why)
+@@ -315,7 +329,28 @@
+  local start=self.clock();local deadline=start+budget_ms/1000;local steps=0
+  while steps<max_steps and self.head<=self.tail and self.clock()<deadline do
+   local ch=self.queue[self.head];self.queue[self.head]=nil;self.head=self.head+1;ch.queued=nil
++  local phase=step_phase(ch);local before=ch.job
++  local yield_before=before and before.last_yield or nil
++  local page_index=before and before.index or nil
++  local started=self.clock()
+   local ok,again=pcall(self._step,self,ch,deadline)
++  local elapsed_step=(self.clock()-started)*1000
++  local timing=self.stats.step_timing;local sample=timing.phases[phase]
++  if not sample then sample={calls=0,sum_ms=0,max_ms=0};timing.phases[phase]=sample end
++  sample.calls=sample.calls+1;sample.sum_ms=sample.sum_ms+elapsed_step;sample.max_ms=math.max(sample.max_ms,elapsed_step)
++  if not timing.peak or elapsed_step>timing.peak.elapsed_ms then
++   local packet=before and before.packet;local visual=packet and page_index and packet.visual_pages[page_index]
++   local collision=packet and page_index and packet.collision_pages[page_index]
++   timing.peak={phase=phase,elapsed_ms=elapsed_step,budget_ms=budget_ms,dimension=ch.dimension,at=G.clone(ch.at),
++    revision=ch.revision,generation=self.generation,page_index=page_index,yield_before=yield_before,
++    yield_after=ch.job and ch.job.last_yield or nil,ok=ok,
++    page_vertices=phase=='visual_prepare'and visual and visual.vertices or nil,
++    page_indices=phase=='visual_prepare'and visual and visual.indices or nil,
++    page_boxes=phase=='collision_prepare'and collision and #collision.boxes or nil,
++    chunk_blocks=ch.count,prepared_visual=before and #before.prepared.visual or nil,
++    prepared_collision=before and #before.prepared.collision or nil,
++    origin='one Scheduler._step boundary; prepare includes material/wire/native/result, not a DLL attribution'}
++  end
+   if not ok then
+    local failed_job=ch.job
+    local cleanup_ok,cleanup_error=pcall(self._discard,self,ch.job)

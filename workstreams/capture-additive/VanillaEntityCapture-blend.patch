@@ -1,0 +1,10 @@
+--- a/VanillaEntityCapture.java
++++ b/VanillaEntityCapture.java
+@@ -67,6 +67,7 @@
+         vertices+=data.size();var batch=new LinkedHashMap<String,Object>();
+         batch.put("source",source);batch.put("layer_order",order);batch.put("render_type_name",field(type,"name"));
+         batch.put("textures",textures(type));batch.put("has_blending",type.hasBlending());batch.put("primitive",topology);
++        batch.put("capture_blend",CaptureBlendMetadata.read(type.pipeline()));
+         batch.put("light",light);batch.put("overlay",overlay);batch.put("vertices",data);batches.add(batch);
+     }
+     @SuppressWarnings({"rawtypes","unchecked"})

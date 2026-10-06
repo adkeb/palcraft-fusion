@@ -1,0 +1,484 @@
+﻿Compiled from "SpriteContents.java"
+class net.minecraft.client.renderer.texture.SpriteContents$AnimatedTexture {
+  private final java.util.List<net.minecraft.client.renderer.texture.SpriteContents$FrameInfo> frames;
+
+  private final it.unimi.dsi.fastutil.ints.IntList uniqueFrames;
+
+  private final int frameRowSize;
+
+  private final boolean interpolateFrames;
+
+  final net.minecraft.client.renderer.texture.SpriteContents this$0;
+
+  private net.minecraft.client.renderer.texture.SpriteContents$AnimatedTexture(java.util.List<net.minecraft.client.renderer.texture.SpriteContents$FrameInfo>, int, boolean);
+    Code:
+         0: aload_0
+         1: aload_1
+         2: dup
+         3: invokestatic  #1                  // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+         6: pop
+         7: putfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+        10: aload_0
+        11: invokespecial #13                 // Method java/lang/Object."<init>":()V
+        14: aload_0
+        15: aload_2
+        16: putfield      #19                 // Field frames:Ljava/util/List;
+        19: aload_0
+        20: iload_3
+        21: putfield      #23                 // Field frameRowSize:I
+        24: aload_0
+        25: iload         4
+        27: putfield      #27                 // Field interpolateFrames:Z
+        30: aload_0
+        31: aload_2
+        32: invokeinterface #31,  1           // InterfaceMethod java/util/List.stream:()Ljava/util/stream/Stream;
+        37: invokedynamic #37,  0             // InvokeDynamic #0:applyAsInt:()Ljava/util/function/ToIntFunction;
+        42: invokeinterface #41,  2           // InterfaceMethod java/util/stream/Stream.mapToInt:(Ljava/util/function/ToIntFunction;)Ljava/util/stream/IntStream;
+        47: invokeinterface #47,  1           // InterfaceMethod java/util/stream/IntStream.distinct:()Ljava/util/stream/IntStream;
+        52: invokestatic  #53                 // Method it/unimi/dsi/fastutil/ints/IntArrayList.toList:(Ljava/util/stream/IntStream;)Lit/unimi/dsi/fastutil/ints/IntArrayList;
+        55: putfield      #59                 // Field uniqueFrames:Lit/unimi/dsi/fastutil/ints/IntList;
+        58: return
+
+  private int getFrameX(int);
+    Code:
+         0: iload_1
+         1: aload_0
+         2: getfield      #23                 // Field frameRowSize:I
+         5: irem
+         6: ireturn
+
+  private int getFrameY(int);
+    Code:
+         0: iload_1
+         1: aload_0
+         2: getfield      #23                 // Field frameRowSize:I
+         5: idiv
+         6: ireturn
+
+  public net.minecraft.client.renderer.texture.SpriteContents$AnimationState createAnimationState(com.mojang.renderpearl.api.buffers.GpuBufferSlice, int);
+    Code:
+         0: invokestatic  #63                 // Method com/mojang/blaze3d/systems/RenderSystem.getDevice:()Lcom/mojang/renderpearl/api/device/GpuDevice;
+         3: astore_3
+         4: new           #69                 // class it/unimi/dsi/fastutil/ints/Int2ObjectOpenHashMap
+         7: dup
+         8: invokespecial #71                 // Method it/unimi/dsi/fastutil/ints/Int2ObjectOpenHashMap."<init>":()V
+        11: astore        4
+        13: aload_0
+        14: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+        17: getfield      #72                 // Field net/minecraft/client/renderer/texture/SpriteContents.byMipLevel:[Lcom/mojang/blaze3d/platform/NativeImage;
+        20: arraylength
+        21: anewarray     #78                 // class com/mojang/renderpearl/api/buffers/GpuBufferSlice
+        24: astore        5
+        26: aload_3
+        27: invokeinterface #80,  1           // InterfaceMethod com/mojang/renderpearl/api/device/GpuDevice.createCommandEncoder:()Lcom/mojang/renderpearl/api/commands/CommandEncoder;
+        32: astore        6
+        34: aload         6
+        36: invokeinterface #86,  1           // InterfaceMethod com/mojang/renderpearl/api/commands/CommandEncoder.transientMemory:()Lcom/mojang/renderpearl/api/buffers/TransientMemory;
+        41: aload_0
+        42: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+        45: getfield      #72                 // Field net/minecraft/client/renderer/texture/SpriteContents.byMipLevel:[Lcom/mojang/blaze3d/platform/NativeImage;
+        48: invokestatic  #92                 // Method java/util/Arrays.stream:([Ljava/lang/Object;)Ljava/util/stream/Stream;
+        51: invokedynamic #97,  0             // InvokeDynamic #1:apply:()Ljava/util/function/Function;
+        56: invokeinterface #101,  2          // InterfaceMethod java/util/stream/Stream.map:(Ljava/util/function/Function;)Ljava/util/stream/Stream;
+        61: invokeinterface #105,  1          // InterfaceMethod java/util/stream/Stream.toList:()Ljava/util/List;
+        66: lconst_1
+        67: bipush        16
+        69: invokeinterface #110,  5          // InterfaceMethod com/mojang/renderpearl/api/buffers/TransientMemory.multiUploadStaging:(Ljava/util/List;JI)Ljava/util/List;
+        74: astore        7
+        76: iconst_0
+        77: istore        8
+        79: iload         8
+        81: aload_0
+        82: getfield      #59                 // Field uniqueFrames:Lit/unimi/dsi/fastutil/ints/IntList;
+        85: invokeinterface #116,  1          // InterfaceMethod it/unimi/dsi/fastutil/ints/IntList.size:()I
+        90: if_icmpge     311
+        93: aload_0
+        94: getfield      #59                 // Field uniqueFrames:Lit/unimi/dsi/fastutil/ints/IntList;
+        97: iload         8
+        99: invokeinterface #122,  2          // InterfaceMethod it/unimi/dsi/fastutil/ints/IntList.getInt:(I)I
+       104: istore        9
+       106: aload_3
+       107: aload_0
+       108: iload         9
+       110: invokedynamic #126,  0            // InvokeDynamic #2:get:(Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;I)Ljava/util/function/Supplier;
+       115: iconst_5
+       116: getstatic     #132                // Field com/mojang/renderpearl/api/GpuFormat.RGBA8_UNORM:Lcom/mojang/renderpearl/api/GpuFormat;
+       119: aload_0
+       120: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       123: getfield      #138                // Field net/minecraft/client/renderer/texture/SpriteContents.width:I
+       126: aload_0
+       127: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       130: getfield      #141                // Field net/minecraft/client/renderer/texture/SpriteContents.height:I
+       133: iconst_1
+       134: aload_0
+       135: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       138: getfield      #72                 // Field net/minecraft/client/renderer/texture/SpriteContents.byMipLevel:[Lcom/mojang/blaze3d/platform/NativeImage;
+       141: arraylength
+       142: invokeinterface #144,  8          // InterfaceMethod com/mojang/renderpearl/api/device/GpuDevice.createTexture:(Ljava/util/function/Supplier;ILcom/mojang/renderpearl/api/GpuFormat;IIII)Lcom/mojang/renderpearl/api/textures/GpuTexture;
+       147: astore        10
+       149: aload_0
+       150: iload         9
+       152: invokevirtual #148                // Method getFrameX:(I)I
+       155: aload_0
+       156: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       159: getfield      #138                // Field net/minecraft/client/renderer/texture/SpriteContents.width:I
+       162: imul
+       163: istore        11
+       165: aload_0
+       166: iload         9
+       168: invokevirtual #151                // Method getFrameY:(I)I
+       171: aload_0
+       172: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       175: getfield      #141                // Field net/minecraft/client/renderer/texture/SpriteContents.height:I
+       178: imul
+       179: istore        12
+       181: iconst_0
+       182: istore        13
+       184: iload         13
+       186: aload_0
+       187: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       190: getfield      #72                 // Field net/minecraft/client/renderer/texture/SpriteContents.byMipLevel:[Lcom/mojang/blaze3d/platform/NativeImage;
+       193: arraylength
+       194: if_icmpge     285
+       197: aload         6
+       199: aload         7
+       201: iload         13
+       203: invokeinterface #156,  2          // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+       208: checkcast     #78                 // class com/mojang/renderpearl/api/buffers/GpuBufferSlice
+       211: iload         11
+       213: iload         13
+       215: ishr
+       216: iload         12
+       218: iload         13
+       220: ishr
+       221: aload_0
+       222: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       225: getfield      #72                 // Field net/minecraft/client/renderer/texture/SpriteContents.byMipLevel:[Lcom/mojang/blaze3d/platform/NativeImage;
+       228: iload         13
+       230: aaload
+       231: invokevirtual #159                // Method com/mojang/blaze3d/platform/NativeImage.getWidth:()I
+       234: aload_0
+       235: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       238: getfield      #72                 // Field net/minecraft/client/renderer/texture/SpriteContents.byMipLevel:[Lcom/mojang/blaze3d/platform/NativeImage;
+       241: iload         13
+       243: aaload
+       244: invokevirtual #164                // Method com/mojang/blaze3d/platform/NativeImage.getHeight:()I
+       247: aload         10
+       249: iconst_0
+       250: iconst_0
+       251: aload_0
+       252: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       255: getfield      #138                // Field net/minecraft/client/renderer/texture/SpriteContents.width:I
+       258: iload         13
+       260: ishr
+       261: aload_0
+       262: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       265: getfield      #141                // Field net/minecraft/client/renderer/texture/SpriteContents.height:I
+       268: iload         13
+       270: ishr
+       271: iload         13
+       273: iconst_0
+       274: invokeinterface #167,  13         // InterfaceMethod com/mojang/renderpearl/api/commands/CommandEncoder.copyBufferToTexture:(Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;IIIILcom/mojang/renderpearl/api/textures/GpuTexture;IIIIII)V
+       279: iinc          13, 1
+       282: goto          184
+       285: aload         4
+       287: iload         9
+       289: invokestatic  #63                 // Method com/mojang/blaze3d/systems/RenderSystem.getDevice:()Lcom/mojang/renderpearl/api/device/GpuDevice;
+       292: aload         10
+       294: invokeinterface #171,  2          // InterfaceMethod com/mojang/renderpearl/api/device/GpuDevice.createTextureView:(Lcom/mojang/renderpearl/api/textures/GpuTexture;)Lcom/mojang/renderpearl/api/textures/GpuTextureView;
+       299: invokeinterface #175,  3          // InterfaceMethod it/unimi/dsi/fastutil/ints/Int2ObjectMap.put:(ILjava/lang/Object;)Ljava/lang/Object;
+       304: pop
+       305: iinc          8, 1
+       308: goto          79
+       311: iconst_0
+       312: istore        8
+       314: iload         8
+       316: aload_0
+       317: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       320: getfield      #72                 // Field net/minecraft/client/renderer/texture/SpriteContents.byMipLevel:[Lcom/mojang/blaze3d/platform/NativeImage;
+       323: arraylength
+       324: if_icmpge     349
+       327: aload         5
+       329: iload         8
+       331: aload_1
+       332: iload         8
+       334: iload_2
+       335: imul
+       336: i2l
+       337: iload_2
+       338: i2l
+       339: invokevirtual #181                // Method com/mojang/renderpearl/api/buffers/GpuBufferSlice.slice:(JJ)Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;
+       342: aastore
+       343: iinc          8, 1
+       346: goto          314
+       349: new           #185                // class net/minecraft/client/renderer/texture/SpriteContents$AnimationState
+       352: dup
+       353: aload_0
+       354: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+       357: aload_0
+       358: aload         4
+       360: aload         5
+       362: invokespecial #187                // Method net/minecraft/client/renderer/texture/SpriteContents$AnimationState."<init>":(Lnet/minecraft/client/renderer/texture/SpriteContents;Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;[Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;)V
+       365: areturn
+
+  public it.unimi.dsi.fastutil.ints.IntList getUniqueFrames();
+    Code:
+         0: aload_0
+         1: getfield      #59                 // Field uniqueFrames:Lit/unimi/dsi/fastutil/ints/IntList;
+         4: areturn
+
+  private java.lang.String lambda$createAnimationState$0(int);
+    Code:
+         0: aload_0
+         1: getfield      #7                  // Field this$0:Lnet/minecraft/client/renderer/texture/SpriteContents;
+         4: getfield      #190                // Field net/minecraft/client/renderer/texture/SpriteContents.name:Lnet/minecraft/resources/Identifier;
+         7: invokestatic  #194                // Method java/lang/String.valueOf:(Ljava/lang/Object;)Ljava/lang/String;
+        10: iload_1
+        11: invokedynamic #200,  0            // InvokeDynamic #3:makeConcatWithConstants:(Ljava/lang/String;I)Ljava/lang/String;
+        16: areturn
+}
+Compiled from "SpriteContents.java"
+public class net.minecraft.client.renderer.texture.SpriteContents$AnimationState implements java.lang.AutoCloseable {
+  private int frame;
+
+  private int subFrame;
+
+  private final net.minecraft.client.renderer.texture.SpriteContents$AnimatedTexture animationInfo;
+
+  private final it.unimi.dsi.fastutil.ints.Int2ObjectMap<com.mojang.renderpearl.api.textures.GpuTextureView> frameTexturesByIndex;
+
+  private final com.mojang.renderpearl.api.buffers.GpuBufferSlice[] spriteUbosByMip;
+
+  private boolean isDirty;
+
+  private net.minecraft.client.renderer.texture.SpriteContents$AnimationState(net.minecraft.client.renderer.texture.SpriteContents$AnimatedTexture, it.unimi.dsi.fastutil.ints.Int2ObjectMap<com.mojang.renderpearl.api.textures.GpuTextureView>, com.mojang.renderpearl.api.buffers.GpuBufferSlice[]);
+    Code:
+         0: aload_1
+         1: dup
+         2: invokestatic  #1                  // Method java/util/Objects.requireNonNull:(Ljava/lang/Object;)Ljava/lang/Object;
+         5: pop
+         6: pop
+         7: aload_0
+         8: invokespecial #7                  // Method java/lang/Object."<init>":()V
+        11: aload_0
+        12: iconst_1
+        13: putfield      #13                 // Field isDirty:Z
+        16: aload_0
+        17: aload_2
+        18: putfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+        21: aload_0
+        22: aload_3
+        23: putfield      #23                 // Field frameTexturesByIndex:Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;
+        26: aload_0
+        27: aload         4
+        29: putfield      #27                 // Field spriteUbosByMip:[Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;
+        32: return
+
+  public void tick();
+    Code:
+         0: aload_0
+         1: dup
+         2: getfield      #31                 // Field subFrame:I
+         5: iconst_1
+         6: iadd
+         7: putfield      #31                 // Field subFrame:I
+        10: aload_0
+        11: iconst_0
+        12: putfield      #13                 // Field isDirty:Z
+        15: aload_0
+        16: getfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+        19: getfield      #35                 // Field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture.frames:Ljava/util/List;
+        22: aload_0
+        23: getfield      #41                 // Field frame:I
+        26: invokeinterface #44,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+        31: checkcast     #50                 // class net/minecraft/client/renderer/texture/SpriteContents$FrameInfo
+        34: astore_1
+        35: aload_0
+        36: getfield      #31                 // Field subFrame:I
+        39: aload_1
+        40: getfield      #52                 // Field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo.time:I
+        43: if_icmplt     112
+        46: aload_1
+        47: getfield      #55                 // Field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo.index:I
+        50: istore_2
+        51: aload_0
+        52: aload_0
+        53: getfield      #41                 // Field frame:I
+        56: iconst_1
+        57: iadd
+        58: aload_0
+        59: getfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+        62: getfield      #35                 // Field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture.frames:Ljava/util/List;
+        65: invokeinterface #58,  1           // InterfaceMethod java/util/List.size:()I
+        70: irem
+        71: putfield      #41                 // Field frame:I
+        74: aload_0
+        75: iconst_0
+        76: putfield      #31                 // Field subFrame:I
+        79: aload_0
+        80: getfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+        83: getfield      #35                 // Field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture.frames:Ljava/util/List;
+        86: aload_0
+        87: getfield      #41                 // Field frame:I
+        90: invokeinterface #44,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+        95: checkcast     #50                 // class net/minecraft/client/renderer/texture/SpriteContents$FrameInfo
+        98: getfield      #55                 // Field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo.index:I
+       101: istore_3
+       102: iload_2
+       103: iload_3
+       104: if_icmpeq     112
+       107: aload_0
+       108: iconst_1
+       109: putfield      #13                 // Field isDirty:Z
+       112: return
+
+  public com.mojang.renderpearl.api.buffers.GpuBufferSlice getDrawUbo(int);
+    Code:
+         0: aload_0
+         1: getfield      #27                 // Field spriteUbosByMip:[Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;
+         4: iload_1
+         5: aaload
+         6: areturn
+
+  public boolean needsToDraw();
+    Code:
+         0: aload_0
+         1: getfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+         4: getfield      #62                 // Field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture.interpolateFrames:Z
+         7: ifne          17
+        10: aload_0
+        11: getfield      #13                 // Field isDirty:Z
+        14: ifeq          21
+        17: iconst_1
+        18: goto          22
+        21: iconst_0
+        22: ireturn
+
+  public void drawToAtlas(com.mojang.renderpearl.api.commands.RenderPass, com.mojang.renderpearl.api.buffers.GpuBufferSlice);
+    Code:
+         0: invokestatic  #65                 // Method com/mojang/blaze3d/systems/RenderSystem.getSamplerCache:()Lcom/mojang/blaze3d/systems/SamplerCache;
+         3: getstatic     #71                 // Field com/mojang/renderpearl/api/textures/FilterMode.NEAREST:Lcom/mojang/renderpearl/api/textures/FilterMode;
+         6: iconst_1
+         7: invokevirtual #77                 // Method com/mojang/blaze3d/systems/SamplerCache.getClampToEdge:(Lcom/mojang/renderpearl/api/textures/FilterMode;Z)Lcom/mojang/renderpearl/api/textures/GpuSampler;
+        10: astore_3
+        11: aload_0
+        12: getfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+        15: getfield      #35                 // Field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture.frames:Ljava/util/List;
+        18: astore        4
+        20: aload         4
+        22: aload_0
+        23: getfield      #41                 // Field frame:I
+        26: invokeinterface #44,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+        31: checkcast     #50                 // class net/minecraft/client/renderer/texture/SpriteContents$FrameInfo
+        34: getfield      #55                 // Field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo.index:I
+        37: istore        5
+        39: aload_0
+        40: getfield      #31                 // Field subFrame:I
+        43: i2f
+        44: aload_0
+        45: getfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+        48: getfield      #35                 // Field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture.frames:Ljava/util/List;
+        51: aload_0
+        52: getfield      #41                 // Field frame:I
+        55: invokeinterface #44,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+        60: checkcast     #50                 // class net/minecraft/client/renderer/texture/SpriteContents$FrameInfo
+        63: getfield      #52                 // Field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo.time:I
+        66: i2f
+        67: fdiv
+        68: fstore        6
+        70: fload         6
+        72: ldc           #83                 // float 1000.0f
+        74: fmul
+        75: f2i
+        76: istore        7
+        78: aload_0
+        79: getfield      #19                 // Field animationInfo:Lnet/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture;
+        82: getfield      #62                 // Field net/minecraft/client/renderer/texture/SpriteContents$AnimatedTexture.interpolateFrames:Z
+        85: ifeq          178
+        88: aload         4
+        90: aload_0
+        91: getfield      #41                 // Field frame:I
+        94: iconst_1
+        95: iadd
+        96: aload         4
+        98: invokeinterface #58,  1           // InterfaceMethod java/util/List.size:()I
+       103: irem
+       104: invokeinterface #44,  2           // InterfaceMethod java/util/List.get:(I)Ljava/lang/Object;
+       109: checkcast     #50                 // class net/minecraft/client/renderer/texture/SpriteContents$FrameInfo
+       112: getfield      #55                 // Field net/minecraft/client/renderer/texture/SpriteContents$FrameInfo.index:I
+       115: istore        8
+       117: aload_1
+       118: getstatic     #84                 // Field net/minecraft/client/renderer/RenderPipelines.ANIMATE_SPRITE_INTERPOLATE:Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;
+       121: invokestatic  #90                 // Method com/mojang/blaze3d/systems/RenderSystem.getCompiledPipeline:(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;)Lcom/mojang/renderpearl/api/pipeline/CompiledRenderPipeline;
+       124: invokeinterface #94,  2           // InterfaceMethod com/mojang/renderpearl/api/commands/RenderPass.setPipeline:(Lcom/mojang/renderpearl/api/pipeline/CompiledRenderPipeline;)V
+       129: aload_1
+       130: ldc           #100                // String CurrentSprite
+       132: aload_0
+       133: getfield      #23                 // Field frameTexturesByIndex:Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;
+       136: iload         5
+       138: invokeinterface #102,  2          // InterfaceMethod it/unimi/dsi/fastutil/ints/Int2ObjectMap.get:(I)Ljava/lang/Object;
+       143: checkcast     #105                // class com/mojang/renderpearl/api/textures/GpuTextureView
+       146: aload_3
+       147: invokeinterface #107,  4          // InterfaceMethod com/mojang/renderpearl/api/commands/RenderPass.setUniform:(Ljava/lang/String;Lcom/mojang/renderpearl/api/textures/GpuTextureView;Lcom/mojang/renderpearl/api/textures/GpuSampler;)V
+       152: aload_1
+       153: ldc           #111                // String NextSprite
+       155: aload_0
+       156: getfield      #23                 // Field frameTexturesByIndex:Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;
+       159: iload         8
+       161: invokeinterface #102,  2          // InterfaceMethod it/unimi/dsi/fastutil/ints/Int2ObjectMap.get:(I)Ljava/lang/Object;
+       166: checkcast     #105                // class com/mojang/renderpearl/api/textures/GpuTextureView
+       169: aload_3
+       170: invokeinterface #107,  4          // InterfaceMethod com/mojang/renderpearl/api/commands/RenderPass.setUniform:(Ljava/lang/String;Lcom/mojang/renderpearl/api/textures/GpuTextureView;Lcom/mojang/renderpearl/api/textures/GpuSampler;)V
+       175: goto          220
+       178: aload_0
+       179: getfield      #13                 // Field isDirty:Z
+       182: ifeq          220
+       185: aload_1
+       186: getstatic     #113                // Field net/minecraft/client/renderer/RenderPipelines.ANIMATE_SPRITE_BLIT:Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;
+       189: invokestatic  #90                 // Method com/mojang/blaze3d/systems/RenderSystem.getCompiledPipeline:(Lcom/mojang/renderpearl/api/pipeline/RenderPipeline;)Lcom/mojang/renderpearl/api/pipeline/CompiledRenderPipeline;
+       192: invokeinterface #94,  2           // InterfaceMethod com/mojang/renderpearl/api/commands/RenderPass.setPipeline:(Lcom/mojang/renderpearl/api/pipeline/CompiledRenderPipeline;)V
+       197: aload_1
+       198: ldc           #116                // String Sprite
+       200: aload_0
+       201: getfield      #23                 // Field frameTexturesByIndex:Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;
+       204: iload         5
+       206: invokeinterface #102,  2          // InterfaceMethod it/unimi/dsi/fastutil/ints/Int2ObjectMap.get:(I)Ljava/lang/Object;
+       211: checkcast     #105                // class com/mojang/renderpearl/api/textures/GpuTextureView
+       214: aload_3
+       215: invokeinterface #107,  4          // InterfaceMethod com/mojang/renderpearl/api/commands/RenderPass.setUniform:(Ljava/lang/String;Lcom/mojang/renderpearl/api/textures/GpuTextureView;Lcom/mojang/renderpearl/api/textures/GpuSampler;)V
+       220: aload_1
+       221: ldc           #118                // String SpriteAnimationInfo
+       223: aload_2
+       224: invokeinterface #120,  3          // InterfaceMethod com/mojang/renderpearl/api/commands/RenderPass.setUniform:(Ljava/lang/String;Lcom/mojang/renderpearl/api/buffers/GpuBufferSlice;)V
+       229: aload_1
+       230: bipush        6
+       232: iconst_1
+       233: iload         7
+       235: iconst_3
+       236: ishl
+       237: iconst_0
+       238: invokeinterface #123,  5          // InterfaceMethod com/mojang/renderpearl/api/commands/RenderPass.draw:(IIII)V
+       243: return
+
+  public void close();
+    Code:
+         0: aload_0
+         1: getfield      #23                 // Field frameTexturesByIndex:Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;
+         4: invokeinterface #127,  1          // InterfaceMethod it/unimi/dsi/fastutil/ints/Int2ObjectMap.values:()Lit/unimi/dsi/fastutil/objects/ObjectCollection;
+         9: invokeinterface #131,  1          // InterfaceMethod it/unimi/dsi/fastutil/objects/ObjectCollection.iterator:()Lit/unimi/dsi/fastutil/objects/ObjectIterator;
+        14: astore_1
+        15: aload_1
+        16: invokeinterface #137,  1          // InterfaceMethod java/util/Iterator.hasNext:()Z
+        21: ifeq          54
+        24: aload_1
+        25: invokeinterface #143,  1          // InterfaceMethod java/util/Iterator.next:()Ljava/lang/Object;
+        30: checkcast     #105                // class com/mojang/renderpearl/api/textures/GpuTextureView
+        33: astore_2
+        34: aload_2
+        35: invokeinterface #147,  1          // InterfaceMethod com/mojang/renderpearl/api/textures/GpuTextureView.texture:()Lcom/mojang/renderpearl/api/textures/GpuTexture;
+        40: invokeinterface #151,  1          // InterfaceMethod com/mojang/renderpearl/api/textures/GpuTexture.close:()V
+        45: aload_2
+        46: invokeinterface #156,  1          // InterfaceMethod com/mojang/renderpearl/api/textures/GpuTextureView.close:()V
+        51: goto          15
+        54: return
+}

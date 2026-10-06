@@ -1,0 +1,11 @@
+--- a/installer/core.py
++++ b/installer/core.py
+@@ -441,7 +441,7 @@
+         fail('GAME_MISSING', '请选择已有的正版 Palworld 游戏目录。', '目录需含 Palworld.exe、Shipping.exe 和 Pal/Content/Paks。')
+     denied = ('ue4ss', 'saved', 'savegames', 'mods', 'userdata', 'steam', 'steamapps', 'reshade-shaders')
+     files = []
+-    for base in ('Palworld.exe', 'Engine', 'Pal/Binaries', 'Pal/Content'):
++    for base in ('Palworld.exe', 'Engine', 'Pal/Binaries', 'Pal/Content', 'Pal/Plugins'):
+         start = source / base
+         if not start.exists():
+             continue

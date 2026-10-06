@@ -1,0 +1,134 @@
+--- a/server/travel.lua
++++ b/server/travel.lua
+@@ -152,6 +152,10 @@
+   source={mapping=current and current.mapping,dim=current and current.dim,snapshot=snapshot},started=self.now,
+   deadline=self.now+self.config.prepare_timeout_ms,_pc=b.pc,_source_ticket=current and current._ticket,
+   _already_arrived=P.distance(snapshot.position,target)<=self.config.position_tolerance_cm}
++ if mapping.native_overworld and(e.reason=='join'or e.reason=='reconnect'or e.reason=='respawn')
++  and(not current or current.world_session~=row.session or not P.same_binding(current.binding,b))then
++  tx.initial_prepare_started=self.now;tx.initial_prepare_limit=self.now+math.max(self.config.prepare_timeout_ms,180000)
++ end
+  self.pending[uid]=tx;self:_save() -- Durable intent before locks, actor creation, or travel messages.
+  self:_start_prepare(tx,b);self.stats.begun=self.stats.begun+1;return true
+ end
+@@ -184,7 +188,13 @@
+  local oldid=tx.tx;self.counter=self.counter+1
+  tx.tx=b.session_id..':'..tx.world_session..':'..tx.view..':'..self.counter
+  self.registry:retain(tx.mapping,'tx:'..tx.tx);self.registry:release(tx.mapping,'tx:'..oldid)
+- if not P.same_binding(oldbinding,b)then tx.binding=P.identity(b);tx.client_ready=nil;tx.client_observed=nil end
++ if not P.same_binding(oldbinding,b)then
++  tx.binding=P.identity(b);tx.client_ready=nil;tx.client_observed=nil
++  if tx.mapping.native_overworld then
++   tx.initial_prepare_started=self.now;tx.initial_prepare_limit=self.now+math.max(self.config.prepare_timeout_ms,180000)
++   tx._initial_prepare_progress=nil;tx._initial_prepare_progress_at=nil
++  end
++ end
+  local at=self.actor.position(b.pc);local target=P.distance(at,tx.target_pawn)<=self.config.position_tolerance_cm
+  local source=tx.source and tx.source.snapshot
+  local known_region=P.contains(tx.mapping.region_bounds,at)or(tx.source and tx.source.mapping and P.contains(tx.source.mapping.region_bounds,at))
+@@ -312,15 +322,19 @@
+  if tx._needs_recover or not self.P.same_binding(tx.binding,b)then return self:_resume(tx,b)end
+  if tx.phase=='recovery_required'then return end
+  if tx.phase=='complete'then return end
+- if self.now>=tx.deadline then return self:_cancel(tx,tx.phase=='preparing'and'target_prepare_timeout'or'client_replication_timeout')end
+  if tx.phase=='preparing'then
+   local request=self.P.request(tx,'server');request.generation=tx._ticket and tx._ticket.generation
+-  local ready,detail=self.P.ready(self.options.view.readiness(tx._ticket),request,'server')
++  local proof=self.options.view.readiness(tx._ticket)
++  local ready,detail=self.P.ready(proof,request,'server')
++  local extended=self.P.initial_prepare_lease(tx,proof,request,self.now,self.config.prepare_timeout_ms,'server')
++  if extended then self:_save()end
++  if self.now>=tx.deadline then return self:_cancel(tx,'target_prepare_timeout')end
+   tx._waiting=detail
+-  if ready then tx.server_ready=self.P.copy(self.options.view.readiness(tx._ticket))end
++  if ready then tx.server_ready=self.P.copy(proof)end
+   if ready and tx.client_ready then return self:_move(tx)end
+   if not tx._last_send or self.now-tx._last_send>=self.config.resend_ms then self:_prepare_message(tx)end
+  elseif tx.phase=='committed'or tx.phase=='finalizing'then
++  if self.now>=tx.deadline then return self:_cancel(tx,'client_replication_timeout')end
+   if tx.client_observed and self.now-tx.committed_at>=self.config.server_settle_ms then return self:_finalize(tx)end
+   if not tx._last_send or self.now-tx._last_send>=self.config.resend_ms then self:_send(tx,'committed',{mapping=tx.mapping,target_pawn=tx.server_position})end
+  end
+@@ -426,7 +440,8 @@
+ end
+ function Server:status()
+  local players={};for uid,tx in pairs(self.pending)do players[uid]={player=tx.binding.mc_uuid,phase=tx.phase,dim=tx.dim,view=tx.view,
+-  world_session=tx.world_session,tx=tx.tx,region_id=tx.mapping.region_id,error=tx.error,waiting=tx._waiting,fault=tx._fault}end
++  world_session=tx.world_session,tx=tx.tx,region_id=tx.mapping.region_id,error=tx.error,waiting=tx._waiting,fault=tx._fault,
++  prepare_deadline=tx.deadline,initial_prepare_limit=tx.initial_prepare_limit,initial_prepare_extensions=tx.initial_prepare_extensions}end
+  return{v=1,stopped=self.stopped==true,retained_scene_count=self.retained_scene_count or 0,
+   rebase_supported=self.options.rebase_supported==true,auxiliary_overworld_enabled=self.options.allow_aux_overworld==true,
+   world_session=self.world_session,players=players,queued=#self.queue-self.queue_head+1,
+--- a/client/travel.lua
++++ b/client/travel.lua
+@@ -78,6 +78,11 @@
+   phase='preparing',mapping=P.copy(row.mapping),required_bounds=P.copy(row.required_bounds),target_pawn=P.copy(row.target_pawn),
+   pos=P.copy(row.pos),yaw=row.yaw,pitch=row.pitch,deadline=self.now+self.config.prepare_timeout_ms,
+   _pc=pc,_pawn_address=self.actor.snapshot(pc).pawn_address,_source_ticket=self.active_ticket}
++ if not self.active_ticket and row.mapping.native_overworld then
++  local continuing=old and old.world_session==row.world_session and old.view==row.view and P.same_binding(old.binding,b)
++  tx.initial_prepare_started=continuing and old.initial_prepare_started or self.now
++  tx.initial_prepare_limit=continuing and old.initial_prepare_limit or self.now+math.max(self.config.prepare_timeout_ms,180000)
++ end
+  self.tx=tx;tx._lock=self.actor.hold(pc,false)
+  tx._ticket=assert(self.options.view.prepare_view(P.request(tx,'client')),'native_client_prepare_missing')
+  self.stats.prepared=self.stats.prepared+1;return true
+@@ -112,9 +117,10 @@
+ function Client:_progress(pc,input)
+  local tx=self.tx;if not tx or tx.phase=='complete'or tx.phase=='error'or tx.phase=='recovery_required'then return end
+  if self.actor.snapshot(pc).pawn_address~=tx._pawn_address then return self:_abort('client_possession_changed')end
+- if self.now>=tx.deadline then return self:_abort(tx._committed and'client_replication_timeout'or'client_prepare_timeout')end
+  local req=self.P.request(tx,'client');req.generation=tx._ticket.generation
+  local proof=self.options.view.readiness(tx._ticket);local ready,why=self.P.ready(proof,req,'client');tx.waiting=why
++ if not tx._committed then self.P.initial_prepare_lease(tx,proof,req,self.now,self.config.prepare_timeout_ms,'client')end
++ if self.now>=tx.deadline then return self:_abort(tx._committed and'client_replication_timeout'or'client_prepare_timeout')end
+  if ready then tx.proof=self.P.copy(proof)end
+  if not ready then
+   if tx._committed then return self:_abort(why)end
+@@ -173,6 +179,8 @@
+  local tx=self.tx;local phase=tx and tx.phase or'idle'
+  return{v=1,stopped=self.stopped==true,phase=phase,blocked=phase~='idle'and phase~='complete'and phase~='error',active=tx and tx._applied or false,
+   tx=tx and tx.tx,dim=tx and tx.dim,view=tx and tx.view,world_session=tx and tx.world_session,mapping=self.mapping,
+-  error=tx and tx.error,waiting=tx and tx.waiting,stats=self.P.copy(self.stats),faults=self.P.copy(self.faults)}
++  error=tx and tx.error,waiting=tx and tx.waiting,stats=self.P.copy(self.stats),faults=self.P.copy(self.faults),
++  prepare_deadline=tx and tx.deadline,initial_prepare_limit=tx and tx.initial_prepare_limit,
++  initial_prepare_extensions=tx and tx.initial_prepare_extensions}
+ end
+ return M
+--- a/travel/protocol.lua
++++ b/travel/protocol.lua
+@@ -102,6 +102,34 @@
+  if type(proof.errors)~='table'or next(proof.errors)~=nil then return false,'renderer_errors'end
+  if mode=='client'and(proof.visual_pending~=0 or proof.visual_committed~=true)then return false,'visual_pending'end
+  return true
++end
++-- Bootstrap callers supply a finite cap. Pending alone is not progress. Only
++-- current ticket evidence may renew preparation; readiness and ACK stay intact.
++function M.initial_prepare_lease(tx,proof,req,now,timeout,mode)
++ if not finite(tx.initial_prepare_limit)or not finite(tx.initial_prepare_started)
++  or now<tx.initial_prepare_started or now>=tx.initial_prepare_limit then return false end
++ if type(proof)~='table'or proof.world_session~=req.world_session or proof.dim~=req.dim or proof.view~=req.view
++  or proof.region_id~=req.mapping.region_id or proof.generation~=req.generation
++  or not integer(proof.revision)or proof.revision<0 or type(proof.errors)~='table'or next(proof.errors)~=nil
++  or not integer(proof.snapshots_pending)or proof.snapshots_pending<0
++  or not integer(proof.collision_pending)or proof.collision_pending<0
++  or(mode=='client'and(not integer(proof.visual_pending)or proof.visual_pending<0))then return false end
++ local sample={revision=proof.revision,snapshots=proof.snapshots_pending,collision=proof.collision_pending,
++  visual=mode=='client'and proof.visual_pending or 0,coverage=proof.coverage_complete==true}
++ local old=tx._initial_prepare_progress
++ local progress=not old and(sample.revision>0 or sample.snapshots>0 or sample.collision>0 or sample.visual>0 or sample.coverage)
++  or old and(sample.revision>old.revision or sample.snapshots~=old.snapshots or sample.collision<old.collision
++   or sample.visual<old.visual or sample.coverage and not old.coverage)
++ if progress then tx._initial_prepare_progress_at=now end
++ tx._initial_prepare_progress=sample
++ if now<tx.deadline then return false end
++ local ready=M.ready(proof,req,mode)
++ if ready or tx._initial_prepare_progress_at and now-tx._initial_prepare_progress_at<timeout then
++  tx.deadline=math.min(tx.initial_prepare_limit,now+timeout)
++  tx.initial_prepare_extensions=(tx.initial_prepare_extensions or 0)+1
++  return true
++ end
++ return false
+ end
+ function M.request(tx,mode)
+  return{player=tx.binding.mc_uuid,world_session=tx.world_session,dim=tx.dim,view=tx.view,

@@ -1,0 +1,65 @@
+--- a/runtime/client_options.lua
++++ b/runtime/client_options.lua
+@@ -51,6 +51,16 @@
+   entity_visuals_enabled=cfg.entity_visuals_enabled==true,sign_enabled=cfg.sign_text_enabled==true,
+   fluid_enabled=cfg.fluid_physics_enabled==true,travel_enabled=cfg.travel_enabled==true,
+   chunk_enabled=cfg.chunk_enabled==true or cfg.travel_enabled==true,view_bridge=view_bridge,command_bus=commands}
++ local material_config=F.read(bridge_root..'material-runtime-v1.json')
++ local material_options=o.material_options
++ if material_config and material_config.enabled==true then
++  assert(material_config.version==1,'Material runtime config version required')
++  material_options=copy(material_config);material_options.json=J;material_options.bridge_root=bridge_root
++ end
++ if material_options then
++  material_options=copy(material_options);material_options.json=J;material_options.bridge_root=bridge_root
++  material_options.send_query=commands.send
++ end
+  local function thread()
+   local f=o.game_thread or IsInGameThread;assert(type(f)=='function'and f()==true,'client_factory_requires_game_thread')
+  end
+@@ -164,7 +174,7 @@
+     return g,committed==true
+    end}
+  end
+- if options.chunk_enabled or options.fluid_enabled or options.sign_enabled then
++ if options.chunk_enabled or options.fluid_enabled or options.sign_enabled or material_options then
+   local Worker={};Worker.__index=Worker
+   options.client_world={key=function(features)
+    local b,v=assert(features.mc_binding),assert(features.mc_view)
+@@ -204,6 +214,19 @@
+    assert(c.running==true and not c.error and not c.world_error and not c.observer_error,'Client companion failed')
+    local v,why=self.features:bootstrap_view()
+    if not v then self.reason=why;return end
++   if material_options then
++    local pipeline=c.visual_pipeline
++    if not pipeline or not pipeline.add_material_handler or not pipeline.remove_material_handler then
++     self.reason='material_pipeline_entry_pending';return
++    end
++    if not self.material_wiring then
++     self.material_wiring=dofile(scripts..'material_live_wiring.lua').attach{models=assert(c.models),pipeline=pipeline,
++      companion=c,material_options=material_options}
++    end
++    -- This is the actual current MC tuple, including hidden prepare while it
++    -- waits for ACK. The existing WorldView transaction owns visible commit.
++    pipeline.bind_material_scope{mc_uuid=v.player,world_session=v.world_session,dim=v.dim,view=v.view}
++   end
+    local prepared,binding
+    if not self.started and options.travel_enabled then prepared,binding=self:startup_prepare(v)end
+    if c.world.session~=v.world_session then self.reason='native_scene_world_session_pending';return end
+@@ -273,7 +296,7 @@
+    local ready,reason=self:ready()
+    return{version=M.version,ready=ready,reason=reason,started=self.started,companion_driven=true,
+     initial_proof=self.initial_proof,initial_from_prepare=self.initial_from_prepare==true,startup_rejected=self.startup_rejected or 0,
+-    chunks=self.chunks and self.chunks.status(),in_game_verified=false}
++    chunks=self.chunks and self.chunks.status(),material_runtime=self.material_wiring and self.material_wiring.status(),in_game_verified=false}
+   end
+   function Worker:stop(_,ctx)
+    thread();local c=self.companion;local alive=not ctx or ctx.context_alive~=false
+@@ -281,6 +304,7 @@
+     assert(self.chunks.stop(alive)==true,'Client chunk cleanup failed')
+     if c.chunk_consumer==self.chunks.bridge.binding then c.chunk_consumer=nil end
+    end
++   if self.material_wiring then self.material_wiring.stop();self.material_wiring=nil end
+    self.stopped=true;self.started=false;early_rows={};if current==self then current=nil end;return true
+   end
+  end

@@ -1,0 +1,21 @@
+--- a/sign-text/lua/scene.lua
++++ b/sign-text/lua/scene.lua
+@@ -25,9 +25,15 @@
+  function api.block_at(dim,at)
+   local c=companion(o);if not c or c.running~=true or not c.world then return nil,false end
+   local g=c.world:get(dim,table.unpack(at));if not g then return nil,false end
+-  local entry=c.actors and c.actors[('%d:%d:%d'):format(table.unpack(at))]
+-  local ready=c.world.dimension==dim and entry and entry.model~=nil and entry.model_status=='rendered'
+-   and entry.id==g.id and entry.visible~=false and entry.render_signature==render_signature(J,g)
++  local entry
++  if type(c.block_render_entry)=='function'then entry=c.block_render_entry(dim,at)end
++  if not entry and c.actors then entry=c.actors[('%d:%d:%d'):format(table.unpack(at))]end
++  local expected_signature
++  if type(c.render_signature)=='function'then expected_signature=c.render_signature(g)
++  else expected_signature=render_signature(J,g)end
++  local ready=c.world.dimension==dim and entry and(not entry.dim or entry.dim==dim)
++   and entry.model~=nil and entry.model_status=='rendered'
++   and entry.id==g.id and entry.visible~=false and entry.render_signature==expected_signature
+   if ready and o.model_live then ready=o.model_live(entry.model,entry.model_component)==true end
+   return g,ready==true
+  end

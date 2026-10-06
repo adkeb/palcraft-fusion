@@ -1,0 +1,18 @@
+--- a/client/chunk_views.lua
++++ b/client/chunk_views.lua
+@@ -200,7 +200,15 @@
+ end
+ function Views:status()
+  local result={version=M.version,session=self.session,generation=self.generation,regions=0,blocks=0,sections=0,pending=0,errors={},stats=G.clone(self.stats)}
++ result.stats.step_timing={clock='os.clock (same runtime CRT)',regions={},peak=nil}
+  for id,r in pairs(self.regions)do local s=r.scheduler:status();result.regions=result.regions+1;result.blocks=result.blocks+s.blocks;result.sections=result.sections+s.sections;result.pending=result.pending+s.pending
++  local timing=s.stats and s.stats.step_timing
++  if timing then
++   result.stats.step_timing.regions[id]=timing
++   if timing.peak and(not result.stats.step_timing.peak or timing.peak.elapsed_ms>result.stats.step_timing.peak.elapsed_ms)then
++    result.stats.step_timing.peak=G.clone(timing.peak);result.stats.step_timing.peak.region_id=id
++   end
++  end
+   for k,v in pairs(s.errors)do result.errors[id..':'..k]=v end
+  end
+  return result

@@ -1,0 +1,11 @@
+--- a/launcher/session_proxy.py
++++ b/launcher/session_proxy.py
+@@ -16,7 +16,7 @@
+ PLAYER_OPERATIONS = {'cam', 'host_pose', 'world_view_ack', 'key', 'mode', 'slot', 'scroll', 'inventory_toggle',
+                      'pointer', 'wheel', 'gui_key', 'text', 'hud', 'view', 'inspect', 'blockinspect', 'blocksync',
+                      'worldcompat_status', 'ground', 'exchange', 'exchange_balance', 'session_ping',
+-                     'travel_ready', 'travel_observed', 'travel_abort'}
++                     'travel_ready', 'travel_observed', 'travel_abort', 'material_tint_query'}
+ SAFE_SESSION_ERRORS = {
+     'MC guest is waiting for its verified shared-world connection': 'guest_not_ready',
+     'Certificate is not assigned to this guest': 'wrong_guest_certificate',

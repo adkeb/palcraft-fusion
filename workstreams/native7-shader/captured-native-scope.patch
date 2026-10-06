@@ -1,0 +1,11 @@
+--- 68e/captured_native_consumer.lua
++++ next/captured_native_consumer.lua
+@@ -26,6 +26,8 @@
+   if effects.missing_textures and #effects.missing_textures>0 then return nil,'capture_resources_incomplete'end
+   if frame.unsupported_submissions and next(frame.unsupported_submissions)then return nil,'capture_submissions_not_consumed'end
+   for _,g in ipairs(result)do
++   g.capture_scope={mc_uuid=scope.mc_uuid,world_session=scope.world_session,dim=scope.dim,
++    view=scope.view,mapping=scope.mapping,producer=scope.producer,epoch=scope.epoch}
+    local accepted,reason;if o.material_supported then accepted,reason=o.material_supported(g)end
+    if accepted~=true then return nil,reason or'capture_material_layer_not_supported'end
+   end

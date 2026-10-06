@@ -1,0 +1,13 @@
+--- standard10.1/Start-Standard.ps1
++++ maintenance10.2/Start-Standard.ps1
+@@ -24,8 +24,8 @@
+ $port=if($launch.role -eq 'server'){[int]$props['server-port']}else{25599}
+ if(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue){throw 'Existing runtime still holds required port; no replacement or kill is performed'}
+ $mods=Join-Path $launch.cwd 'mods'
+-$expected='5b2c0ce172f3597d2b2388b79eb20c53c39ebc6efb943683dbab4d01d446dc32'
+-$mod=Join-Path $mods 'passthrough-0.2.0-integration.10.1.jar'
++$expected='3b782bb7308ea9926bd57e330103f2fa07abd323b817a074117101387a65f831'
++$mod=Join-Path $mods 'passthrough-0.2.0-integration.10.2-maintenance.jar'
+ if((Get-FileHash -LiteralPath $mod -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected){throw 'Production mod hash differs'}
+ Push-Location $launch.cwd
+ try { & $java ('@'+$launch.args_file); exit $LASTEXITCODE } finally { Pop-Location }

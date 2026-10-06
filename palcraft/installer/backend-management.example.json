@@ -1,0 +1,9 @@
+{
+  "python": "D:/PalworldServer-LAN/PalCraft-Dev/python/python.exe",
+  "watcher_script": "D:/PalworldServer-LAN/PalCraft-Dev/mcp/exchange_recovery.py",
+  "exchange_dir": "D:/PalworldServer-LAN/PalCraft-Dev/bridge/exchange",
+  "level_sav": "D:/PalworldServer-LAN/BridgeLab/Pal/Saved/SaveGames/0/REPLACE_WITH_CURRENT_LAB_WORLD/Level.sav",
+  "parser_vendor": "D:/PalworldServer-LAN/PalCraft-Dev/palworld-save-toolkit/python/vendor",
+  "pal_settings": "D:/PalworldServer-LAN/BridgeLab/Pal/Saved/Config/WindowsServer/PalWorldSettings.ini",
+  "interval": 0.5
+}

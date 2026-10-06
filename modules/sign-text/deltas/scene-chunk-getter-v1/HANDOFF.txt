@@ -1,0 +1,9 @@
+Scene-only chunk getter delta. Frozen Java/receiver/native packages and original sign-text manifests are untouched.
+Read actual new main.lua and companion_chunk_bridge.lua: getter returns active-view entries published postcommit.
+Use independent scene.lua in the next source candidate, or apply scene.patch to a fresh/unfrozen scene source copy.
+No caller API change: Scene.per_block(options) still returns block_at and view_provider.
+Getter priority: c.block_render_entry(dim,at), then legacy c.actors[x:y:z] only when nil/unavailable.
+Signature priority: c.render_signature(g), then existing local signature only when no function.
+Readiness still requires rendered same geometry/dimension and existing confirmed world/view; uncommitted getter stays unready.
+Only Lua syntax and getter_test.lua were run; no matrix suite/game/service/GUI/RPC/deployment.
+Replacement SHA256: 7c1237470660608bcbd294d26b25c2ed0c03d5a17fe7e45f79e0bcf45cf68061

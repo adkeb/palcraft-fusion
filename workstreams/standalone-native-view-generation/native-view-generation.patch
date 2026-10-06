@@ -1,0 +1,17 @@
+--- a/runtime/standalone_views.lua
++++ b/runtime/standalone_views.lua
+@@ -57,6 +57,9 @@
+    t.worker=w;t.native_view=w.chunks.view
+    assert(t.native.world_session==t.world_session and t.native.dim==t.dim and t.native.view==t.view
+     and t.native.region_id==t.region_id,'Actual native view fence differs')
++   assert(type(t.native.generation)=='number'and math.tointeger(t.native.generation)and t.native.generation>0,
++    'Actual native renderer generation required')
++   t.generation=t.native.generation
+   end
+   return t.native,t.native_view
+  end
+@@ -137,4 +140,3 @@
+  return api
+ end
+ return M
+-

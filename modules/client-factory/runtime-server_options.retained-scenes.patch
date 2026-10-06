@@ -1,0 +1,12 @@
+--- a/runtime/server_options.lua
++++ b/runtime/server_options.lua
+@@ -46,7 +46,8 @@
+   local travel_config=P.copy(F.read(bridge..'travel-config.json')or dofile(scripts..'travel/config.lua'))
+   travel_config.home_origin=P.copy(o.origin) -- same actually loaded low-Z home as the client
+   options.travel={module_dir=scripts..'travel/',journal=journal,send=out.send,
+-   view=view,config=travel_config,rebase_supported=cfg.rebase_enabled==true}
++   view=view,config=travel_config,rebase_supported=cfg.rebase_enabled==true,
++   recovery_scenes=view.recovery_scenes,retain_scene=view.retain_scene}
+   options.verify_travel_request=function()return false end -- Guest RPC cannot impersonate the trusted Java file writer.
+  end
+  return options

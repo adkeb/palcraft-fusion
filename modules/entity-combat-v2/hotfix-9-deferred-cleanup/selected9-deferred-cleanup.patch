@@ -1,0 +1,69 @@
+--- a/src/main/java/dev/rehan/passthrough/MobWar.java
++++ b/src/main/java/dev/rehan/passthrough/MobWar.java
+@@ -35,6 +35,7 @@
+     private static List<PalEntityBridge.HostEntity> newest=List.of();
+     private static final Set<String> BRAIN_MOBS=Set.of("piglin","piglin_brute","hoglin","zoglin","breeze","creaking","warden");
+     private record HitWindow(long tick,float amount) {}
++    private static final DeferredEntityCleanup<MinecraftServer,ServerLevel,UUID,Villager> staleProxyCleanup=new DeferredEntityCleanup<>();
+     private MobWar() {}
+ 
+     /** Invisibility alone is never an identity: invisible ordinary villagers remain normal villagers. */
+@@ -64,7 +65,9 @@
+ 
+     static void onEntityLoad(Entity e,ServerLevel level) {
+         if(e instanceof Villager v && (v.entityTags().contains(LEGACY_PROXY_TAG)
+-                || (isProxy(v)&&!proxies.containsValue(v)))){v.discard();return;}
++                || (isProxy(v)&&!proxies.containsValue(v)))){
++            staleProxyCleanup.enqueue(level.getServer(),level,v.getUUID(),v);return;
++        }
+         if(!(e instanceof Mob mob)||!(e instanceof Enemy)||isProxy(e))return;
+         GoalSelector targets=((MobAccessor)mob).passthrough$targetSelector();
+         if(targets.getAvailableGoals().stream().noneMatch(w->w.getGoal() instanceof ProxyTargetGoal))
+@@ -86,6 +89,12 @@
+     }
+ 
+     static void tick(MinecraftServer server) {
++        // ENTITY_LOAD can run inside the section's ArrayList stream; only END tick may remove it.
++        staleProxyCleanup.drain(server,entry -> entry.level().getServer()==server
++                && entry.entity().level()==entry.level() && !entry.entity().isRemoved()
++                && entry.entity().getUUID().equals(entry.id()) && entry.level().getEntity(entry.id())==entry.entity()
++                && (entry.entity().entityTags().contains(LEGACY_PROXY_TAG)
++                    ||(isProxy(entry.entity())&&!proxies.containsValue(entry.entity()))),Entity::discard);
+         PalEntityBridge.tick(server);
+         syncProxies(server.overworld());
+         PalEntityBridge.syncPlayers(server);
+@@ -193,6 +202,6 @@
+     static void discardFighters(ServerLevel level){List<Entity> all=new ArrayList<>();level.getAllEntities().forEach(all::add);all.stream().filter(e->e instanceof Enemy&&!isProxy(e)).forEach(Entity::discard);}
+     public static void hostGone(){MinecraftServer s=serverOrNull();if(s!=null)s.execute(MobWar::clearHostEntities);}
+     private static void clearProxies(){proxies.values().forEach(Entity::discard);proxies.clear();hostOf.clear();hosts.clear();windows.clear();}
+-    static void detach(MinecraftServer s){PalEntityBridge.detach(s);clearHostEntities();}
++    static void detach(MinecraftServer s){staleProxyCleanup.clear();PalEntityBridge.detach(s);clearHostEntities();}
+     private static MinecraftServer serverOrNull(){return WorldBridge.server();}
+ }
+--- /dev/null
++++ b/src/main/java/dev/rehan/passthrough/DeferredEntityCleanup.java
+@@ -0,0 +1,24 @@
++package dev.rehan.passthrough;
++
++import java.util.ArrayList;
++import java.util.IdentityHashMap;
++import java.util.Map;
++import java.util.function.Consumer;
++import java.util.function.Predicate;
++
++/** Load callbacks enqueue only; the owning server's END tick drains a detached snapshot. */
++public final class DeferredEntityCleanup<S,L,I,E> {
++    public record Entry<S,L,I,E>(S server,L level,I id,E entity){}
++    private final Map<E,Entry<S,L,I,E>> pending=new IdentityHashMap<>();
++    public void enqueue(S server,L level,I id,E entity){pending.put(entity,new Entry<>(server,level,id,entity));}
++    public void drain(S server,Predicate<Entry<S,L,I,E>> stillEligible,Consumer<E> discard){
++        var batch=new ArrayList<>(pending.values());
++        for(var entry:batch){
++            if(entry.server()!=server)continue;
++            pending.remove(entry.entity());
++            if(stillEligible.test(entry))discard.accept(entry.entity());
++        }
++    }
++    public void clear(){pending.clear();}
++    public int size(){return pending.size();}
++}

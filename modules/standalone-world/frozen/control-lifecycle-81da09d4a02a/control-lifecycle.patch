@@ -1,0 +1,211 @@
+--- a/client/features.lua
++++ b/client/features.lua
+@@ -204,6 +204,12 @@
+   return s
+  end
+  function api:stop(reason,ctx)local good=C:stop(reason,ctx);self.running=false;self.binding=nil;return good,self:status()end
++ function api:start(reason,ctx)
++  if self.running then return true,self:status()end
++  local good=self:reset(reason or'operator_start',ctx)
++  if good then C.stopped=false;self.running=true end
++  return good,self:status()
++ end
+  return api
+ end
+ return M
+--- a/client/main.lua
++++ b/client/main.lua
+@@ -43,8 +43,9 @@
+ local runtime_file=open('runtime-config.json','rb')
+ if runtime_file then runtime_config=J.decode(runtime_file:read('*a'));runtime_file:close()end
+ local features,standalone
++local client_control={};local operator_paused=false;local control_stop_ok
+ if runtime_config.pal_entry_mode=='singleplayer'then
+- standalone=dofile(dir..'runtime/standalone_bootstrap.lua').new{json=J,paths=Paths,config=runtime_config,client_features=function()return features end}
++ standalone=dofile(dir..'runtime/standalone_bootstrap.lua').new{json=J,paths=Paths,config=runtime_config,client_features=function()return features end,client_control=client_control}
+ end
+ local feature_options=dofile(dir..'runtime/client_options.lua').new{json=J,bridge_root=ROOT,origin=O,
+  config=runtime_config,scripts_dir=dir,view_bridge=client_view,local_realm=standalone and standalone.realm}
+@@ -270,6 +271,98 @@
+   publish(string.pack('<c8I4I4dddddddffffff','PALCRFT1',2,0,os.time(),0,0,0,0,0,0,0,0,0,60,.1,1000000))
+  end
+ end
++local function control_context(proof)
++ view_thread()
++ assert(standalone and proof and standalone.realm:validate(proof,proof.pc)==true,'Actual Standalone local host changed')
++ local expected=assert(runtime_config.identity,'Personal MC/Pal identity not configured')
++ assert(proof.host_uid==expected.pal_uid and proof.world_id==expected.world_id,'Standalone control host identity mismatch')
++ local alive=not collisions
++ if collisions and collisions.context_alive and collisions.context_alive()==true then
++  local ok,context=pcall(collisions.context)
++  alive=ok and standalone.realm:same_world(context,proof)==true
++ end
++ return{pc=proof.pc,identity=identity,collisions=collisions,context_alive=alive}
++end
++function client_control.status(_,proof)
++ local ctx=control_context(proof)
++ local s=collisions and J.decode(collisions.status_json())or{running=false,blocks=0}
++ s.operator_stopped=operator_paused;s.stop_ok=control_stop_ok;s.context_alive=ctx.context_alive;s.client_features=features:status()
++ return s
++end
++local function physical_stop_ready(server_features,proof,view)
++ if view_state.held or view_state.mapping.native_overworld~=true then return false end
++ local known={};local count=0
++ local function home(ticket,mapping,uid)
++  if not ticket then return true end
++  if uid~=proof.host_uid or not mapping or mapping.native_overworld~=true
++   or mapping.world_session~=view_state.mapping.world_session or mapping.dim~='minecraft:overworld'
++   or ticket.world_session~=mapping.world_session or ticket.dim~=mapping.dim
++   or ticket.view~=view_state.mapping.view or ticket.region_id~=mapping.region_id
++   or not ticket.realm or ticket.realm.server_session_id~=proof.server_session_id
++   or ticket.realm.world_id~=proof.world_id or ticket.realm.host_uid~=proof.host_uid then return false end
++  if not known[ticket]then known[ticket]=true;count=count+1 end
++  return true
++ end
++ local slot=server_features.composition and server_features.composition.features.travel
++ local travel=slot and slot.instance
++ if not slot or(slot.phase~='disabled'and(slot.phase~='running'or not travel))then return false end
++ if travel then
++  for uid,tx in pairs(travel.pending)do
++   if uid==proof.host_uid or tx._ticket then
++    if tx._needs_recover or(tx.phase~='complete'and tx.phase~='error'and tx.phase~='superseded')then return false end
++    if not home(tx._ticket,tx.mapping,uid)then return false end
++   end
++  end
++  for uid,player in pairs(travel.players)do
++   if player._ticket and(player._needs_recover or not home(player._ticket,player.mapping,uid))then return false end
++  end
++ end
++ if view then
++  for _,scene in ipairs(view.recovery_scenes)do if not home(scene.ticket,scene.mapping,scene.pal_uid)then return false end end
++  if view.status().owned_server_leases~=count then return false end
++ elseif count>0 then return false end
++ return true
++end
++function client_control.stop(server_features,proof,view)
++ local ctx=control_context(proof)
++ if operator_paused and control_stop_ok==true then return client_control.status(nil,proof)end
++ if ctx.context_alive and not physical_stop_ready(server_features,proof,view)then
++  local s=client_control.status(nil,proof);s.stop_ok=false;s.reason='requires_return_to_native_overworld_and_release_owned_scene';return s
++ end
++ operator_paused=true;control_stop_ok=false
++ if native_suspend then native_suspend();native_paused=true end
++ assert(server_features:stop('operator_stop',ctx)==true,'Server feature cleanup failed')
++ if view then
++  while #view.recovery_scenes>0 do
++   local ticket=view.recovery_scenes[#view.recovery_scenes].ticket
++   if ctx.context_alive then assert(view.release(ticket)==true,'Owned server scene release failed')
++   else assert(view.abandon(ticket)==true,'Dead server scene abandon failed')end
++  end
++  assert(view.status().owned_server_leases==0,'Server still owns shared scene references')
++  server_features.retained_travel_handoff=nil;server_features.retained_travel_scenes=nil
++ end
++ client_view.reset('operator_stop',ctx.context_alive);form.stop('operator_stop')
++ -- Preserve the existing owner order: legacy visuals precede shared chunk cleanup.
++ if collisions then collisions.stop(ctx.context_alive)end
++ assert(features:stop('operator_stop',ctx)==true,'Client feature cleanup failed')
++ collisions=nil;session=nil;_G.PalCraftCollisionCompanion=nil
++ if camera_file then
++  publish(string.pack('<c8I4I4dddddddffffff','PALCRFT1',2,0,os.time(),0,0,0,0,0,0,0,0,0,60,.1,1000000))
++ end
++ control_stop_ok=true;return client_control.status(nil,proof)
++end
++function client_control.start(server_features,proof)
++ local ctx=control_context(proof)
++ assert(control_stop_ok~=false,'Previous world stop did not complete')
++ if server_features.running==false then
++  local handled,status=server_features:dispatch('palcraft_features_start',{})
++  assert(handled and status.running==true,'Server feature restart failed')
++ end
++ assert(features:start('operator_start',ctx)==true,'Client feature restart failed')
++ operator_paused=false;control_stop_ok=nil
++ -- The original tick still owns the only factory, host binding and native ticket checks.
++ return client_control.status(nil,proof)
++end
+ local function player(now)
+  if live(pc_cache)and live(pc_cache.PlayerCameraManager)and live(pc_cache.Pawn)then return pc_cache end
+  if pc_cache then reset('controller_or_pawn_lost');pc_cache=nil;next_player=0 end
+@@ -380,6 +473,13 @@
+   connection('other_session');stage('discovery',started);profile(now);return
+  end
+  connection('in_bridgelab')
++ if operator_paused then
++  if now>=next_ui then next_ui=now+1000;widgets()end
++  if now>=next_status then
++   next_status=now+1000;json('client-status.json',{status='operator_stopped',unix=os.time(),version=15,features=features:status(),stop_ok=control_stop_ok})
++  end
++  stage('discovery',started);profile(now);return
++ end
+  if not collisions or session~=identity.server_session_id then
+   if collisions then
+    local alive=collisions.context_alive and collisions.context_alive()==true
+--- a/client/runtime/standalone_bootstrap.lua
++++ b/client/runtime/standalone_bootstrap.lua
+@@ -12,6 +12,7 @@
+  local R=dofile(scripts..'readers.lua')
+  local realm=dofile(dir..'local_realm.lua').new{readers=R,game_thread=IsInGameThread,authorize_world_save=permission.authorize}
+  local SP={scripts_dir=scripts,rpc_root=P.journal,bridge_root=P.bridge,local_realm=realm,
++  client_control=assert(o.client_control,'Existing client lifecycle controls required'),
+   game_thread=IsInGameThread,external_tick=true,scope=scope,
+   client_worker=function()
+    local f=o.client_features();local w=f and f.composition.features.client_world
+--- a/runtime/standalone_world.lua
++++ b/runtime/standalone_world.lua
+@@ -42,7 +42,14 @@
+    world_id=p and p.world_id,host_uid=p and p.host_uid,server_session_id=p and p.server_session_id,
+    shared_collision_owner='existing_client_world',authority_faked=false}
+  end
++ local function control(method,features)
++  local p=assert(current(),'Actual Standalone MainWorld local authority unavailable')
++  local controls=assert(o.client_control,'Existing client lifecycle controls unavailable')
++  return assert(controls[method],'Client lifecycle control unavailable:'..method)(features,p,api.view)
++ end
++ function api.start(features)return control('start',features)end
++ function api.stop(features)return control('stop',features)end
++ function api.control_status()return control('status')end
+  return api
+ end
+ return M
+-
+--- a/server/bridge-main.lua
++++ b/server/bridge-main.lua
+@@ -38,7 +38,7 @@
+ local SHARED=SP and root_path(SP.bridge_root)or'D:/PalworldServer-LAN/PalCraft-Dev/bridge/'
+ local standalone
+ if SP then
+- standalone=dofile(dir..'runtime/standalone_world.lua').new{local_realm=SP.local_realm,client_worker=SP.client_worker,game_thread=SP.game_thread}
++ standalone=dofile(dir..'runtime/standalone_world.lua').new{local_realm=SP.local_realm,client_worker=SP.client_worker,game_thread=SP.game_thread,client_control=SP.client_control}
+  SP.world=standalone
+ end
+ local early_boot_observer
+@@ -96,12 +96,14 @@
+  local handled,result=feature_api():dispatch(method,p,req);if handled then return result end
+  if method=='status'then return {online_controllers=#objects('PalPlayerController'),offline_building=true,modes={'survival','creative'},adapter='saved_owner_server_spawn',active_operation=active,observed_unix=os.time()}
+  elseif method=='palcraft_start'then
+-  if standalone then local c=standalone.companion();return c and J.decode(c.status_json())or{running=false,reason='actual_standalone_client_world_pending'}end
++  if standalone then return standalone.start(feature_api())end
+   if palcraft and not palcraft.running then palcraft.stop();palcraft=nil end
+   if not palcraft then palcraft=dofile(dir..'palcraft-server.lua')end;return J.decode(palcraft.status_json())
+- elseif method=='palcraft_status'then return palcraft and J.decode(palcraft.status_json())or{running=false,blocks=0}
++ elseif method=='palcraft_status'then
++  if standalone then return standalone.control_status()end
++  return palcraft and J.decode(palcraft.status_json())or{running=false,blocks=0}
+  elseif method=='palcraft_stop'then
+-  assert(not standalone,'Standalone physical consumer is owned by the client world lifecycle')
++  if standalone then return standalone.stop(feature_api())end
+   if not palcraft then return{running=false,blocks=0}end
+   palcraft.stop();return J.decode(palcraft.status_json())
+  elseif method=='palcraft_identity'then
+--- a/server/features.lua
++++ b/server/features.lua
+@@ -196,8 +196,8 @@
+   s.travel_input_error=self.travel_input_error
+   return s
+  end
+- function api:stop(reason)
+-  local good=C:stop(reason or'server_stopped',self);self.running=false;return good,self:status()
++ function api:stop(reason,ctx)
++  local good=C:stop(reason or'server_stopped',ctx or self);self.running=false;return good,self:status()
+  end
+  return api
+ end

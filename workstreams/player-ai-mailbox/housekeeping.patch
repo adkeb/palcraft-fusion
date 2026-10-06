@@ -1,0 +1,16 @@
+--- a/mcp/ai_client.py
++++ b/mcp/ai_client.py
+@@ -148,7 +148,12 @@
+                     if not isinstance(previous, dict):
+                         raise RuntimeError('Invalid existing agent request; queue was not replaced')
+                     previous_id = _uuid(previous.get('id'))
+-                    _request(previous.get('method'), previous.get('params'), previous_id)
++                    # These three original Lab commands share this mailbox with AI.
++                    # Validate the previous envelope without extending AI call methods.
++                    if (previous.get('method') not in (*METHODS, 'palcraft_start', 'palcraft_stop', 'palcraft_status') or
++                            previous.get('params') is not None and not isinstance(previous['params'], dict)):
++                        raise ValueError('Invalid previous agent request; queue was not replaced')
++                    json.dumps(previous, ensure_ascii=False, allow_nan=False)
+                     if previous_id == request['id']:
+                         if {'id': previous_id, 'method': previous['method'], 'params': previous.get('params') or {}} != request:
+                             raise ValueError('Same operation_id has different method/params: ' + request['id'])

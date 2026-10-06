@@ -1,0 +1,73 @@
+PalCraft 玩家工具 v1
+
+该工具负责个人客户端的安装、连接、更新与关闭。运行组合需使用负责人冻结的正式候选 payload，不能使用旧 PalCraftPrototype v13 ZIP。支持自选目录的新版发布包可安装到任意正常 Windows 盘符或 Mac 个人空目录；Mac 使用专用 PalCraft-Player-* bottle 的标准 Z: 映射，安装器不会更改盘符。安装器不会接管 Steam、PalCraftLab 或已有开发目录。
+
+安装前须取得已验收、明确支持自选目录的完整发布包。目前目录功能处于下一批源码候选阶段，历史候选ZIP不能作为首次玩家安装包。
+
+当前候选运行链：帕鲁个人客户端 → 本机认证代理25599 → SSH本机25598 → 个人远端MC guestWS。HUD本地25603映射个人远端HUD，Minecraft共享服务器本地25567，Pal UDP本地8321经SSH18321封装。管理员须先准备共享后端、个人guest/HUD、正常玩家签名凭据和个人端口清单。工具不会启动或关闭远端PalServer、Minecraft共享服务器、其他玩家guest或材料兑换落盘watcher。
+
+首次准备
+
+安装 Python 3（工具使用标准库；资源转换另需 Pillow）。Mac 还需可用的 CrossOver、其许可和与游戏要求匹配的 Windows 依赖；新建空bottle不等于已安装Steam登录、VC运行库或图形依赖。工具不复制个人Steam数据，也不绕过游戏许可。游戏本体和Minecraft客户端jar均从你已有的正版安装读取，不随此包分发。
+
+1. 解压本版玩家 ZIP。Mac打开 launcher/PalCraft.command，Windows打开 launcher/PalCraft.cmd。也可运行 python launcher/palcraft.py --help。
+2. 管理员提供 profile.json、credential.json、guest.json。profile填本机CrossOver.app和新bottle路径、SSH别名、世界坐标原点；凭据单独导入，不能把host_secret或holder_private粘进profile。先完成管理员提供的SSH密钥登录与主机指纹确认。
+3. 菜单选择“安装”，填独立安装目录与已有Palworld目录。先显示磁盘空间和文件计划，再输入INSTALL。复制游戏时不复制旧Mods、游戏存档、Steam账号数据或原安装中的注入DLL。
+4. Mac安装后自动创建专用win10_64 bottle，核对它已有的标准Z:映射。若缺游戏运行依赖，使用CrossOver在这个新bottle完成正版Steam登录及依赖准备。不能切到原Steam或PalCraftLab bottle。
+5. 单独导入凭据：
+   python launcher/palcraft.py credential-import --root <独立安装目录> --credential <管理员credential.json> --guest-manifest <管理员guest.json>
+   只复制到本安装.palcraft/credentials/credential.json，Mac权限0600。显示的是公开身份检查；证书的权威签名在MC服务器登录时验证，本工具不把解码称作验签。
+6. 菜单“提取Minecraft资源”，选择自己已有Minecraft 26.3客户端jar。没有Pillow时会给明确错误。提取在本地进行，不下载或打包完整Minecraft jar、资源纹理或账号票据。
+7. 菜单“健康检查”。所有检查通过后“启动”，在个人Pal窗口加入127.0.0.1:8321。status里的binding.state必须bound才能启用严格玩家功能；只有进程running不等于已进入共享世界。
+
+常用命令
+
+所有以下命令的 <root> 都是自己选择的独立安装目录。
+  python launcher/palcraft.py doctor --root <root> --check-ports
+  python launcher/palcraft.py start --root <root> --dry-run
+  python launcher/palcraft.py start --root <root>
+  python launcher/palcraft.py status --root <root>
+  python launcher/palcraft.py stop --root <root>
+  python launcher/palcraft.py update --root <root> --bundle <新release.zip> --dry-run
+  python launcher/palcraft.py update --root <root> --bundle <新release.zip>
+  python launcher/palcraft.py rollback --root <root>
+  python launcher/palcraft.py recover --root <root>
+  python launcher/palcraft.py recover-session --root <root>
+  python launcher/palcraft.py diagnostics --root <root> --output <诊断包.zip>
+  python launcher/palcraft.py uninstall --root <root> --dry-run
+  python launcher/palcraft.py uninstall --root <root>
+
+dry-run不写文件、不联网、不启动进程。doctor默认只检查本机依赖/校验值；--check-ports只检查本机端口能否绑定，不结束占用端口的程序。
+
+正常关闭先请求个人游戏保存退出，再关闭本次HUD、认证代理、UDP和SSH。游戏未退出时连接仍保留，提示CLOSE_PENDING；先在游戏中保存退出。stop --force仅在你接受未保存进度丢失时使用，只结束本次个人Win32Job进程树。启动器异常退出时，连接组件租约到期；游戏托管程序先正常关闭，若死掉的启动器留下游戏无法退出，60秒退出宽限后只终止本次Job。异常崩溃前尚未保存的进度不能保证保留。
+
+更新前正常关闭。更新校验全部payload并保留上一版，失败自动恢复；突然断电后用recover恢复未完成事务。rollback只回退客户端组件，不回滚游戏世界、个人背包或材料交易日志。
+
+默认卸载只删除登记的个人客户端组件和复制的游戏文件，保留个人存档、修改过/新增的文件、专用bottle及资源缓存。确认要删除本安装的个人存档时才加 --purge-saves。专用bottle可能含你后续登录的数据，需在CrossOver自行删除该PalCraft-Player-* bottle。服务器存档不在卸载范围。
+
+错误提示
+
+UNMANAGED_DIRECTORY：换一个空的独立目录，不能覆盖开发环境或原游戏。
+GAME_VERSION：Shipping.exe与发行包支持的版本不匹配，等待管理员提供对应候选。
+BOTTLE_UNMANAGED/DRIVE_D_CONFLICT：使用新的专用bottle，不能重映射已有bottle。
+PORT_BUSY：同一台设备已有占端口的客户端；正常退出它。工具不会按进程名强杀。
+SSH_CONNECT/REMOTE_UNAVAILABLE：检查SSH登录与个人端口租约；管理员准备个人guest/HUD，玩家工具不会擅自重启共享后端。
+CREDENTIAL_EXPIRED/GUEST_IDENTITY：重新向管理员取得同一持久玩家、当前Pal服务器会话的签名凭据和配套guest清单。
+PROXY_*：身份、会话代次、授权操作或认证连接失败，功能立即停用。不会回退到旧协议。
+RECOVERY_CONFLICT/UPDATE_CONFLICT：有文件被其他程序修改，备份已保留，先生成诊断包再处理。
+
+诊断包只包含工具状态与少量脱敏组件日志，不收集个人存档、Steam文件、凭据或私钥；分享前可自行查看。认证过的实体快照会镜像至本地bridge/entities，断开立即标stale，不改HP、背包、伤害或掉落。
+
+当前夜间低功耗：新配置默认15FPS、静音。不要用今晚的数据与之前性能基线比较。此工具层已离线验证；完整帕鲁+MC运行组合及真实新bottle启动仍由负责人取得运行租约后验收，不能仅凭安装测试宣称完整移植已经完成。
+
+帧率选择
+
+菜单 P 提供正常、夜间和自定义入口。正常目标为 Pal/个人MC/HUD 60/60/30；夜间为15/10/10。当前内测默认夜间；通用玩家可选 profile.normal.example.json 或自行指定帧率。
+  python launcher/palcraft.py performance --root <root> --preset normal
+  python launcher/palcraft.py performance --root <root> --preset night
+  python launcher/palcraft.py performance --root <root> --preset custom --pal-fps 45 --mc-fps 30 --hud-fps 20
+帕鲁设置在下一次个人客户端启动时应用。MC/HUD目标写到个人bridge/personal-performance-request.json，运营者应用对应个人guest的-Dpalcraft.maxFps和relay的--fps；仅改玩家profile不会伪称远端已调速。菜单不控制硬件、共享服务器或其他玩家进程，也不依赖主用户的绝对策略路径。
+
+连接恢复与真实就绪
+
+个人UDP桥保留本机UDP端口；SSH TCP转发断开后清理失效peer，下一个游戏UDP包建立新连接。若SSH子进程退出，启动器提示CONNECTION_LOST并请求个人游戏正常退出；无法自动恢复帕鲁入服时不会声称已恢复。status的phase=running仅表示进程运行。game_ready需要同一managed会话的完整组件存活、近期真实UDP回复、fresh严格host绑定和游戏Lua确认localPalUID/host_input_gate通过；任一不满足即false。

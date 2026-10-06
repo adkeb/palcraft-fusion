@@ -1,0 +1,26 @@
+--- a/exchange_bootstrap.lua
++++ b/exchange_bootstrap.lua
+@@ -89,16 +89,15 @@
+   local mgr=loader_manager;assert(mgr:IsLoadedWorldData()==true,'World save not loaded')
+   local loaded=mgr:GetLoadedWorldSaveData();assert(live(loaded),'Loaded world save unavailable')
+   local field=mgr.LoadedWorldSaveData;assert(live(field)and field:GetAddress()==loaded:GetAddress(),'Loader property and getter differ')
+-  local math=StaticFindObject('/Script/Engine.Default__KismetMathLibrary');assert(valid(math),'Date library unavailable')
++  local date_math=StaticFindObject('/Script/Engine.Default__KismetMathLibrary');assert(valid(date_math),'Date library unavailable')
+   local date=loaded.Timestamp
+-  local header={version=loaded.Version,revision=loaded.Revision,timestamp=J.array{math:GetYear(date),math:GetMonth(date),math:GetDay(date),math:GetHour(date),math:GetMinute(date),math:GetSecond(date),math:GetMillisecond(date)}}
++  local header={version=loaded.Version,revision=loaded.Revision,timestamp=J.array{date_math:GetYear(date),date_math:GetMonth(date),date_math:GetDay(date),date_math:GetHour(date),date_math:GetMinute(date),date_math:GetSecond(date),date_math:GetMillisecond(date)}}
+   local world=loaded.worldSaveData
+-  local ticks_ok,real_ticks=pcall(function()
+-   local b=raw_bytes(world.GameTimeSaveData.RawData)
+-   if #b>=16 then local _,ticks=string.unpack('<i8i8',b);return string.format('%d',ticks)end
+-   return string.format('%d',world.GameTimeSaveData.RealDateTimeTicks)
+-  end)
+-  if ticks_ok then header.real_date_time_ticks=real_ticks end
++  -- This build reflects FPalGameTimeSaveData as two Int64 properties, not
++  -- RawData. Copy the actual value before the loader object is released.
++  local real_ticks=val(world.GameTimeSaveData.RealDateTimeTicks)
++  assert(type(real_ticks)=='number'and math.type(real_ticks)=='integer','Loaded RealDateTimeTicks Int64 unavailable')
++  header.real_date_time_ticks=string.format('%d',real_ticks)
+   -- Copy only plain values while the actual manager still owns this loader
+   -- object. Never keep a raw save UObject/UScriptStruct across ticks or root it.
+   local containers=loaded_containers(world)
