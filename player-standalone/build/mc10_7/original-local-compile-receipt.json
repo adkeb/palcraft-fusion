@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "source_compile_only": true,
+  "minecraft_launched": false,
+  "runtime_applied": false,
+  "mixin_runtime_acceptance": false,
+  "exit_code": 0,
+  "seconds": 1.029509417,
+  "source_count": 6,
+  "base_mod_sha256": "401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af",
+  "minecraft_jar_sha256": "4508d006323f24fa02876310c192d739af56516eb259000ac50f0909a68c9a2d",
+  "classpath_entries": 135,
+  "compile_interface_adaptation": "Only PacketContextProvider declarations on vanilla ServerCommonPacketListenerImpl and ServerLoginPacketListenerImpl, as declared by installed Fabric networking mixins; no game class method changed. Compile overlay is not a runtime artifact.",
+  "stdout": "",
+  "stderr": "",
+  "provenance_scope": "Original recorded local Mac six-source delta compilation. This reproducer handoff did not recompile or verify a fresh environment.",
+  "new_reproducer_source_compilation_performed": false
+}

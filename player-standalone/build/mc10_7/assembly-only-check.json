@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "mode": "assembly-from-pinned-production-classes",
+  "base_mod_sha256": "401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af",
+  "expected_jar_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "expected_bytes": 552361,
+  "allowed_source_members": 118,
+  "changed_sources_to_compile": 6,
+  "production_class_allowlist": 11,
+  "worker_concurrency": 1,
+  "game_network_GUI_or_Gradle": false,
+  "runtime_overlay_allowed": false,
+  "version": "0.2.0-integration.10.7-respawn",
+  "jar_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "jar_bytes": 552361,
+  "binary_reproduced": true,
+  "six_changed_sources_compiled": false,
+  "production_class_hashes_verified": true,
+  "full_source_project_recompiled": false,
+  "fresh_environment_complete_source_build_verified": false,
+  "runtime_or_pixel_acceptance": false,
+  "compile_helper_or_game_classes_packaged": false
+}

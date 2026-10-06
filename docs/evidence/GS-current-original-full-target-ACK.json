@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "observed_utc": "2026-10-06T20:52:29+00:00",
+  "scope": "current GS Mac Standalone original full-target commit and final ACK",
+  "ordinary_package_version": "0.4.0-mac-standalone-candidate.4-gs-sparse-proof",
+  "source_sha256": {
+    "chunk_geometry.lua": "695e8f0fa16e968e6972e48226fab1c92cca4db9250de32eeeb09a33f903fa31",
+    "chunk_scheduler.lua": "346493f97f5b80f044e0c28290087f7854d8215173c3d64fbecd5f2f5cbe913a"
+  },
+  "normal_save_exit_archive_update_reload": true,
+  "same_world_character_inventory_identity_preserved": true,
+  "full_target_protocol_ready": true,
+  "covered_bounds": [
+    -66,
+    46,
+    -69,
+    63,
+    94,
+    60
+  ],
+  "snapshots_pending": 0,
+  "visual_pending": 0,
+  "collision_pending": 0,
+  "visual_committed": true,
+  "collision_committed": true,
+  "native_final_ACK": true,
+  "generation": 1,
+  "renderer_generation": 1,
+  "view": 1,
+  "initial_authenticated_unavailable_required_one_original_retry": true,
+  "new_teleport_move_claimed": false,
+  "new_sampling_thread_reader_or_gate_override": false,
+  "native_physical_visual_or_collision_acceptance": false,
+  "physical_HUD_or_F5_acceptance": false,
+  "normal_respawn_full_acceptance": false,
+  "all_42_cases_complete": false,
+  "performance_budget_measured": false
+}

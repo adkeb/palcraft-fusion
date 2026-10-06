@@ -141,7 +141,8 @@ local function collision_record(box,x,y,z,at,block)
  return{bounds=b,properties={policy=block.collision_policy or M.collision_policy,
   material=block.physics_material,friction=block.friction,fluid_contact=block.fluid_contact}}
 end
--- The builder coroutine yields after each block. Asset lookup is performed through
+-- The builder yields after each occupied block; the scheduler also bounds empty
+-- scans at each tile. Asset lookup is performed through
 -- geometry_v2's own weighted-variant cache, with original world positions as the seed.
 function M.build_tile(options,chunk,tile,lookup)
  local size,step=options.chunk_size or 16,options.tile_size or 4
@@ -197,8 +198,8 @@ function M.build_tile(options,chunk,tile,lookup)
      end
     end
    end
+   coroutine.yield('block')
   end
-  coroutine.yield('block')
  end end end
  return result
 end
