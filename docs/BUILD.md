@@ -4,12 +4,14 @@
 
 Java 源码位于 `palcraft/mc`。使用 JDK 25 和对应的 Gradle/Fabric 依赖构建；游戏版本与依赖版本由项目的 Gradle 文件声明。
 
+当前源码版本为 `0.2.0-integration.10.7-respawn`，包含基于 10.6 的六文件复活同步候选。Java 编译通过不代表运行中的 Mixin 注入或正常复活流程已经验证。
+
 ```sh
 cd palcraft/mc
 gradle build
 ```
 
-原始 10.6 快照的 Gradle 属性仍沿用 10.5 标签，10.6 的实际成品通过两份 Java 增量和保持原 JAR 结构的装包流程生成。本仓库将源码构建版本标记为 10.6；普通 Gradle 构建不等同于字节一致的历史成品。字节一致的专用重建入口为 `player-standalone/launcher/build_mc_10_6.py`，构建配方位于 `player-standalone/build/mc10_6`。该入口已实际重现原 10.6 成品的 SHA256。
+原始 10.6 快照的 Gradle 属性仍沿用 10.5 标签，10.6 的实际成品通过两份 Java 增量和保持原 JAR 结构的装包流程生成。普通 Gradle 构建不等同于字节一致的历史成品。历史 10.6 的字节一致专用重建入口为 `player-standalone/launcher/build_mc_10_6.py`，构建配方位于 `player-standalone/build/mc10_6`。该入口已实际重现原 10.6 成品的 SHA256；它不是当前 10.7 候选的构建入口。
 
 Gradle wrapper 的依赖 JAR、Minecraft/Fabric 库和游戏客户端不作为本仓库源码附件提供，使用官方依赖流程取得。
 

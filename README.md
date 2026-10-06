@@ -12,12 +12,14 @@
 
 当前夜间 MC 重连仍需完成本次世界确认和帧发布，随后继续验证变身、实际输入、挖掘放置与完整生存流程。历史连接的成功记录不代表新连接已就绪；源码检查和构建成功也不代表游戏功能全部通过。
 
+10.7 复活同步候选已修正六个 Java 文件并编译通过：正常帕鲁复活后，MC 才沿原版流程替换死亡角色，并保留同一连接的身份和已有头像数据。候选仍需实际加载与游玩验证，见 [源码来源记录](docs/evidence/respawn-sync-source-manifest.json)。
+
 ## 源码地图
 
 | 目录 | 内容 |
 | --- | --- |
 | `palcraft/client`、`palcraft/server` | 当前 Lua 客户端与权威侧组合、模型、碰撞、物品、实体、流体、维度与角色控制 |
-| `palcraft/mc` | Minecraft/Fabric Java 联动模块，当前 10.6 来源 |
+| `palcraft/mc` | Minecraft/Fabric Java 联动模块，10.6 基础与 10.7 复活同步候选 |
 | `palcraft/native`、`palcraft/render` | 原生 Unreal 网格、碰撞、输入、相机、材质、共享帧和桥接代码 |
 | `palcraft/mcp` | AI 基地与仓储工具、MC 控制工具及本地队列适配器 |
 | `palcraft/installer`、`palcraft/launcher` | 可配置路径的安装、启动、会话、恢复与卸载实现 |

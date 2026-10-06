@@ -245,19 +245,35 @@ public final class PalEntityBridge {
         if(playerUid.apply(p.getUUID())!=null){healthAvatars.put(p.getUUID(),p);return true;}
         return healthAvatars.get(p.getUUID())==p;
     }
+    /** A vanilla avatar respawn can follow only the current real Pal player's living state. */
+    public static boolean normalRespawnAllowed(ServerPlayer p){
+        if(!ready()||!ownsHealth(p))return false;
+        HostEntity h=playerState(p);
+        return h!=null&&h.alive()&&!h.dying()&&h.hp()>0;
+    }
+    private static void applyPlayerVitals(ServerPlayer p,HostEntity h){
+        p.setHealth(EntityVitals.health(h.hp(),h.maxHp(),h.alive(),h.dying()));
+        p.setAbsorptionAmount(0); // native Pal shield is displayed separately, never deducted by MC a second time
+        p.getFoodData().setFoodLevel(EntityVitals.food(h.fullStomach(),h.maxFullStomach()));
+    }
+    /** Called after vanilla has replaced the player; use the same projection as the existing tick. */
+    public static void syncRespawnedPlayer(ServerPlayer p){
+        if(normalRespawnAllowed(p))applyPlayerVitals(p,playerState(p));
+    }
     public static void syncPlayers(MinecraftServer server){
         if(!ready())return;
         for(ServerPlayer p:server.getPlayerList().getPlayers()){
             if(!ownsHealth(p))continue;HostEntity h=playerState(p);if(h==null)continue;
-            p.setHealth(EntityVitals.health(h.hp(),h.maxHp(),h.alive(),h.dying()));
-            p.setAbsorptionAmount(0); // native Pal shield is displayed separately, never deducted by MC a second time
-            p.getFoodData().setFoodLevel(EntityVitals.food(h.fullStomach(),h.maxFullStomach()));
+            // Keep the old corpse at its existing zero HP until vanilla replaces it. A positive
+            // write here would make PERFORM_RESPAWN fail vanilla's getHealth() <= 0 condition.
+            if(p.getHealth()>0||!h.alive()||h.dying()||h.hp()==0)applyPlayerVitals(p,h);
             p.getFoodData().setSaturation(0);
             JsonObject v=envelope("player_vitals","pal_server");v.addProperty("mc_uuid",p.getUUID().toString());
             v.addProperty("player_uid",h.playerUid());v.addProperty("hp",h.hp());v.addProperty("max_hp",h.maxHp());
             v.addProperty("shield",h.shield());v.addProperty("max_shield",h.maxShield());v.addProperty("alive",h.alive());v.addProperty("dying",h.dying());
             v.addProperty("full_stomach",h.fullStomach());v.addProperty("max_full_stomach",h.maxFullStomach());v.addProperty("food_authority","pal_server");
             v.addProperty("life_active",true);v.addProperty("pal_epoch",palEpoch);v.addProperty("mc_epoch",epoch);
+            v.addProperty("respawn_ready",p.getHealth()<=0&&normalRespawnAllowed(p));
             BridgeNetwork.eventFor(p,v.toString());
         }
     }

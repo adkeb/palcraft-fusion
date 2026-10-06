@@ -29,6 +29,10 @@ public final class BridgeNetwork {
  public static JsonObject exchangeUnavailable(){JsonObject result=error("材料兑换尚未就绪");result.addProperty("code","feature_not_ready");result.addProperty("feature","exchange");result.addProperty("enabled",false);return result;}
  static void markDriven(ServerPlayer player){driven.put(player.getUUID(),player);}
  static boolean isDriven(ServerPlayer player){return driven.get(player.getUUID())==player;}
+ /** Vanilla replaced the avatar on the same connection; transfer the existing driver reference. */
+ public static void inheritDriver(ServerPlayer from,ServerPlayer to){
+  if(from.getUUID().equals(to.getUUID())&&from.connection==to.connection)driven.replace(from.getUUID(),from,to);
+ }
  public static void initialize(){
   BridgeSessions.initialize();
   BridgeServerFeatures.register();

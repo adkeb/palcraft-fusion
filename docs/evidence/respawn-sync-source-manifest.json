@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "base_archive_sha256": "46764cc3e0ca50985de4b9935774b00986c9aa06941591f138eca3b37a57b645",
+  "base_mod_sha256": "401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af",
+  "patch_sha256": "43047ed668cb67f817f755f10a330eb7bac573aff95176563115fe05fd1ab6cc",
+  "changed_files": [
+    {
+      "path": "src/client/java/dev/rehan/passthrough/client/ClientPalLife.java",
+      "base_sha256": "760376c30c10bbaa34afb9da732e49fa313c247e5f111c548334239b254b6758",
+      "source_sha256": "010e1b8e8858611213f7ca33370d8ee70b1d03e05b8679a4df61167891e43f96",
+      "added_lines": 15,
+      "removed_lines": 3
+    },
+    {
+      "path": "src/main/java/dev/rehan/passthrough/PalEntityBridge.java",
+      "base_sha256": "805e8f6b09ff95dc828a60f7377fced8a60dc3aef5e7cbfbf6e6f2e6b6ca2689",
+      "source_sha256": "edf99b4c241101dfb52f7cb08d3b08db687088b8c3ff9e0f2447cc7179700e3b",
+      "added_lines": 19,
+      "removed_lines": 3
+    },
+    {
+      "path": "src/main/java/dev/rehan/passthrough/mixin/PalAvatarRespawnMixin.java",
+      "base_sha256": "2a9e5ff97b2a5649f18c09ab6d1f3cdf8c84f65f0de426a566cbadb1c7294274",
+      "source_sha256": "f76abdb18e6e192ff81c9c458074f202aa7a66adf323d7d4c9897a0e94d7a8ed",
+      "added_lines": 16,
+      "removed_lines": 4
+    },
+    {
+      "path": "src/main/java/dev/rehan/passthrough/mixin/ServerPlayerMixin.java",
+      "base_sha256": "6cb5226a2f75fc6b30e6fbf62bfbe8e078e9b080ca78289da1bccb8aa6186dda",
+      "source_sha256": "0497345a416368d3f4164d3e728e442fbe12f7aaac514d948baa49ab4e99809d",
+      "added_lines": 8,
+      "removed_lines": 0
+    },
+    {
+      "path": "src/main/java/dev/rehan/passthrough/session/BridgeSessions.java",
+      "base_sha256": "c22bc83e048e4b8b6a1eb6e1a8b400187e8a554738a4083794d01b0dd4409214",
+      "source_sha256": "f5eb0cc0d20447f288f685926840cd634417a48e9581628ea3ae291f63d34a74",
+      "added_lines": 8,
+      "removed_lines": 0
+    },
+    {
+      "path": "src/main/java/dev/rehan/passthrough/BridgeNetwork.java",
+      "base_sha256": "4e3da08286230426bae02d2db1f36f6c4219c90e69102d4b1b1f6727f36019eb",
+      "source_sha256": "ac36bbff764d34fa2d56f47dd2fb775aabe2f94ad6519833c4bdc83c8b33ae79",
+      "added_lines": 4,
+      "removed_lines": 0
+    }
+  ],
+  "compiled_production_entries": [
+    {
+      "path": "dev/rehan/passthrough/BridgeNetwork$Operation.class",
+      "sha256": "84194887c820104fc80e23c66b144a619272998166caf69f51a6021b7a2e5c66",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/BridgeNetwork$Request.class",
+      "sha256": "84f7509b672606f19eddcac58c911ada0558f0474aec4d8d9032f295c8ef0c69",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/BridgeNetwork.class",
+      "sha256": "18b49ad459747fcdcd98ba9e2a3425a28a7f1ed9218a86dc3803a46148602f68",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/PalEntityBridge$HostEntity.class",
+      "sha256": "ba7a1536f390f6a0cf193f473d2fd5cecb1fb2dedd7e845ae765b3e7496016ff",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/PalEntityBridge.class",
+      "sha256": "f4c2bef636661c0260d66c93de3f5ee21accee98f8403bafd80e83b0f80c9fb2",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/client/ClientPalLife.class",
+      "sha256": "884aa87a170692d0917b369b7bfa13302716d7a430c4bdeca4e41b7d62a55050",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/mixin/PalAvatarRespawnMixin.class",
+      "sha256": "99231042ecd275b886b8210d36e0607e081c70c948f6b557be384573d3a31e3e",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/mixin/ServerPlayerMixin.class",
+      "sha256": "01a3ecb97345c64b9a0375d6f329d568d150c57f44aa5d8520c428312d0f52ca",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/session/BridgeSessions$Config.class",
+      "sha256": "8f97761a761a27a4636835ae18e74de47a0b184683a73db1b31dd7baa07c4f44",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/session/BridgeSessions$Presence.class",
+      "sha256": "f5163d0b8ebda82c99231edfa0f217d93a5f396ece18dca2f95d113464be76ef",
+      "replaces_existing_entry": true
+    },
+    {
+      "path": "dev/rehan/passthrough/session/BridgeSessions.class",
+      "sha256": "283f1d525400740c8a238d3379c0747039df1b1dacbcc3320d274ce85f92cb08",
+      "replaces_existing_entry": true
+    }
+  ],
+  "candidate_version": "0.2.0-integration.10.7-respawn",
+  "source_compile_java_release": 25,
+  "source_compile_exit_code": 0,
+  "runtime_applied": false,
+  "mixin_runtime_and_gameplay_accepted": false,
+  "compile_overlay_not_runtime_artifact": true
+}

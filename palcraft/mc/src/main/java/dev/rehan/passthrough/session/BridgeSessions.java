@@ -2,6 +2,7 @@ package dev.rehan.passthrough.session;
 
 import com.google.gson.*;
 import dev.rehan.passthrough.Passthrough;
+import dev.rehan.passthrough.BridgeNetwork;
 import io.netty.buffer.Unpooled;
 import java.io.IOException;
 import java.nio.file.*;
@@ -9,6 +10,7 @@ import java.security.PublicKey;
 import java.util.*;
 import java.util.concurrent.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.*;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.networking.v1.*;
 import net.fabricmc.fabric.api.networking.v1.context.*;
 import net.minecraft.network.Connection;
@@ -83,6 +85,12 @@ public final class BridgeSessions {
             players.put(handler.player.getUUID(), handler.player);
         });
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> disconnect(handler.player));
+        ServerPlayerEvents.AFTER_RESPAWN.register((from,to,alive) -> {
+            if(!from.getUUID().equals(to.getUUID())||from.connection!=to.connection)return;
+            // Vanilla retained this connection and profile; retain its existing admission envelope.
+            players.replace(from.getUUID(),from,to);
+            BridgeNetwork.inheritDriver(from,to);
+        });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> { players.clear(); registry = null; config = null; configFingerprint = null; present = Set.of(); presenceAt = 0; presenceReads.clear(); presenceReadWarned = false; });
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (!strict() || !server.isDedicatedServer() || registry == null || ++ticks % 20 != 0) return;
