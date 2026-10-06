@@ -15,6 +15,16 @@ function M.new(o)
  local function authority()
   return api.presence and api.presence.authority==true,api.presence and api.presence.error or'pal_authority_unavailable'
  end
+ local function seed_current_views(worker,c)
+  if c and c.current_player_view_rows then
+   for player,row in pairs(c.current_player_view_rows())do
+    if api.resolve(player)and c.world and row.session==c.world.session then
+     local ok,why=worker:observe_world(row)
+     assert(ok==true,'Current accepted player-view replay rejected: '..tostring(why))
+    end
+   end
+  end
+ end
  C:register('presence',{interval_ms=1000,factory=function()
   local worker=load('session-auth').new{root=auth,json=J,readers=R,local_realm=o.local_realm}
   api.auth=worker;_G.PalCraftSessionAuth=worker;return worker
@@ -36,7 +46,12 @@ function M.new(o)
  end,key=function()return o.companion()end,factory=function()
   local c=o.companion()
   if c.set_world_observer then c.set_world_observer({on_row=function(row,accepted,reason)return api:on_world(row,accepted,reason)end},o.world_observer_owner)end
-  api.companion=c;return c
+  api.companion=c
+  -- A replacement companion may have accepted its current view before this
+  -- observer attaches. The existing travel executor must receive that original row.
+  local travel=C.features.travel
+  if travel and travel.phase=='running'and travel.instance then seed_current_views(travel.instance,c)end
+  return c
  end,tick=function(c)assert(c.running and not c.error and not c.observer_error,'Native collision companion failed')end,
   status=function(c)return J.decode(assert(c.status_json,'Companion-owned status encoder missing')())end,
   stop=function(c)if c.set_world_observer then c.set_world_observer(nil,o.world_observer_owner)end;api.companion=nil end})
@@ -133,14 +148,7 @@ function M.new(o)
    options.resolve=resolve;options.readers=R;options.game_thread=o.game_thread
    local worker=load('travel').new(options)
    local c=api.companion or(o.companion and o.companion())
-   if c and c.current_player_view_rows then
-    for player,row in pairs(c.current_player_view_rows())do
-     if resolve(player)and c.world and row.session==c.world.session then
-      local ok,why=worker:observe_world(row)
-      assert(ok==true,'Current accepted player-view replay rejected: '..tostring(why))
-     end
-    end
-   end
+   seed_current_views(worker,c)
    return worker
   end,tick=function(worker,ms)
    if o.travel_input then

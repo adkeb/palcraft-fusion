@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "kind": "existing-world-reattach-current-row-to-running-travel",
+  "frozen": true,
+  "changed_file": "server/features.lua",
+  "base_sha256": "e2d69b8ed42bad1e69bd695140d0ef208b3a9fcc1cfd8a6604918fb56b740d44",
+  "source_sha256": "ef9f89959684be238dafb3fc49748d37c3d46021eed175c14c9d465814caeaf0",
+  "patch_sha256": "245e579611e9bbf2098dd9766cfdce4db3454d79670f1a48f9179c38e32a4712",
+  "confirmed_gap": "The world feature reattaches when its companion key changes, but travel depends on sessions and retains its running instance. Existing current_player_view_rows() seeding only ran in the travel factory, so a current row accepted before the new world observer attached was never dispatched to that running executor.",
+  "exact_change": [
+    "Move the existing factory seed into the shared seed_current_views(worker,companion) callback, retaining the original fresh authenticated resolver and current world-session filter.",
+    "After the original world observer attaches, invoke that same callback only if the existing travel slot is running and owns an instance.",
+    "Keep the original travel factory call for initial construction. No further polling, world reader, timer, protocol or ACK route is added."
+  ],
+  "row_provenance": "Only companion.current_player_view_rows(), whose existing cache stores complete original v2 rows after actual reducer accepted=true/reason=applied in the current world session. Original seq, session, native binding, lifecycle player/view, position, yaw and pitch are retained. The original Server.observe_world queue and seq/view deduplication remain authoritative.",
+  "single_chain": "Future accepted rows still use the original set_world_observer -> api:on_world -> composition emit(world) -> travel:observe_world chain. Cached attach rows use the exact existing factory seed path into that same travel queue; they never reenter the native reducer or chunk/material consumers.",
+  "runtime_applied": false,
+  "remaining_runtime_acceptance": "Sole runtime owner loads the merged source through the existing lifecycle, then verifies the existing accepted current row reaches running travel and its original prepare/replication/mapping/camera/final-ACK route. Source checks do not declare current mapping_applied or waitingACK complete.",
+  "validation": {
+    "scenario": "Existing initial view1 -> already-running travel -> new companion accepts original view3 before observer attach -> world reattach forwards it without rebuilding travel -> unchanged world tick does not resend -> later accepted view4 follows original observer.",
+    "actual_modules": [
+      "world reducer/current-view cache functions",
+      "server feature composition",
+      "server travel executor"
+    ],
+    "passed": true,
+    "ack_issued": 0,
+    "scene_effects_replayed": 0,
+    "gameplay_or_native_engine_validated": false
+  }
+}
