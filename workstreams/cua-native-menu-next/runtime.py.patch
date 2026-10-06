@@ -1,0 +1,12 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -244,6 +244,9 @@
+         commands['client'] = [str(wine), '--bottle', p['bottle_name'], '--enable-alt-loader', '1', '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+                               '--env', 'SteamAppId=1623730',
+                               '--workdir', windows_path(win_root, CLIENT), host_windows] + args
++        if state['manifest'].get('requirements', {}).get('crossover_native_menu') == 'windows-menu-helper-v1':
++            commands['client'] = [sys.executable, str(tools / 'launcher/crossover_menu_helper.py'),
++                                  '--root', str(root), 'run', '--'] + commands['client']
+         if not observing:
+             hud = executable_role(root, state, 'mac_hud')
+             commands['hud'] = [str(hud)]

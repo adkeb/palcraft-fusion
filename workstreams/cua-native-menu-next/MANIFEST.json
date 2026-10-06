@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "release_file": {
+    "source": "crossover_menu_helper.py",
+    "target": "PalCraft-Dev/player-tools/launcher/crossover_menu_helper.py",
+    "role": "launcher_crossover_native_menu",
+    "sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f"
+  },
+  "requirements_delta": {
+    "crossover_native_menu": "windows-menu-helper-v1"
+  },
+  "runtime_hunk": {
+    "path": "runtime.py.patch",
+    "sha256": "9f3f3e0323b9beab3ada91cbf634db77569f75e75b323dc45fe8cb8ea91a3454",
+    "base_sha256": "a783ed1901e0ef16cec5bc2d0b63f1897c0b74d047a8072850b14a2c972640f4",
+    "audit_proposal_sha256": "2e64f2c6335c74ad0de620aa0de9852b56f233849147b631bdf669b987d1ec14",
+    "apply_only_hunk_to_full_journal_v2_runtime": true
+  },
+  "vendor_dependency": {
+    "template_sha256": "3eebe821f070f66307ff21e4298bea4f0fb2eba57f8b43394cdd8916e59bed9e",
+    "executable_sha256": "bed23023e0af7e61b2a781728541dc2517ba8a888359aa5a1ee2158546a2d1ba",
+    "template_source": "Selected CrossOver.app/Contents/Resources/Menu Helper.cpbz2",
+    "built_in_cscript": "Selected CrossOver.app/Contents/SharedSupport/CrossOver/lib/wine/x86_64-windows/cscript.exe"
+  },
+  "checks": {
+    "source_count": 10,
+    "vendor_commands_executed": false,
+    "actual_selected_root_readonly_plan_passed": true,
+    "public_checker_changes": "vendor path supplied by PALCRAFT_CROSSOVER_APP; synthetic bottle name; no behavior change or re-run claim"
+  },
+  "public_checker_sha256": "97167faeeda88b583aae996f9ca4aca7f7e4e2a3aff95d97d6d0296080f78463",
+  "actual_CUA_running_game_app_or_F5_accepted": false,
+  "commercial_vendor_bundle_or_private_metadata_included": false
+}
