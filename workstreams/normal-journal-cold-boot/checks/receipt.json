@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "passed": true,
+  "actual_original_rotator": true,
+  "existing_temporary_bootstrap_fixture": "palcraft/installer/tests/test_singleplayer_bootstrap.py",
+  "personal_stop_intention_rejected": true,
+  "dry_run_preserves_full_volume": true,
+  "completed_witness_fixture_archives_complete_bytes_before_start": true,
+  "new_volume_not_prefilled": true,
+  "Saved_and_WAL_unchanged": true,
+  "promotion_path_rejected": true,
+  "source_check_health_boundary_never_starts_process": true,
+  "production_stop_witness_created": false,
+  "runtime_or_live_lease_operations": false
+}

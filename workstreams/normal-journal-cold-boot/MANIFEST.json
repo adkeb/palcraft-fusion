@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "frozen": true,
+  "base_root": "player-standalone",
+  "changed_files": [
+    {
+      "path": "launcher/runtime.py",
+      "base_sha256": "74782551d2c50ddc3933dbbb098effe36dbff181a7afa10cf7a983821018a457",
+      "source_sha256": "633fe6c4b40f352a8c1589d33ed31d03af4cee1e34c7d00d72011e518013eda3"
+    },
+    {
+      "path": "installer/cli.py",
+      "base_sha256": "4bdc78b46daf88ff437f3d78f1665e0dcccee6eb1e4e1391656c5df2afc25587",
+      "source_sha256": "4cd1e0541b33a2c865aaa49dd2fe7317f39d3d9f2eadadb556bfbae72405ab35"
+    }
+  ],
+  "patch_sha256": "3fee471e2210e5e10df2fa958a12f8744423b014ad55138e7750ce49cbe6d9f2",
+  "original_rotator_unchanged": true,
+  "runtime_applied": false
+}

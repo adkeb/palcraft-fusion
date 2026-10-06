@@ -1,0 +1,62 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -364,14 +364,26 @@
+     os.replace(temp, path)
+ 
+ 
+-def start(root, dry_run=False, timeout=20, boot_singleplayer=False):
+-    root = Path(root).absolute()
++def start(root, dry_run=False, timeout=20, boot_singleplayer=False, normal_stop_receipt=None):
++    root = Path(root).absolute()
++    if normal_stop_receipt is not None and not boot_singleplayer:
++        fail('JOURNAL_SCOPE', '完整停机分卷回执只用于新的本机单机 cold boot，不能用于运行中的 promotion。')
+     existing = read_json(owned_path(root, '.palcraft/session.json'), {})
+     if not boot_singleplayer and existing.get('launch_mode') == BOOTSTRAP_MODE and existing.get('phase') in ('bootstrap', 'promoting'):
+         return promote(root, dry_run=dry_run, timeout=timeout)
+     launch_mode = BOOTSTRAP_MODE if boot_singleplayer else 'full'
++    journal_maintenance = None
++    if normal_stop_receipt is not None:
++        # The personal supervisor's stopped/graceful fields do not witness all
++        # sharedMC/guest publishers or Saved/WAL completion. Use only the existing
++        # sole-owner full normal-stop receipt, before starting any new process.
++        from installer.standalone import rotate_events
++        journal_maintenance = rotate_events(root, normal_stop_receipt, dry_run=dry_run)
+     if dry_run:
+-        return command_plan(root, '0' * 32, launch_mode)
++        result = command_plan(root, '0' * 32, launch_mode)
++        if journal_maintenance is not None:
++            result['journal_maintenance'] = journal_maintenance
++        return result
+     with operation_lock(root):
+         ensure_no_session(root)
+         checks = health(root, check_ports=True, launch_mode=launch_mode)
+@@ -383,6 +395,8 @@
+         session = {'schema': 1, 'token': token, 'phase': 'starting', 'components': {}, 'started_unix': time.time(),
+                    'launch_mode': launch_mode, 'game_ready': False,
+                    'pending': BOOTSTRAP_PENDING[:] if boot_singleplayer else []}
++        if journal_maintenance is not None:
++            session['journal_maintenance'] = journal_maintenance
+         atomic_json(root / '.palcraft/session.json', session)
+         logs = owned_path(root, '.palcraft/logs')
+         logs.mkdir(exist_ok=True)
+--- a/installer/cli.py
++++ b/installer/cli.py
+@@ -125,6 +125,8 @@
+         if name == 'start':
+             sub.add_argument('--boot-singleplayer', action='store_true',
+                              help='仅以 bootstrap 阶段启动本地单机 Host/Game，观察真实 UID/authority；MC/HUD/AI 和动作授权仍待完整启动')
++            sub.add_argument('--normal-stop-receipt',
++                             help='cold boot 前用原完整保存及全部 publisher/consumer 停机回执归档上一事件卷')
+         if name == 'stop':
+             sub.add_argument('--force', action='store_true', help='仅强制结束本次个人客户端；可能丢失未保存进度')
+         if name == 'uninstall':
+@@ -187,7 +189,8 @@
+         elif command == 'doctor':
+             result = health(root, args.check_ports)
+         elif command == 'start':
+-            result = start(root, dry, boot_singleplayer=args.boot_singleplayer)
++            result = start(root, dry, boot_singleplayer=args.boot_singleplayer,
++                           normal_stop_receipt=args.normal_stop_receipt)
+         elif command == 'promote':
+             result = promote(root, read_json(args.profile) if args.profile else None, dry)
+         elif command == 'stop':
