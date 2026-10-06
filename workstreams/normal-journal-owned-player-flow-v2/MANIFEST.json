@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "source_heads": [
+    {
+      "path": "launcher/runtime.py",
+      "target": "PalCraft-Dev/player-tools/launcher/runtime.py",
+      "role": "player_tool",
+      "bytes": 58139,
+      "sha256": "e135a69bc0255b75b7ee12f947d4ba310ad5b07f33bd1a269e70cd8703aa1738",
+      "base_sha256": "a783ed1901e0ef16cec5bc2d0b63f1897c0b74d047a8072850b14a2c972640f4"
+    },
+    {
+      "path": "launcher/journal_lifecycle.py",
+      "target": "PalCraft-Dev/player-tools/launcher/journal_lifecycle.py",
+      "role": "player_tool",
+      "bytes": 29913,
+      "sha256": "751d94c8a7a0c46967fd7526aae18e0520efa4d609bb72e0cce3818943bd2962",
+      "base_sha256": null
+    },
+    {
+      "path": "launcher/crossover_menu_helper.py",
+      "target": "PalCraft-Dev/player-tools/launcher/crossover_menu_helper.py",
+      "role": "launcher_crossover_native_menu",
+      "bytes": 16753,
+      "sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f",
+      "base_sha256": null
+    },
+    {
+      "path": "installer/cli.py",
+      "target": "PalCraft-Dev/player-tools/installer/cli.py",
+      "role": "player_tool",
+      "bytes": 12832,
+      "sha256": "9b81b7c5e1ad965e51911502baceffcf2e12534685c98767f8dcb8b6172b2605",
+      "base_sha256": "4bdc78b46daf88ff437f3d78f1665e0dcccee6eb1e4e1391656c5df2afc25587"
+    },
+    {
+      "path": "installer/core.py",
+      "target": "PalCraft-Dev/player-tools/installer/core.py",
+      "role": "player_tool",
+      "bytes": 51075,
+      "sha256": "72a281e60ef38bbe93f18d24a4f206e8af4dc71ac5b41763069920401e5896b9",
+      "base_sha256": "79d6deb338e953404b7074943f96e04937387d1b609e7a032ff3525b45e24afd"
+    },
+    {
+      "path": "installer/standalone.py",
+      "target": "PalCraft-Dev/player-tools/installer/standalone.py",
+      "role": "standalone_component",
+      "bytes": 16606,
+      "sha256": "411ac4431d409371cf34bff462d5bc78a370eea1237d65d63d66eb63b6042a96",
+      "base_sha256": "58cf062947d291c6c8b35f67b3d06a39883c24f7d71bc029159f7c26eabe9855"
+    },
+    {
+      "path": "installer/standalone_transition.py",
+      "target": "PalCraft-Dev/player-tools/installer/standalone_transition.py",
+      "role": "player_tool",
+      "bytes": 13215,
+      "sha256": "c5822d5670fb3733b7923911df9dc1ca156a078f092bc7384f091421999a7a0a",
+      "base_sha256": null
+    },
+    {
+      "path": "mac/scripts/start_role.py",
+      "target": "PalCraft-Dev/player-tools/mac/scripts/start_role.py",
+      "role": "standalone_component",
+      "bytes": 2924,
+      "sha256": "87fb36cc2cc137974b86aef862fd17d5071854dcb30d31fdd7fe49095bfd656b",
+      "base_sha256": "a843e084b5d6d370ed128fb5a420b60618ad871d25e66cef50b1c756ec6835e8"
+    },
+    {
+      "path": "mac/scripts/prepare_launch.py",
+      "target": "PalCraft-Dev/player-tools/mac/scripts/prepare_launch.py",
+      "role": "standalone_component",
+      "bytes": 6326,
+      "sha256": "86f2f45ff1b7e90e38d609f3309902caafca01e0a927d10cd92e138016d7ddfc",
+      "base_sha256": "dd03cf6a2266e6695110e307e848a1affc5b3c9d7fddf7ed69ae51fde262269c"
+    }
+  ],
+  "frozen_source_only": true,
+  "normal_actual_native_lifecycle_or_physical_F5_verified": false,
+  "includes_real_menu_source_not_vendor_binary": true,
+  "current_profile_migration_generator_parameterized": true
+}
