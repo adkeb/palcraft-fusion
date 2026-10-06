@@ -6,15 +6,15 @@
 
 ## 当前状态
 
-当前开发环境是 macOS、CrossOver、《幻兽帕鲁》Steam 离线单机和本地 Minecraft 后端。正常单机角色、基地归属与 MC 玩家身份的恢复已经实际运行；日志分卷已解决旧事件历史重放的问题。
+截至 2026-10-07，开发环境为 macOS、CrossOver、《幻兽帕鲁》Steam 离线单机和本地 Minecraft 后端。既有 AI 生存建造、基地管理和箱子整理代码，以及跨游戏原生桥接、安装器和 MCP 工具均已公开。
 
-真实世界快照已发布，模型和碰撞已有提交。一次真实连接已完成原生世界确认，并实际导出、编码和解码 MC HUD 像素；导出图像显示的是原版死亡界面，尚未证明 HUD 已显示在前台帕鲁窗口中。隔离测试角色已通过正常复活流程返回存活状态。
+上一轮隔离运行已完成真实世界快照、完整目标模型与碰撞提交和本次世界 ACK，MC HUD 像素也已实际导出、编码和解码。这些记录只证明各自的数据链路；前台 HUD、物理输入、变身和完整生存玩法仍待验收。
 
-最新 G/S 配对候选已通过原安装器正常更新和重载。该次新会话的完整目标模型与碰撞提交已经完成，收到本次最终世界 ACK；最初认证短暂不可用仍需要一次原 retry。当前继续核对新图像、复活同步、变身、实际输入和完整生存流程。此结果不等于物理画面、碰撞或全部游戏功能通过，见 [本次运行范围](docs/evidence/GS-current-original-full-target-ACK.json)。
+最新单机候选已正常保存、停止旧运行、更新并应用配置迁移；新冷启动在 Windows 快捷方式创建步骤失败，当前正在修复。游戏和 MC 当前均关闭。不能把前一轮运行记录当作新候选启动成功，见 [开发状态](docs/STATUS.md)。
 
-10.7 复活同步候选已修正六个 Java 文件并编译通过，已在隔离单机环境加载；完整复活同步与游玩仍待验收。正常帕鲁复活后，MC 沿原版流程替换死亡角色，并保留同一连接的身份和已有头像数据。见 [源码来源记录](docs/evidence/respawn-sync-source-manifest.json)。
+最新修正源码分别保存在 [玩家保存与重启流程](workstreams/normal-journal-owned-player-flow-v2)、[原生实体身份绑定](workstreams/native-entity-binding-next)、[MCP 身份观察](workstreams/MC-local-scope-observation-next) 和 [Windows 快捷方式生成备选](workstreams/windows-shelllink-stdlib-alternative)。备选只有格式与源码检查，尚未证明实际 vendor 解析成功。
 
-最新安装器补齐真实会话和告示牌模块，并提供公开 macOS 13 HUD 的组合规格。稀疏区段调度与有界任务状态字段已经进入当前客户端源码，其独立差异见 [调度候选记录](workstreams/chunk-sparse-yield-next/README.md)。这次完整准备和 ACK 已通过，持续性能及完整游玩仍待验收。
+MC 10.7 复活同步与 macOS 13 ARM64 HUD 已提供 [实验发布包](https://github.com/adkeb/palcraft-fusion/releases)。MC 当前产物可按 [源码构建说明](player-standalone/README.zh-CN.md) 追溯和重组；全新环境的完整源码编译仍待验证。
 
 ## 源码地图
 

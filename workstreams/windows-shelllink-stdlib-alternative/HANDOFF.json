@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "frozen": true,
+  "task": "WSH-independent genuine Windows .lnk byte generator, optional source alternative",
+  "manifest": "MANIFEST.json",
+  "encoder": "windows_shell_link.py",
+  "encoder_sha256": "e4b3de710b97fb54627ff46f96699f63ddc9fe1af3ce9515c94973cc22a2c4f6",
+  "encoder_bytes": 6782,
+  "inspector": "inspect_shell_link.py",
+  "inspector_sha256": "de2ced1419704ed5b2ccaec02ce79a7544e185698e7aeaa8391bfc6801727f96",
+  "guide": "README.zh-CN.md",
+  "official_primary_specs": "official-sources.json",
+  "original_candidate7_helper_sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f",
+  "new_API": [
+    "encode_shell_link(target, arguments, working_directory, description, *, ansi_encoding, volume_drive_type, volume_serial_number, volume_label, file_attributes, target_file_size)",
+    "encode_menu_spec(spec, metadata)",
+    "write_owned_link(owned_directory, filename, data)"
+  ],
+  "primary_integration_point": "Inside original prepare after session_guard/bottle checks and preparing the derived owned link namespace; replace only the cscript ShellLink creation if parent approves. All original guards, vendor Type=windows creation, bundle registration and ordinary launch remain owned by the main helper.",
+  "caller_metadata_needed": [
+    "ansi_encoding",
+    "volume_drive_type",
+    "volume_serial_number",
+    "volume_label",
+    "file_attributes",
+    "target_file_size"
+  ],
+  "unknown_metadata_handling": "Actual Z volume metadata and Windows ACP are not observed by this task. No real values or defaults are invented. Supply original observed/caller-owned data; incompatible ANSI encoding refuses rather than silently replacing the Unicode path.",
+  "original_raw_argument_preservation": true,
+  "only_owned_lnk_file_written": true,
+  "private_mode": 384,
+  "target_execution_or_vendor_registration_in_generator": false,
+  "source_only": true,
+  "not_engine_verified": true,
+  "real_vendor_parse_or_new_game_verified": false,
+  "synthetic_format_fixture": {
+    "file": "fixtures/unicode-synthetic.lnk",
+    "bytes": 1409,
+    "sha256": "95fc64f0e16e148e433b1d5e767d08e05e9c0cddd36abcb27683758f754e943f",
+    "synthetic_inputs_only": true,
+    "engine_verified": false
+  },
+  "targeted_source_checks": "verification.json",
+  "installed_vendor_source_only_comparison": "vendor-source-observation.json",
+  "original_WSH_error_not_diagnosed_by_this_alternative": true,
+  "independent_of_primary_cscript_diagnosis": true,
+  "no_compile_download_heavy_dependencies_or_game_RPC_GUI": true,
+  "no_snapshotDTO_frames_RoottypedProof_or_readiness_fabricated": true,
+  "next": "Parent and original input owner may review the format/source and integrate only if desired. Actual vendor parsing/setup-file-only and later authorized normal boot remain sole runtime ownership. Do not substitute source structure checks for native app/window evidence."
+}

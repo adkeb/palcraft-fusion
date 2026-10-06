@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "frozen": true,
+  "component": "Windows ShellLink stdlib alternative, source only",
+  "source_only": true,
+  "new_implementation": [
+    "windows_shell_link.py",
+    "inspect_shell_link.py"
+  ],
+  "original_helper_reference_sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f",
+  "original_helper_unchanged": true,
+  "caller_required_metadata": [
+    "ansi_encoding",
+    "volume_drive_type",
+    "volume_serial_number",
+    "volume_label",
+    "file_attributes",
+    "target_file_size"
+  ],
+  "raw_host_token_source": "Caller-provided original argv or complete argument string; never defaults or printed.",
+  "format": {
+    "ShellLinkHeader": 76,
+    "LinkFlags": 182,
+    "LinkInfoHeader": 36,
+    "LinkInfoFlags": 1,
+    "Unicode_label_offsets": true,
+    "Unicode_target_offsets": true,
+    "StringData_utf16_counted_not_terminated": true,
+    "ExtraData_terminal_bytes": 4,
+    "PIDL_tracker_machine_GUID_or_environment_target_created": false
+  },
+  "generated_link": {
+    "file": "fixtures/unicode-synthetic.lnk",
+    "bytes": 1409,
+    "sha256": "95fc64f0e16e148e433b1d5e767d08e05e9c0cddd36abcb27683758f754e943f",
+    "synthetic_inputs_only": true,
+    "engine_verified": false
+  },
+  "native_game_or_vendor_processes_executed": false,
+  "GUI_live_Git_shared_or_installer_modified": false,
+  "caller_real_Z_volume_metadata_and_ANSI_codepage_observed": false,
+  "entries": [
+    {
+      "path": "README.zh-CN.md",
+      "sha256": "2db65a116559474b31859881d62ec5e8c260abfaecd70a6b0e6e746bdd82a689",
+      "bytes": 4667
+    },
+    {
+      "path": "fixtures/unicode-input.json",
+      "sha256": "a3c3889cdb0f0d15696fefd0a9e38d733729676994fbc90ad7482fef6e69d6e4",
+      "bytes": 900
+    },
+    {
+      "path": "fixtures/unicode-synthetic.lnk",
+      "sha256": "95fc64f0e16e148e433b1d5e767d08e05e9c0cddd36abcb27683758f754e943f",
+      "bytes": 1409
+    },
+    {
+      "path": "inspect_shell_link.py",
+      "sha256": "de2ced1419704ed5b2ccaec02ce79a7544e185698e7aeaa8391bfc6801727f96",
+      "bytes": 6028
+    },
+    {
+      "path": "official-sources.json",
+      "sha256": "2ad0d511d7f8c75b0fcf38e8fd01d03d723ec22e09e3cdddf451b8c0a919ca09",
+      "bytes": 1707
+    },
+    {
+      "path": "reference/crossover_menu_helper.py",
+      "sha256": "d0389def23dcd97e212c5f51ddfa061c02421cf52d0e6af0dc6013abf62d206f",
+      "bytes": 16753
+    },
+    {
+      "path": "test_shell_link.py",
+      "sha256": "318e5663401c1c8a6cc8ef89b1691c621d96f84409e4613ce1e2eaa9d7cdafb3",
+      "bytes": 4823
+    },
+    {
+      "path": "vendor-source-observation.json",
+      "sha256": "ebd9e7e8df4bbf0b15c5a24b9a60ea976d61add1cf6e94d2c382357779050cab",
+      "bytes": 523
+    },
+    {
+      "path": "verification.json",
+      "sha256": "d296f63048b24d9bdbd23d8d439e7366aeb30bb89d79f5bba538d922642dc64c",
+      "bytes": 1485
+    },
+    {
+      "path": "windows_shell_link.py",
+      "sha256": "e4b3de710b97fb54627ff46f96699f63ddc9fe1af3ce9515c94973cc22a2c4f6",
+      "bytes": 6782
+    }
+  ]
+}

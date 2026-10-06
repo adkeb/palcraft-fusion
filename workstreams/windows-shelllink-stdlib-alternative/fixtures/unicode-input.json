@@ -1,0 +1,12 @@
+{
+  "target": "Z:\\Fixture Users\\中文玩家\\Directory With Several Spaces\\Another Original Directory\\PalCraft\\PalCraft-Dev\\player-tools\\bin\\crossover-singleplayer-host.exe",
+  "arguments": "--root \"Z:\\Fixture Users\\中文玩家\\Directory With Several Spaces\\Another Original Directory\\PalCraft\" --control \"Z:\\Fixture Users\\中文玩家\\Directory With Several Spaces\\Another Original Directory\\PalCraft\\.palcraft\\control\" --token fixture-token-not-a-live-session --fps 15 --shipping --mute",
+  "working_directory": "Z:\\Fixture Users\\中文玩家\\Directory With Several Spaces\\Another Original Directory\\PalCraft\\PalCraft-Client",
+  "description": "中文快捷方式 \"原参数\" 🎮",
+  "ansi_encoding": "cp936",
+  "volume_drive_type": 0,
+  "volume_serial_number": 305419896,
+  "volume_label": "仅测试卷",
+  "file_attributes": 32,
+  "target_file_size": 123456
+}

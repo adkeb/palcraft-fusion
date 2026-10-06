@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "primary_sources_only": true,
+  "browsed_for_this_task": true,
+  "MS_SHLLINK": [
+    {
+      "title": "Structures",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/747629b3-b5be-452a-8101-b9a2ec49978c"
+    },
+    {
+      "title": "ShellLinkHeader",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/c3376b21-0931-45e4-b2fc-a48ac0e60d15"
+    },
+    {
+      "title": "LinkFlags",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/ae350202-3ba9-4790-9e9e-98935f4ee5af"
+    },
+    {
+      "title": "FileAttributesFlags",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/378f485c-0be9-47a4-a261-7df467c3c9c6"
+    },
+    {
+      "title": "LinkInfo",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/6813269d-0cc8-4be2-933f-e96e8e3412dc"
+    },
+    {
+      "title": "VolumeID",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/b7b3eea7-dbff-4275-bd58-83ba3f12d87a"
+    },
+    {
+      "title": "StringData",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/17b69472-0f34-4bcf-b290-eccdb8de224b"
+    },
+    {
+      "title": "ExtraData",
+      "url": "https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/c41e062d-f764-4f13-bd4f-ea812ab9a4d1"
+    }
+  ],
+  "UTF16": "https://learn.microsoft.com/en-us/windows/desktop/learnwin32/working-with-strings",
+  "windows_argument_rules": "https://learn.microsoft.com/en-us/cpp/c-language/parsing-c-command-line-arguments?view=msvc-170",
+  "commercial_code_copied": false
+}

@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "commands": [
+    {
+      "command": "nice -n 19 python3 -B test_shell_link.py",
+      "exit_code": 0,
+      "unicode_target_arguments_workdir_description_roundtrip": true,
+      "UTF16_counts_offsets_ExtraData_verified": true,
+      "original_helper_list2cmdline_and_VBS_quoting_identical": true,
+      "long_arguments_over_260_preserved": true,
+      "bad_offsets_NUL_and_incompatible_ANSI_rejected": true,
+      "owned_mode_0600": true
+    },
+    {
+      "command": "nice -n 19 python3 -B windows_shell_link.py --input fixtures/unicode-input.json --owned-directory fixtures --name unicode-synthetic.lnk",
+      "exit_code": 0,
+      "bytes": 1409,
+      "sha256": "95fc64f0e16e148e433b1d5e767d08e05e9c0cddd36abcb27683758f754e943f"
+    },
+    {
+      "command": "nice -n 19 python3 -B inspect_shell_link.py fixtures/unicode-synthetic.lnk --ansi-encoding cp936",
+      "exit_code": 0,
+      "header_size": 76,
+      "flags": 182,
+      "link_info_size": 523,
+      "link_info_header_size": 36,
+      "string_counts_utf16_units": {
+        "description": 15,
+        "working_directory": 103,
+        "arguments": 282
+      },
+      "terminal_block_present": true
+    }
+  ],
+  "actual_private_target_or_token_used": false,
+  "vendor_parser_executed": false,
+  "Wine_cscript_cxmenu_or_game_started": false,
+  "vendor_engine_verified": false,
+  "native_surface_frame_root_proof_or_snapshotDTO_created": false,
+  "nice": 19,
+  "concurrency": 1
+}

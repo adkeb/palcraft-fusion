@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "source_relative_to_selected_vendor": "Contents/SharedSupport/CrossOver/lib/perl/CXMenuWindows.pm",
+  "sha256": "dd47d1ac446d161eb685679d831269227588387eea5430e019b57394a93eebf0",
+  "read_only_source": true,
+  "source_methods_reviewed": [
+    "get_command"
+  ],
+  "windows_menu_lnk_passed_to_existing_wine_start": true,
+  "vendor_parser_or_process_run": false,
+  "copied_vendor_source_or_binaries": false,
+  "installed_cxmklnk_executables_seen_as_files_only": true,
+  "real_engine_parse_proven": false
+}
