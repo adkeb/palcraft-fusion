@@ -131,3 +131,6 @@ build/mc10_6 包含两份冻结 Java、相对 classpath 依赖与实际 zip 元�
 已用本入口一次实际重现完整 401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af；
 没有游戏/网络/GUI，原 19 检查没有重跑。JDK25.0.4.1、exact10.5 base 与记录依赖为复现前提。
 Build receipt 不是 HUD 像素或可玩性验收。
+
+
+2026-10-07 构建验证更新：公开 `build_mc_10_7.py` 和配方未修改，从六个生产源在全新的编译输出目录实际产生 11 个 class；未传入旧 compiled-production。三个 JVM 步骤均成功，最终 552361 字节 JAR 的 SHA-256 与当前 F35 完全一致。使用了本机现有合法依赖缓存，未下载或启动游戏。此结果验证增量构建，完整 118 源 Gradle 项目和其他用户全新环境仍未证明。详见 [安全构建记录](../docs/evidence/MC10.7-fresh-six-source-compile.json)。

@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "scope": "Current publicly frozen MC10.7 six-source delta compile over the pinned legal10.6 base",
+  "public_builder_sha256": "dd730a9823d7c97e2e9fb5f03ea3b4b95671a7807edd106d10d7fbe44844e9d4",
+  "public_recipe_sha256": "ac06681995013b7c758499050eeb2167ba8c214a5b5614bc236ef6e4429278b8",
+  "allowed_public_source_members": 118,
+  "fresh_six_source_compile_verified": true,
+  "fresh_production_classes": 11,
+  "previous_11_class_directory_reused": false,
+  "actual_JVM_jobs": 3,
+  "all_exit_codes": 0,
+  "max_heap_mib": 512,
+  "sequential_processes": true,
+  "nice": 19,
+  "one_active_processor_for_quiet_build": true,
+  "new_output_jar_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "new_output_jar_bytes": 552361,
+  "public_builder_or_recipe_modified": false,
+  "public_source_changes_needed": false,
+  "runtime_jar_has_no_compile_only_overlay_or_helper": true,
+  "cache_dependencies_checked_read_only": 133,
+  "all_thermal_samples": "nominal",
+  "peak_CPU_celsius": 36.390625,
+  "peak_fan_actual_rpm": 3002,
+  "fans_target_rpm": [
+    3000,
+    3000
+  ],
+  "game_GUI_RPC_server_backend_world_options_or_Saved_modified": false,
+  "full_118_source_project_Gradle_build_verified": false,
+  "different_user_complete_fresh_environment_verified": false,
+  "entire_D04_or_original_42_complete": false
+}
