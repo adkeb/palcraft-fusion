@@ -25,6 +25,15 @@ Lua 代码位于 `palcraft/client`、`palcraft/server`，后者在 Standalone �
 
 HUD 源码位于 `mac/hud`。使用 Swift/AppKit 与系统图形框架构建，帧中继使用 Python。真实 MC 帧通过原共享文件和 PHUD/HCLK 协议传输；离线 Steam 设置不关闭本地环回网络。
 
+公开 HUD 使用 `PALCRAFT_BRIDGE_DIR` 指定桥接目录；未设置时使用当前用户的 `~/Library/Application Support/PalCraft/bridge`。arm64 候选以 macOS 13 为最低部署目标编译，已回读 Mach-O `minos 13.0`；这不代替 macOS 13 上的实际运行验收。
+
+```sh
+cd mac/hud
+nice -n 19 swiftc -O -target arm64-apple-macosx13.0 hud_overlay.swift -lz -o hud-overlay-v5-public-macos13
+```
+
+该次构建的源码、二进制哈希与工具链记录见 [HUD 构建回执](evidence/HUD-v5-BUILD-macos13.json)。实际前台 HUD 显示仍在验收。
+
 ## 资产生成
 
 模型、纹理、实体姿态和材质工具位于 `tools`、`modules`、`workstreams`。从自己的合法游戏资源生成本地资源，保留原版 UV、alpha、动画与模型语义。仓库中的生成器源码可以发布，生成的商用游戏资产不能视作本仓库原创资产。

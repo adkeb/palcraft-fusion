@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "candidate": "public-hud-v5-macos13",
+  "implementation": "hud-overlay-v5-public-macos13",
+  "status": "final_public_pair_frozen_for_root_review",
+  "source_sha256": "0a74168bb83448b515157882e2883db72c17f3773c8a66c39f4e34b0c16d676e",
+  "binary_sha256": "0cc13814ebdb3a14c7e5792cbcf9e7e539a4fcc8d23195bb4db591a6f0302753",
+  "minimum_macos": "13.0",
+  "sdk_used": "27.0",
+  "architecture": "arm64",
+  "files": [
+    {
+      "file": "hud_overlay.swift",
+      "sha256": "0a74168bb83448b515157882e2883db72c17f3773c8a66c39f4e34b0c16d676e",
+      "bytes": 24543
+    },
+    {
+      "file": "hud-overlay-v5-public-macos13",
+      "sha256": "0cc13814ebdb3a14c7e5792cbcf9e7e539a4fcc8d23195bb4db591a6f0302753",
+      "bytes": 181520
+    },
+    {
+      "file": "SOURCE-DELTA.diff",
+      "sha256": "cacc0f647115c0959c399510eab58994dd4474a4fc76d2df4b1b749bdc5858fc",
+      "bytes": 727
+    },
+    {
+      "file": "BUILD-macos13.json",
+      "sha256": "7f10e880c2f3c31a7b4a22e50e9a04e9a792e418b42a060b3b8cb8e9566c9c2f",
+      "bytes": 2639
+    }
+  ],
+  "build_receipt": "BUILD-macos13.json",
+  "build_receipt_sha256": "7f10e880c2f3c31a7b4a22e50e9a04e9a792e418b42a060b3b8cb8e9566c9c2f",
+  "prior_default_target_candidate_preserved": true,
+  "prior_candidate_manifest": "MANIFEST.json",
+  "physical_or_runtime_acceptance": false
+}

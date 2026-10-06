@@ -1,0 +1,12 @@
+--- private-frozen/hud_overlay.swift (old fallback redacted)
++++ hud_overlay.swift
+@@ -156,7 +156,8 @@
+     override init() {
+         let env = ProcessInfo.processInfo.environment
+         root = URL(fileURLWithPath: env["PALCRAFT_BRIDGE_DIR"] ??
+-            "<private absolute bridge path>")
++            FileManager.default.homeDirectoryForCurrentUser
++                .appendingPathComponent("Library/Application Support/PalCraft/bridge", isDirectory: true).path)
+         titleHeight = CGFloat(Double(env["PALCRAFT_TITLEBAR_HEIGHT"] ?? "") ?? 28)
+         port = NWEndpoint.Port(rawValue: UInt16(env["PALCRAFT_HUD_PORT"] ?? "") ?? 25603)!
+         frameMapping = env["PALCRAFT_FRAME_NAME"] ?? "Local\\MCPassthroughFrame"
