@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "component": "initial-target-snapshot-progress-lease",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "b41a030033a8cf7d52a796166a24578ec5c2fbe9a710f866ef88365c93e5a520",
+      "bytes": 1738
+    },
+    {
+      "path": "base/client/travel/protocol.lua",
+      "sha256": "41f5738fc7a25a713319e5126aec4282f2ea7e582157040fad7a19ecd2ac0e77",
+      "bytes": 17361
+    },
+    {
+      "path": "base/server/travel/protocol.lua",
+      "sha256": "41f5738fc7a25a713319e5126aec4282f2ea7e582157040fad7a19ecd2ac0e77",
+      "bytes": 17361
+    },
+    {
+      "path": "checks/check_lease.lua",
+      "sha256": "9a13d5b2437af54675efd6c6a703140ce66d410ce3d7d6284adbe6d4be38af34",
+      "bytes": 4738
+    },
+    {
+      "path": "source/client/travel/protocol.lua",
+      "sha256": "fbbbaf911362a1449ed04a30050705ff41e4d7ff5b19a474cb3f9b78b1ed9499",
+      "bytes": 17467
+    },
+    {
+      "path": "source/server/travel/protocol.lua",
+      "sha256": "fbbbaf911362a1449ed04a30050705ff41e4d7ff5b19a474cb3f9b78b1ed9499",
+      "bytes": 17467
+    },
+    {
+      "path": "source.patch",
+      "sha256": "ac491a2f9f89d3ba131c2f285f4478a8074a712bc8edecba4078c8376ed4826a",
+      "bytes": 665
+    }
+  ],
+  "public_safe": true,
+  "bounded_synthetic_checks_passed": 4,
+  "root_source_review_passed": true,
+  "actual_installed_or_gameplay_accepted": false,
+  "actual_private_runtime_or_save_data_included": false
+}

@@ -1,0 +1,33 @@
+--- base/render/controls.cpp
++++ source/render/controls.cpp
+@@ -123,7 +123,7 @@
+    observedBuildOff=true;
+   }
+  };
+- if(!active||!ws.connected()||newConnection)observeBuildMode(false,!active?"camera_inactive":(!ws.connected()?"websocket_disconnected":"connection_generation_changed"));
++ if(!ws.connected()||newConnection||(!active&&actionsSuspended.load()))observeBuildMode(false,!ws.connected()?"websocket_disconnected":(newConnection?"connection_generation_changed":"camera_inactive"));
+  if(newConnection)generation=ws.generation();
+  formRequests.observed_generation(generation);
+  const int requested=formRequests.take(generation,active&&ws.connected(),newConnection,actionsSuspended.load());
+@@ -133,6 +133,7 @@
+  for(int k:keys){now[k]=(GetAsyncKeyState(k)&0x8000)!=0;++keyPolls;}
+  auto rising=[&](int k){return live&&!newConnection&&now[k]&&!was[k];};
+  if(rising(VK_F5))observeBuildMode(!build.load(),"f5_toggle_off");
++ else if(!active&&build.load()&&!newConnection&&now[VK_F5]&&!was[VK_F5]&&ws.connected()&&pid==GetCurrentProcessId()&&!actionsSuspended.load()&&platformFocused())observeBuildMode(false,"f5_toggle_off");
+  if(build&&(rising(VK_F8)||(!menu&&rising('E'))))ws.send("{\"t\":\"inventory_toggle\"}");
+  if(build&&!menu&&rising(VK_ESCAPE))observeBuildMode(false,"escape_without_guest_menu");
+  if(observedBuildOff){lastBuildOff.generationAfter=generation;lastBuildOff.f5=now[VK_F5];lastBuildOff.esc=now[VK_ESCAPE];lastBuildOff.requested=requested;}
+--- base/render/form_requests.h
++++ source/render/form_requests.h
+@@ -16,9 +16,9 @@
+  }
+  int take(int32_t actual,bool eligible,bool new_connection,bool suspended){
+   const auto request=pending.exchange(0);
+-  if(!request||!eligible||new_connection||uint32_t(request>>2)!=uint32_t(actual))return -1;
++  if(!request||new_connection||uint32_t(request>>2)!=uint32_t(actual))return -1;
+   const bool on=(request&3)==2;
+-  return on&&suspended?-1:(on?1:0);
++  return on&&(!eligible||suspended)?-1:(on?1:0);
+  }
+ };
+ 

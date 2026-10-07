@@ -1,0 +1,15 @@
+--- base/travel/protocol.lua
++++ source/travel/protocol.lua
+@@ -134,8 +134,10 @@
+  end
+  local bootstrap_pending=false
+  for _,err in pairs(proof.errors)do
+-  if err~='companion_bootstrap_pending'or not bootstrap or bootstrap.completed then return false end
+-  bootstrap_pending=true
++  if err=='companion_bootstrap_pending'then
++   if not bootstrap or bootstrap.completed then return false end
++   bootstrap_pending=true
++  elseif err~='authoritative_snapshot_pending'or proof.snapshots_pending<1 then return false end
+  end
+  if bootstrap and(not bootstrap.completed)~=bootstrap_pending
+   or bootstrap_pending and proof.snapshots_pending<1 then return false end

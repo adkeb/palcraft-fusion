@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "component": "native-camera-stall-form-intent",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "735a81a844c44b7a18f4ad444bf313c24dd55028c354abc13c2aa7404ec69779",
+      "bytes": 2073
+    },
+    {
+      "path": "base/render/controls.cpp",
+      "sha256": "a6b6e7dd40955cb1565456f45f56f21f8b75639665a7db216b7014affa511a2e",
+      "bytes": 14541
+    },
+    {
+      "path": "base/render/form_requests.h",
+      "sha256": "c53dd8582d921ebc8a2eca796c40b703649d803019d4040feac81a074fe559ab",
+      "bytes": 1066
+    },
+    {
+      "path": "checks/actual_predicates.hpp",
+      "sha256": "8fd8bddd584ffefa455f1615153b2c58bfd931d92ee996cf2e49b6a6e5938ab0",
+      "bytes": 704
+    },
+    {
+      "path": "checks/form_intent.cpp",
+      "sha256": "dad4c8f79afeac270bd4196d3665b372e3404fd7acab778c7e4211bc3d6a59d3",
+      "bytes": 2582
+    },
+    {
+      "path": "source/render/controls.cpp",
+      "sha256": "e2f5e094d80131fbe6451a7013e058c008551c093b7eafcbd46be260ba813d6d",
+      "bytes": 14776
+    },
+    {
+      "path": "source/render/form_requests.h",
+      "sha256": "caeef016b8fc59f9e97d6fd3a12fe9fd7a3a9eb6d3d73b6a24e069357b5750a1",
+      "bytes": 1068
+    },
+    {
+      "path": "source.patch",
+      "sha256": "5b0fbeac0a5b090c032d6c33dc9fffc42f948f7ffeb3ad3fec6f9be7bef13fec",
+      "bytes": 1986
+    }
+  ],
+  "public_safe": true,
+  "bounded_synthetic_checks_passed": 4,
+  "root_source_review_passed": true,
+  "actual_installed_or_gameplay_accepted": false,
+  "actual_private_runtime_or_save_data_included": false,
+  "compiled_candidate_sha256": "7180dcccc30c691046ebf252ac6675f04c6dfa93e41fb7e43deeea160656bafb"
+}

@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "component": "standalone-global-context-scan-reuse",
+  "public_safe": true,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1360,
+      "sha256": "5a8320129fb1901195ecf80afd678abb4682ae9d7ece109e213191c668c8a4c6"
+    },
+    {
+      "path": "base/client/palcraft-collisions.lua",
+      "bytes": 22283,
+      "sha256": "bbf928ad933d365f28972da39868e6a278b51f82861d44d532ddb07a2d560a4c"
+    },
+    {
+      "path": "base/server/entities.lua",
+      "bytes": 28867,
+      "sha256": "ac012c6241ae651b5625a519c1b1f90e2910e64c5f62ef273ca235029f5aa1f5"
+    },
+    {
+      "path": "checks/authenticated-base.lua",
+      "bytes": 832,
+      "sha256": "64bcce26cd8810f997ce315ea75d04d51fd1cb86032541a73b5d391c1d8a25c9"
+    },
+    {
+      "path": "checks/authenticated-source.lua",
+      "bytes": 816,
+      "sha256": "cecedb237726357393d37cb6ffba26ba8be8f44dd3c06f36790b9d6d3a3d4106"
+    },
+    {
+      "path": "checks/check_hotspots.lua",
+      "bytes": 5892,
+      "sha256": "37d756e416c2d0c809fc49fc7e19d845b54529268dcdfebc83e5e60b9e5d4b79"
+    },
+    {
+      "path": "checks/context-base.lua",
+      "bytes": 149,
+      "sha256": "1b47b59ebdb518ee64ff8d98df2ec645488d9d6a2b38cfc753799a451a530116"
+    },
+    {
+      "path": "checks/context-source.lua",
+      "bytes": 873,
+      "sha256": "91088ef53cb0b918841cbaa12a9ab8fe85137f99c3b6687b6619f02c15c5c591"
+    },
+    {
+      "path": "checks/controllers-base.lua",
+      "bytes": 64,
+      "sha256": "b68da4fd377e55c7c1c699f2453a12e68d74efd4007759601400b7f2df8f3f43"
+    },
+    {
+      "path": "checks/controllers-source.lua",
+      "bytes": 426,
+      "sha256": "7fc0d33e6f095582eec418510f1e2accd695f43db2e1b12111488c355422485a"
+    },
+    {
+      "path": "source/client/palcraft-collisions.lua",
+      "bytes": 23007,
+      "sha256": "caebbc5a01225229e3f7ecee7f91113384c00f605d2b7c09721584c6f34be874"
+    },
+    {
+      "path": "source/server/entities.lua",
+      "bytes": 29235,
+      "sha256": "ba52b096468acb11a18c8dfe8b8e0abfdfd843cd616015de772d155a4bf9778c"
+    },
+    {
+      "path": "source.patch",
+      "bytes": 3656,
+      "sha256": "ee1f6079f01265b92c1bbf981419a196e1b73b0469b618565e5dfdc34bc19d5b"
+    }
+  ],
+  "synthetic_cases_passed": 12,
+  "production_source_slots": 2,
+  "actual_gameplay_or_FPS_gain_accepted": false,
+  "private_runtime_data_included": false
+}

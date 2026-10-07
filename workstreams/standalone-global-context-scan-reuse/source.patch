@@ -1,0 +1,61 @@
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -28,7 +28,21 @@
+ local function live(x)return x and x:IsValid()and not x:GetFullName():find('Default__',1,true)end
+ local function write(name,v)local f=assert(io.open(ROOT..name,'wb'));f:write(J.encode(v));f:close()end
+ local function address(name)local o=StaticFindObject(name);assert(o and o:IsValid(),name);return o:GetAddress()end
+-local function context()for _,a in ipairs(FindAllOf('GameStateBase')or{})do if live(a)then return a end end;error('No game state')end
++local function context()
++ local sp=rawget(_G,'PalCraftStandaloneBootstrap')
++ if sp then
++  local realm=assert(sp.local_realm,'Actual standalone realm required')
++  local proof,why=realm:current()
++  assert(proof and proof.mode=='standalone',why or'Actual standalone context unavailable')
++  local gs,pc,world=proof.game_state,proof.pc,proof.world
++  assert(live(gs)and live(pc)and live(world)and gs:HasAuthority(),'Actual standalone native context changed')
++  local gs_world,pc_world=gs:GetWorld(),pc:GetWorld()
++  assert(live(gs_world)and live(pc_world)and gs_world:GetAddress()==world:GetAddress()
++   and pc_world:GetAddress()==world:GetAddress()and world:GetAddress()==proof.world_address,'Actual standalone context world changed')
++  return gs
++ end
++ for _,a in ipairs(FindAllOf('GameStateBase')or{})do if live(a)then return a end end;error('No game state')
++end
+ local function prepare()
+  if native then return end
+  native=assert(package.loadlib(dir..'../../../../PalCraftMesh-v6.dll','palcraft_spawn_box'))
+--- a/server/entities.lua
++++ b/server/entities.lua
+@@ -57,6 +57,15 @@
+   end
+   assert(live(gs)and str(gs.ServerSessionId)==session,'Pal world changed')
+  end
++ local function player_controllers()
++  if realm then
++   local proof=current_authority(gs);local pc=proof.pc
++   assert(live(pc)and pc:HasAuthority()and guid(pc:GetPlayerUId())==proof.host_uid
++    and live(pc.Pawn)and live(proof.pawn)and pc.Pawn:GetAddress()==proof.pawn:GetAddress(),'Actual standalone player controller changed')
++   return{pc}
++  end
++  return FindAllOf('PalPlayerController')or{}
++ end
+  local epoch=guid(ids:NewGuid());local manager=utility:GetCharacterManager(gs);assert(live(manager),'Character manager unavailable')
+  local database
+  for _,a in ipairs(FindAllOf('PalDatabaseCharacterParameter')or{})do if live(a)then database=a;break end end
+@@ -143,7 +152,7 @@
+    if r.mc_uuid==mc_uuid and not r.legacy and P.uuid(r.pal_uid)and (r.expires_at or 0)>now()then
+     if not proof or proof.mc_uuid~=r.mc_uuid or proof.pal_uid~=r.pal_uid or proof.world_id~=table.world_id
+       or proof.server_session_id~=session or proof.session_id~=r.session_id or proof.generation~=r.generation then return nil,'source_connection_generation_mismatch'end
+-    for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do
++    for _,pc in ipairs(player_controllers())do
+      if live(pc)and pc:HasAuthority()and guid(pc:GetPlayerUId())==r.pal_uid and live(pc.Pawn)then return pc.Pawn,r end
+     end
+    end
+@@ -299,7 +308,7 @@
+  local function scan()
+   local rows=J.array();M.native={}
+   local centers={}
+-  for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do if live(pc)and pc:HasAuthority()and live(pc.Pawn)then centers[#centers+1]=pc.Pawn:K2_GetActorLocation()end end
++  for _,pc in ipairs(player_controllers())do if live(pc)and pc:HasAuthority()and live(pc.Pawn)then centers[#centers+1]=pc.Pawn:K2_GetActorLocation()end end
+   for _,a in ipairs(FindAllOf('PalCharacter')or{})do
+    if live(a)and a:HasAuthority()and not M.by_actor[a:GetAddress()]then
+     local pos=a:K2_GetActorLocation();local near=false
