@@ -3,12 +3,12 @@
   "kind": "reviewed-two-source-lifecycle-delta",
   "production_sources": [
     {
-      "path": "workstreams/paused-native-title-lifecycle/source/client/main.lua",
+      "path": "source/client/main.lua",
       "sha256": "28636263017e14206bc7fd24e3be6372ff6f7a9ab903ccff4e7ea0de75c1ad93",
       "bytes": 36398
     },
     {
-      "path": "workstreams/paused-native-title-lifecycle/source/launcher/journal_lifecycle.py",
+      "path": "source/launcher/journal_lifecycle.py",
       "sha256": "6691a92c9e29fcc8188387c139bcc0fd0c50b2b00b4eacacef9f207e0118a94c",
       "bytes": 44126
     }
