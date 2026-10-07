@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "kind": "targeted-source-object-fixture-recorded-result",
+  "recorded_runner": "Lua 5.4.8; nice 19; no SDK or game process",
+  "recorded_invocation_count": 2,
+  "recorded_exit_code": 0,
+  "recorded_targeted_cases": 3,
+  "result": {
+    "actual_fps_or_latency_proven": false,
+    "actual_installed_game_or_scene_changed": false,
+    "cases": [
+      {
+        "name": "same_callback_verified_realm_and_process_remove_duplicate_scan_and_native_identity_write",
+        "passed": true
+      },
+      {
+        "name": "injected_realm_UID_or_native_process_failure_rejects_without_independent_fallback",
+        "passed": true
+      },
+      {
+        "name": "uninjected_independent_service_keeps_original_authority_and_native_identity_path",
+        "passed": true
+      }
+    ],
+    "counts": {
+      "independent": {
+        "authority_read": 1,
+        "identity_read": 1,
+        "loadlib": 1,
+        "process_provider": 0,
+        "service_global_scans": 2,
+        "service_native_identity_calls": 1,
+        "wal_append": 1
+      },
+      "injected": {
+        "authority_read": 0,
+        "identity_read": 0,
+        "loadlib": 0,
+        "process_provider": 2,
+        "service_global_scans": 0,
+        "service_native_identity_calls": 0,
+        "wal_append": 1
+      }
+    },
+    "fixture_only": true,
+    "native_methods_or_durable_io_executed": false,
+    "ok": true,
+    "original_object_fixture_reused": true,
+    "targeted_cases": 3
+  },
+  "original_checker_sha256": "31df9dad33c97d48e1eaeed49a49cbbecd37cf1c25a50af87c9fa29e6abc96f9",
+  "portable_checker_sha256": "2896677ddcb782561b41df285f87eff12fe788b9667cd75925a2492ef8213f07",
+  "portable_replay_command": "lua checks/check_service_reuse.lua .",
+  "portable_copy_changes": "Bundled dependency paths and explicitly synthetic world, PID and process creation values. Test logic and reviewed production source are unchanged.",
+  "portable_replay_executed": false,
+  "source_current17_three_cases_not_rerun_for_publication": true,
+  "source_diff_root_approved": true,
+  "actual_fps_or_latency_proven": false
+}

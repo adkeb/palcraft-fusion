@@ -1,0 +1,101 @@
+{
+  "schema": 1,
+  "kind": "public-safe-source-delta",
+  "allowlist": [
+    "base/client/runtime/standalone_bootstrap.lua",
+    "base/server/standalone_service.lua",
+    "source/client/runtime/standalone_bootstrap.lua",
+    "source/server/standalone_service.lua",
+    "source.patch",
+    "checks/check_service_reuse.lua",
+    "checks/deps/json.lua",
+    "checks/deps/readers.lua",
+    "checks/deps/local_realm.lua",
+    "checks/deps/standalone_authority.lua",
+    "checks/receipt.json",
+    "README.md",
+    "manifest.json"
+  ],
+  "changed_files": [
+    {
+      "source": "client/runtime/standalone_bootstrap.lua",
+      "base_sha256": "f4c8210ff8fc2817163cf681425c04f88b052eadc3dcbaac4e2638af83a4fbb0",
+      "candidate_source_sha256": "49f28a68295f94b3651b8562717d83eb2d2666ab162e051cb27af891d47f8480",
+      "runtime_target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/standalone_bootstrap.lua"
+    },
+    {
+      "source": "server/standalone_service.lua",
+      "base_sha256": "509460d7c2c7e616cb9cd9813bfabd4281c967e11ff03210dd62cf214c6a82a9",
+      "candidate_source_sha256": "fb42a8b86a2f285ed24642ae375562fee944e8542c585fb69f1da9c57af8518f",
+      "runtime_target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/standalone_service.lua"
+    }
+  ],
+  "owned_source_changes": 2,
+  "source_review_approved": true,
+  "targeted_cases_recorded_passed": 3,
+  "actual_fps_or_latency_proven": false,
+  "test_dependency_scope": "Four immutable Lua source modules used by the portable object checker; not additional runtime changes.",
+  "portable_checker_fixture_values": "All world/PID/process creation values are synthetic.",
+  "files": [
+    {
+      "path": "base/client/runtime/standalone_bootstrap.lua",
+      "sha256": "f4c8210ff8fc2817163cf681425c04f88b052eadc3dcbaac4e2638af83a4fbb0",
+      "bytes": 4250
+    },
+    {
+      "path": "base/server/standalone_service.lua",
+      "sha256": "509460d7c2c7e616cb9cd9813bfabd4281c967e11ff03210dd62cf214c6a82a9",
+      "bytes": 4907
+    },
+    {
+      "path": "source/client/runtime/standalone_bootstrap.lua",
+      "sha256": "49f28a68295f94b3651b8562717d83eb2d2666ab162e051cb27af891d47f8480",
+      "bytes": 4308
+    },
+    {
+      "path": "source/server/standalone_service.lua",
+      "sha256": "fb42a8b86a2f285ed24642ae375562fee944e8542c585fb69f1da9c57af8518f",
+      "bytes": 5707
+    },
+    {
+      "path": "source.patch",
+      "sha256": "6391735a0b333eaa212bcb3d64c30aa94879602775a03a67a0ae1d0b6400d860",
+      "bytes": 3684
+    },
+    {
+      "path": "checks/check_service_reuse.lua",
+      "sha256": "2896677ddcb782561b41df285f87eff12fe788b9667cd75925a2492ef8213f07",
+      "bytes": 11739
+    },
+    {
+      "path": "checks/deps/json.lua",
+      "sha256": "f6d12670ff0c535d8359306625578f648cde5ce0b63bff788c6412cc07b6dc67",
+      "bytes": 10150
+    },
+    {
+      "path": "checks/deps/readers.lua",
+      "sha256": "91ae4a2a5580ff1358e8c2986dd363c9158cd78ed92e5dd202911381743fc776",
+      "bytes": 14521
+    },
+    {
+      "path": "checks/deps/local_realm.lua",
+      "sha256": "e1a30e407d32e6dca75826a080facaa1dac113398d339847194f29f037e7b3e2",
+      "bytes": 18795
+    },
+    {
+      "path": "checks/deps/standalone_authority.lua",
+      "sha256": "0f21461d7ee9ada61d979d6ec8cacdff8e08a300c02b71499715961b564308ac",
+      "bytes": 3254
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "144968474080955875fc12686c2421ed6977b0259db7482400feed4632506066",
+      "bytes": 2095
+    },
+    {
+      "path": "README.md",
+      "sha256": "3e25f157c6890d454317d55119fc647310cd1ab8a41d15822dccdb19510f2125",
+      "bytes": 1940
+    }
+  ]
+}

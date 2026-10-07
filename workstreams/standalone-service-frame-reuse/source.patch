@@ -1,0 +1,52 @@
+--- a/client/runtime/standalone_bootstrap.lua
++++ b/client/runtime/standalone_bootstrap.lua
+@@ -22,7 +22,8 @@
+   local s={mode='standalone',world_directory=scope.world_directory,pal_uid=scope.pal_uid,
+    scripts_dir=scripts,rpc_root=scope.rpc_root_windows,exchange_root=scope.exchange_root_windows}
+   local service=dofile(scripts..'standalone_service.lua').new{scope=s,json=json,readers=readers,
+-   durable_dll=scope.durable_dll_windows,credit_dll=scope.credit_dll_windows}
++   durable_dll=scope.durable_dll_windows,credit_dll=scope.credit_dll_windows,
++   local_realm=realm,process_identity=permission.process}
+   local helper=dofile(scripts..'escrow_setup.lua').new{authority_mode='standalone',world_directory=s.world_directory,
+    scripts_dir=scripts,root=s.exchange_root,json=J,readers=readers,durable_dll=scope.durable_dll_windows,allow_build=true}
+   _G.PalCraftStandaloneEscrowSetup=helper
+--- a/server/standalone_service.lua
++++ b/server/standalone_service.lua
+@@ -13,10 +13,21 @@
+  local Store=dofile(dir..'exchange_store.lua')
+  local store=Store.new{root=ROOT,json=J,containers={},commit=Store.native_commit(ROOT,assert(o.durable_dll))}
+  local Authority=dofile(dir..'standalone_authority.lua')
+- local identity,why=package.loadlib(assert(o.credit_dll),'palcraft_escrow_client_identity_v1');assert(identity,why)
++ local realm=o.local_realm
++ local identity
++ if realm then assert(type(o.process_identity)=='function','Existing native process verifier required')
++ else local why;identity,why=package.loadlib(assert(o.credit_dll),'palcraft_escrow_client_identity_v1');assert(identity,why)end
+  local function read(p)local f=io.open(p,'rb');if not f then return end;local v=J.decode(f:read('*a'));f:close();return v end
+  local function write(p,v)local f=assert(io.open(p..'.tmp','wb'));assert(f:write(J.encode(v)));assert(f:flush());assert(f:close());os.remove(p);assert(os.rename(p..'.tmp',p))end
+  local function context()
++  if realm then
++   local proof,why=realm:current();assert(proof,why)
++   assert(realm:validate(proof,proof.pc)==true,'Actual standalone process context changed')
++   assert(proof.mode=='standalone'and proof.host_uid==s.pal_uid and proof.world_id==s.world_directory
++    and R.guid_to_string(proof.pc:GetPlayerUId())==s.pal_uid,
++    'Current standalone service scope differs')
++   return proof.pc,{world_directory=proof.world_id}
++  end
+   local found
+   for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do
+    if live(pc)and pc:HasAuthority()and R.guid_to_string(pc:GetPlayerUId())==s.pal_uid then assert(not found,'Ambiguous local host');found=pc end
+@@ -26,8 +37,12 @@
+  local api={ready=false}
+  function api.tick()
+   assert(IsInGameThread(),'Existing game thread required')
+-  local pc,a=context();identity()
+-  local p=assert(read(RPC..'escrow-client-process.json'),'Actual client native identity unavailable')
++  local pc,a=context();local p
++  -- The client callback already checked this actual realm and refreshed its
++  -- native identity. Share that verifier; keep the independent service path.
++  if realm then p=o.process_identity()
++  else identity();p=read(RPC..'escrow-client-process.json')end
++  p=assert(p,'Actual client native identity unavailable')
+   assert(p.kind=='palworld_client_process_identity'and p.native_code_matched==true and p.read_only==true and p.executable_sha256=='e590b5e7bfaa3fea40fab1a02cc72c8fc5fd6f8631ef2308e95ac56c25195837','Unmatched client identity')
+   assert(p.pid>0 and os.time()-p.observed_unix>=-1 and os.time()-p.observed_unix<=2,'Stale client identity')
+   local ticks=assert(tonumber(p.process_created_filetime));assert(math.type(ticks)=='integer','Exact native FILETIME required')
