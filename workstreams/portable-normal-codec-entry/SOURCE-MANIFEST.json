@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "applicable_base": "candidate28-normal-late-save",
+  "bounded_synthetic_cases_passed": 3,
+  "runtime_installed": false,
+  "public_paths": [
+    "workstreams/portable-normal-codec-entry/source.patch",
+    "workstreams/portable-normal-codec-entry/checks/check_codec_entry.py",
+    "workstreams/portable-normal-codec-entry/source/launcher/journal_lifecycle.py",
+    "workstreams/portable-normal-codec-entry/source/installer/cli.py",
+    "workstreams/portable-normal-codec-entry/base/launcher/journal_lifecycle.py",
+    "workstreams/portable-normal-codec-entry/base/installer/core.py",
+    "workstreams/portable-normal-codec-entry/base/installer/cli.py",
+    "workstreams/portable-normal-codec-entry/README.md"
+  ],
+  "files": [
+    {
+      "path": "base/installer/cli.py",
+      "sha256": "e67e9668e4f7e734bf37a0505b72165e96a36c263c1853843b64d3f0b26b4e65",
+      "bytes": 13603
+    },
+    {
+      "path": "base/installer/core.py",
+      "sha256": "4ced94420166cd253d24b8f84709834fd1bbf666d5aca742e04f593514de652c",
+      "bytes": 67594
+    },
+    {
+      "path": "base/launcher/journal_lifecycle.py",
+      "sha256": "0978af9600087def973ddc33973ca69e2a9b3579101afbaece08ab20f1fbeb37",
+      "bytes": 77140
+    },
+    {
+      "path": "checks/check_codec_entry.py",
+      "sha256": "6651184e119ace0cfbd1f977107537fbb98225c300124c581389c2ae92ef7dd1",
+      "bytes": 4623
+    },
+    {
+      "path": "source/installer/cli.py",
+      "sha256": "6c3aa4b6d7b71b96c1e2b90156b4123fbc474fabc118a220b2dd87b6824b9cdf",
+      "bytes": 14207
+    },
+    {
+      "path": "source/launcher/journal_lifecycle.py",
+      "sha256": "a8c49589fb0980b7c51d14f9fed1f3d5c7d2750acbdcf8320f11375a3f2f86c2",
+      "bytes": 77716
+    },
+    {
+      "path": "source.patch",
+      "sha256": "e2db2cf85e3cfc10d6077cc5cb08082b11a4563c54a73c2d41290784e541f394",
+      "bytes": 6631
+    },
+    {
+      "path": "README.md",
+      "sha256": "aaf1de0263c218a2d8b7835299ee1a612f872e7f02ca815b85b9ebebbb649802",
+      "bytes": 1291
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -721,7 +721,7 @@
+             'CharacterSaveParameterMap_contains_UID1':True,'UID1_PlayerSav_bytes':codec['uid1_PlayerSav_bytes']},
+         'extra_native_BootRegistry_not_claimed':True,'standard_codec_reparsed_this_call':True,'observed_unix':time.time()}
+ 
+-def _late_normal_saved_level(root, token, scope, session, save, witness, level):
++def _late_normal_saved_level(root, token, scope, session, save, witness, level, codec_python=None):
+     """Keep the early successful save witness and observe a later game-written save after normal exit."""
+     host_path = owned_path(root, '.palcraft/control/' + token + '.host.json')
+     host = read_json(host_path)
+@@ -739,7 +739,7 @@
+     # This existing helper reparses Level and Player through the standard codec,
+     # checks the exact owned world/UID and checks both files again afterwards.
+     # Keep only the codec's observation facts, not its unsaved-boot labels.
+-    observed = _existing_level_codec(root, {'profile': get_state(root)['profile'], 'scope': scope})
++    observed = _existing_level_codec(root, {'profile': get_state(root)['profile'], 'scope': scope}, codec_python=codec_python)
+     codec = {key: observed[key] for key in ('world_id', 'pal_uid', 'files', 'standard_codec',
+              'codec_python_executable', 'standard_codec_reparsed', 'level_and_player_parsed', 'owned_UID_in_Level')}
+     codec['kind'] = 'final-owned-normal-Level-codec-observation-v1'
+@@ -755,8 +755,8 @@
+             'standard_codec_reparsed_this_call': True, 'final_level_codec_observation': codec,
+             'extra_native_BootRegistry_not_claimed': True, 'observed_unix': time.time()}
+ 
+-def finalize_stop(root, dry_run=False, quiet_seconds=2):
+-    return _finalize_off(root, dry_run, quiet_seconds)
++def finalize_stop(root, dry_run=False, quiet_seconds=2, codec_python=None):
++    return _finalize_off(root, dry_run, quiet_seconds, codec_python=codec_python)
+ 
+ 
+ def finalize_saved_crash(root, dry_run=False, quiet_seconds=2):
+@@ -764,7 +764,7 @@
+     return _finalize_off(root, dry_run, quiet_seconds, saved_crash=True)
+ 
+ 
+-def _finalize_off(root, dry_run=False, quiet_seconds=2, saved_crash=False):
++def _finalize_off(root, dry_run=False, quiet_seconds=2, saved_crash=False, codec_python=None):
+     """Finish this same completed boot from original persisted waits; no new save/stop/signals."""
+     from installer.core import operation_lock
+     from launcher.runtime import process_identity
+@@ -854,7 +854,7 @@
+             if action == 'observe_title' and scope.get('normal_title_observed') != value:
+                 fail('JOURNAL_SCOPE', '原 Title 回执与 scope 不一致。')
+         if level_changed and not saved_crash:
+-            late_level_witness = _late_normal_saved_level(root, token, scope, session, save, witness, level)
++            late_level_witness = _late_normal_saved_level(root, token, scope, session, save, witness, level, codec_python=codec_python)
+         # Same issuer as normal finish. No fake owner/Popen and no phase/state edit.
+         return _issue_off_receipt(root, token, scope, exits, witness, session['phase'], quiet_seconds, dry_run,
+                                   saved_crash=saved_crash, session=session, late_level_witness=late_level_witness)
+@@ -1003,6 +1003,9 @@
+         parsed = json.loads(result.stdout)
+     except ValueError:
+         parsed = None
++    if result.returncode != 0 and 'No module named' in result.stderr and ('ooz' in result.stderr or 'pyooz' in result.stderr):
++        fail('JOURNAL_CODEC_DEPENDENCY', '所选 Python 缺少 pyooz（ooz）；标准 codec 未解析保存，也未签发回执。',
++             '选择已安装 PalCraft-Dev/mcp/requirements-runtime.txt 中 pyooz==0.0.8 的现有 Python；finalize-stop --root OWNED_ROOT --codec-python EXISTING_PYTHON。')
+     if result.returncode != 0 or parsed != {'level_parsed': True, 'owned_uid_present': True, 'player_parsed': True}:
+         fail('JOURNAL_CRASH_CODEC', '标准 codec 未确认当前既有 Level/Player 和原 native UID。')
+     if any(value != {'identity': file_identity(root / name), 'sha256': digest(root / name)} for name, value in before.items()):
+--- a/installer/cli.py
++++ b/installer/cli.py
+@@ -128,7 +128,7 @@
+                              help='仅以 bootstrap 阶段启动本地单机 Host/Game，观察真实 UID/authority；MC/HUD/AI 和动作授权仍待完整启动')
+             sub.add_argument('--normal-stop-receipt', help='首次迁移显式使用本卷的原完整正常停机回执；后续自动读取本 boot 见证')
+             sub.add_argument('--sync-receipt', help='已有单机 bootstrap 接入完整服务时转交原保存同步回执')
+-        if name == 'finalize-crash-off':
++        if name in ('finalize-stop', 'finalize-crash-off'):
+             sub.add_argument('--codec-python', help='现有标准只读保存 codec 的 Python 可执行文件；默认使用当前解释器')
+         if name == 'stop':
+             sub.add_argument('--force', action='store_true', help='仅强制结束本次个人客户端；可能丢失未保存进度')
+@@ -174,7 +174,7 @@
+             result = update(root, args.bundle, dry)
+         elif command == 'finalize-stop':
+             from launcher.journal_lifecycle import finalize_stop
+-            result = finalize_stop(root, dry)
++            result = finalize_stop(root, dry, codec_python=args.codec_python)
+         elif command == 'finalize-saved-crash':
+             from launcher.journal_lifecycle import finalize_saved_crash
+             result = finalize_saved_crash(root, dry)
+@@ -200,6 +200,13 @@
+             result = prepare_resources(root, args.minecraft_jar, args.resource_pack, dry)
+         elif command == 'doctor':
+             result = health(root, args.check_ports)
++            result['standard_save_codec'] = {
++                'default_python': 'current CLI Python interpreter',
++                'explicit_option': 'finalize-stop --root OWNED_ROOT --codec-python EXISTING_PYTHON',
++                'runtime_requirements': 'PalCraft-Dev/mcp/requirements-runtime.txt',
++                'required_package': 'pyooz==0.0.8 (module ooz)',
++                'dependency_probe_not_run_by_doctor': True,
++                'action': 'Use an existing Python environment with these dependencies; no software is installed by this tool.'}
+         elif command == 'start':
+             result = start(root, dry, boot_singleplayer=args.boot_singleplayer,
+                            normal_stop_receipt=args.normal_stop_receipt, sync_receipt=args.sync_receipt)

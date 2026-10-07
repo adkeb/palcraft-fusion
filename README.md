@@ -58,3 +58,5 @@ MC 10.9 目标区域同步已提供 [组件实验包](https://github.com/adkeb/p
 候选 26 已完成正常更新、离线单机原世界加载和同一监督器的六组件接入，受管纹理目录错误已消失。当前场景准备因炉子的方块实体元数据与动画 clip 判断混用而受阻；已公开 [静态方块实体模型修复](workstreams/static-perblock-model-without-clip)，保留完整模型和箱子的原动画。3 项限定源码案例通过，实际新候选场景 ACK、挖掘拾取和性能仍待验证。
 
 正常退出时的晚写存档收尾已实际成功：[正常晚写存档观察](workstreams/normal-late-game-save-observation) 保留早期保存记录，原标准 codec 重新检查最终 Level、Player 与本人 UID；游戏和六组件的真实退出记录均保留。候选 28 已正常更新、保留存档并重新启动离线单机，完整场景与生存玩法仍在验收。公共安装的 codec 依赖配置尚未全部解决。
+
+[可选标准存档 codec 入口](workstreams/portable-normal-codec-entry) 增加 `finalize-stop --codec-python`，缺少 pyooz 时提供明确提示；三项限定函数案例通过，目前为未安装的源码增量。
