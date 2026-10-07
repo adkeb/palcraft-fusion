@@ -13,5 +13,7 @@
       "outer_mirror": "PalCraft-Player/mac/scripts/prepare_launch.py"
     }
   ],
-  "runtime_journal_relay_performance_MC_HUD_native_and_original_role_args_unchanged": true
+  "runtime_journal_relay_performance_MC_HUD_native_and_original_role_args_unchanged": true,
+  "actual_component_verification": "Candidate31: original normal saved shutdown reached Save/Title/client and Host exit0/all6 waits; live night control returned all4 actual role getters. This does not accept all gameplay, all future shutdowns or automatic cold start.",
+  "actual_runtime_full42_accepted": false
 }

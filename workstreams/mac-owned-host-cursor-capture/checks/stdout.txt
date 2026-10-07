@@ -1,0 +1,3 @@
+matched observed warp rebases only; following ordinary motion is real; RAW/focus closes host baseline: PASS
+stale/foreign token/epoch/generation/viewport and replay/oversized metadata refused: PASS
+real production HUD eligibility, header/scale center mapping and observed position confirmation: PASS (no GUI/warp)

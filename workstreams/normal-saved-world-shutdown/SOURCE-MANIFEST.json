@@ -52,5 +52,7 @@
       "sha256": "23f51898a11ff46b2356ff866dc544975f42a2baff2f4c2946684df7aa5b2f11",
       "bytes": 11423
     }
-  ]
+  ],
+  "actual_component_verification": "Candidate31: original normal saved shutdown reached Save/Title/client and Host exit0/all6 waits; live night control returned all4 actual role getters. This does not accept all gameplay, all future shutdowns or automatic cold start.",
+  "actual_runtime_full42_accepted": false
 }

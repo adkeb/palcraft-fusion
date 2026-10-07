@@ -119,5 +119,7 @@
     "codec_journal": "a8c49589fb0980b7c51d14f9fed1f3d5c7d2750acbdcf8320f11375a3f2f86c2",
     "candidate28_cli": "e67e9668e4f7e734bf37a0505b72165e96a36c263c1853843b64d3f0b26b4e65",
     "codec_cli": "6c3aa4b6d7b71b96c1e2b90156b4123fbc474fabc118a220b2dd87b6824b9cdf"
-  }
+  },
+  "actual_component_verification": "Candidate31: original normal saved shutdown reached Save/Title/client and Host exit0/all6 waits; live night control returned all4 actual role getters. This does not accept all gameplay, all future shutdowns or automatic cold start.",
+  "actual_runtime_full42_accepted": false
 }

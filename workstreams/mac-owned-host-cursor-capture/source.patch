@@ -1,0 +1,246 @@
+--- a/render/controls.cpp
++++ b/render/controls.cpp
+@@ -2,6 +2,7 @@
+ #include "input_transport.h"
+ #include "form_requests.h"
+ #include "mouse_message_compat.h"
++#include "host_mouse_warp.h"
+ #include <windows.h>
+ #include <windowsx.h>
+ #include "../launcher/windows_paths.hpp"
+@@ -11,6 +12,7 @@
+ #include <cstdio>
+ #include <cstring>
+ #include <ctime>
++#include <cwchar>
+ 
+ namespace {
+ std::atomic<bool> accepts{false},menu{false},build{false};
+@@ -20,13 +22,27 @@
+ std::atomic<ULONGLONG> feedbackAt{0},mouseAfter{0};
+ std::atomic<long long> mouseX{0},mouseY{0};
+ std::mutex mouseCompatLock;PalCraftMouseMessageCompat mouseCompat;
+-bool macMouseMessages(){
+- static const bool enabled=[](){wchar_t value[32]{};const wchar_t expected[]=L"relative-v1";
+-  if(GetEnvironmentVariableW(L"PALCRAFT_MAC_MOUSE_MESSAGES",value,32)!=11)return false;
+-  for(size_t i=0;i<12;++i)if(value[i]!=expected[i])return false;return true;}();
+- return enabled;
++int macMouseMode(){
++ static const int mode=[](){wchar_t value[32]{};GetEnvironmentVariableW(L"PALCRAFT_MAC_MOUSE_MESSAGES",value,32);
++  if(std::wcscmp(value,L"relative-host-warp-v1")==0)return 2;
++  return std::wcscmp(value,L"relative-v1")==0?1:0;}();return mode;
++}
++bool macMouseMessages(){return macMouseMode()!=0;}
++const char* mouseOwnerToken(){
++ static const std::string token=[](){wchar_t value[40]{};std::string s;
++  if(GetEnvironmentVariableW(L"PALCRAFT_MOUSE_OWNER_TOKEN",value,40)!=32)return s;
++  for(int i=0;i<32;++i){if(!((value[i]>='0'&&value[i]<='9')||(value[i]>='a'&&value[i]<='f')))return std::string{};s+=static_cast<char>(value[i]);}
++  return s;}();return token.c_str();
++}
++const char* mouseNativeEpoch(){
++ static const std::string epoch=[](){FILETIME born{},exit{},kernel{},user{};
++  if(!GetProcessTimes(GetCurrentProcess(),&born,&exit,&kernel,&user))return std::string{};
++  ULARGE_INTEGER stamp{};stamp.LowPart=born.dwLowDateTime;stamp.HighPart=born.dwHighDateTime;
++  char s[64];std::snprintf(s,sizeof s,"%lu:%llu",static_cast<unsigned long>(GetCurrentProcessId()),static_cast<unsigned long long>(stamp.QuadPart));return std::string(s);}();
++ return epoch.c_str();
+ }
+ void recenterMessageMouse(HWND h,const RECT&r){
++ if(macMouseMode()==2)return; // The existing Mac HUD is the one physical warp producer.
+  PalCraftMouseMessageCompat::Warp warp;
+  {std::lock_guard<std::mutex> lock(mouseCompatLock);warp=mouseCompat.recenter(reinterpret_cast<uintptr_t>(h),r.right-r.left,r.bottom-r.top,GetTickCount64());}
+  if(!warp.requested)return;
+@@ -119,7 +135,8 @@
+  // camera and movement consumers use the 8ms binary snapshot.
+  static ULONGLONG written=0;static uint32_t oldFlags=~uint32_t(0);
+  if(now-written<100&&oldFlags==s.flags)return;written=now;oldFlags=s.flags;
+- char data[768];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height);
++ bool hostEligible=false;{std::lock_guard<std::mutex> lock(mouseCompatLock);hostEligible=macMouseMode()==2&&mouseCompat.eligible&&!mouseCompat.rawSeen;}
++ char data[1152];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u,\"mouse_compatibility_mode\":\"%s\",\"mouse_owner_token\":\"%s\",\"mouse_native_epoch\":\"%s\",\"mouse_host_eligible\":%s}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height,macMouseMode()==2?"relative-host-warp-v1":(macMouseMode()==1?"relative-v1":"raw"),mouseOwnerToken(),mouseNativeEpoch(),hostEligible?"true":"false");
+  FILE*f=_wfopen(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),L"wb");if(f){fputs(data,f);fclose(f);if(MoveFileExW(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),palcraft_paths::bridge_file(L"input-state.json").c_str(),MOVEFILE_REPLACE_EXISTING))++jsonWrites;}
+ }
+ bool platformFocused(){
+@@ -192,10 +209,22 @@
+  bool watchMouseWarp=false;
+  {std::lock_guard<std::mutex> lock(mouseCompatLock);mouseCompat.scope(macMouseMessages(),live&&build&&!menu&&!newConnection,
+     reinterpret_cast<uintptr_t>(window),generation);watchMouseWarp=mouseCompat.warpPending;}
+- if(watchMouseWarp&&live&&build&&!menu&&!newConnection&&window){
++ if(macMouseMode()==1&&watchMouseWarp&&live&&build&&!menu&&!newConnection&&window){
+   POINT p{};RECT r{};if(GetCursorPos(&p)&&ScreenToClient(window,&p)&&GetClientRect(window,&r)){
+    std::lock_guard<std::mutex> lock(mouseCompatLock);
+    mouseCompat.observe_cursor(reinterpret_cast<uintptr_t>(window),p.x,p.y,r.right-r.left,r.bottom-r.top,tick);
++  }
++ }
++ if(macMouseMode()==2&&live&&build&&!menu&&!newConnection&&window){
++  static ULONGLONG readAt=0;static double lastHostWarp=0;
++  if(tick-readAt>=25){readAt=tick;FILE*f=_wfopen(palcraft_paths::bridge_file(L"mac-mouse-host.json").c_str(),L"rb");
++   if(f){char data[2049]{};size_t n=std::fread(data,1,2048,f);const bool complete=std::fgetc(f)==EOF;std::fclose(f);
++    PalCraftHostMouseWarp seen;RECT r{};
++    if(complete&&seen.parse(data,n)&&GetClientRect(window,&r)&&seen.matches(mouseOwnerToken(),mouseNativeEpoch(),generation,r.right-r.left,r.bottom-r.top,unixNow(),lastHostWarp)){
++     std::lock_guard<std::mutex> lock(mouseCompatLock);
++     if(mouseCompat.host_baseline(reinterpret_cast<uintptr_t>(window),seen.x,seen.y))lastHostWarp=seen.observed;
++    }
++   }
+   }
+  }
+  writeSnapshot(live,now,generation);
+--- a/render/mouse_message_compat.h
++++ b/render/mouse_message_compat.h
+@@ -53,4 +53,8 @@
+   }
+  }
+  void cancel_warp(uintptr_t h){if(h==window){warpPending=point=false;}}
++ bool host_baseline(uintptr_t h,int x,int y) {
++  if(!enabled||!eligible||rawSeen||h!=window)return false;
++  lastX=x;lastY=y;point=true;warpPending=false;return true;
++ }
+ };
+--- a/render/host_mouse_warp.h
++++ b/render/host_mouse_warp.h
+@@ -0,0 +1,26 @@
++#pragma once
++#include <cstdio>
++#include <cstring>
++#include <cmath>
++
++// Dedicated bounded record emitted by Foundation JSONSerialization.sortedKeys.
++// These are observed Mac cursor coordinates and a viewport-center mapping;
++// they never pretend to be a Win cursor observation or a game/world pose.
++struct PalCraftHostMouseWarp {
++ int schema=0,x=0,y=0,width=0,height=0;
++ unsigned generation=0;
++ double globalX=0,globalY=0,observed=0;
++ char token[33]{},epoch[64]{};
++ bool parse(const char* text,size_t bytes) {
++  if(bytes==0||bytes>2048||text[bytes]!=0)return false;
++  int end=-1;
++  int count=std::sscanf(text,"{\"client_center_x\":%d,\"client_center_y\":%d,\"generation\":%u,\"global_x\":%lf,\"global_y\":%lf,\"observed_unix\":%lf,\"owner_token\":\"%32[0-9a-f]\",\"process_epoch\":\"%63[0-9:]\",\"schema\":%d,\"viewport_height\":%d,\"viewport_width\":%d}%n",
++   &x,&y,&generation,&globalX,&globalY,&observed,token,epoch,&schema,&height,&width,&end);
++  return count==11&&end==static_cast<int>(bytes)&&schema==1&&std::strlen(token)==32&&
++   width>0&&width<=32768&&height>0&&height<=32768&&std::isfinite(globalX)&&std::isfinite(globalY)&&std::isfinite(observed);
++ }
++ bool matches(const char* owner,const char* process,unsigned gen,int w,int h,double now,double previous)const {
++  return std::strcmp(token,owner)==0&&std::strcmp(epoch,process)==0&&generation==gen&&width==w&&height==h&&
++   x==w/2&&y==h/2&&observed>previous&&now-observed>=-.25&&now-observed<=.5;
++ }
++};
+--- a/launcher/crossover_menu_helper.py
++++ b/launcher/crossover_menu_helper.py
+@@ -86,7 +86,8 @@
+ TRACE_ENV = 'PALCRAFT_WINE_TRACE'
+ TRACE_DEBUGMSG = '-all,err+all,trace+loaddll,trace+module'
+ MOUSE_COMPAT_ENV = 'PALCRAFT_MAC_MOUSE_MESSAGES'
+-MOUSE_COMPAT_VALUE = 'relative-v1'
++MOUSE_COMPAT_VALUE = 'relative-host-warp-v1'
++MOUSE_OWNER_ENV = 'PALCRAFT_MOUSE_OWNER_TOKEN'
+ 
+ 
+ def resolve_trace_mode(environment):
+@@ -145,7 +146,7 @@
+     link_windows = 'C:\\windows\\Start Menu\\PalCraft\\' + owner + '\\PalCraft Game.lnk'
+     menu_arguments = [str(wine), '--bottle', profile['bottle_name'],
+         '--enable-alt-loader', 'macdrv', '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+-        '--env', 'SteamAppId=1623730 ' + MOUSE_COMPAT_ENV + '=' + MOUSE_COMPAT_VALUE, '--workdir', prefix[-1],
++        '--env', 'SteamAppId=1623730 ' + MOUSE_COMPAT_ENV + '=' + MOUSE_COMPAT_VALUE + ' ' + MOUSE_OWNER_ENV + '=' + token, '--workdir', prefix[-1],
+         '--wait-children', '--start', link_windows]
+     loader_log = root / '.palcraft/logs' / ('client-loader-' + token + '.log')
+     if trace_mode == 'loader':
+@@ -168,7 +169,7 @@
+     return spec
+ 
+ 
+-def native_environment(environment, trace_mode=None):
++def native_environment(environment, trace_mode=None, owner_token=None):
+     """Carry the validated normal Wine options through the vendor CX_ENV path."""
+     trace_mode = resolve_trace_mode({TRACE_ENV: trace_mode})
+     result = dict(environment)
+@@ -181,10 +182,14 @@
+         key, separator, _ = field.partition('=')
+         if not separator or not key or '\0' in field or '\r' in field or '\n' in field:
+             raise MenuError('The inherited CX_ENV contains an unsupported assignment')
+-        if key not in ('SteamAppId', 'WINEDLLOVERRIDES', MOUSE_COMPAT_ENV):
++        if key not in ('SteamAppId', 'WINEDLLOVERRIDES', MOUSE_COMPAT_ENV, MOUSE_OWNER_ENV):
+             assignments.append(field)
+     # bin/wine clears WINEDLLOVERRIDES before applying its CX_ENV assignments.
+     assignments += ['SteamAppId=1623730', 'WINEDLLOVERRIDES=dwmapi=n,b', MOUSE_COMPAT_ENV + '=' + MOUSE_COMPAT_VALUE]
++    if owner_token is not None:
++        if not re.fullmatch('[a-f0-9]{32}', owner_token):
++            raise MenuError('Mouse owner token must be the original validated host token')
++        assignments.append(MOUSE_OWNER_ENV + '=' + owner_token)
+     result['CX_ENV'] = shlex.join(assignments)
+     result['CX_DEBUGMSG'] = TRACE_DEBUGMSG if trace_mode == 'loader' else '-all'
+     return result
+@@ -451,7 +456,7 @@
+                 raise
+             time.sleep(.05)
+     setup_environment = os.environ.copy()
+-    launch_environment = native_environment(setup_environment, trace_mode=trace_mode)
++    launch_environment = native_environment(setup_environment, trace_mode=trace_mode, owner_token=spec['token'])
+     prepare(spec, profile, setup_environment)
+     session_guard(spec)
+     # One native vendor app replacement; never also run the shortcut/cxmenu here.
+--- a/mac/hud_overlay.swift
++++ b/mac/hud_overlay.swift
+@@ -22,6 +22,33 @@
+     }
+ }
+ enum HUDProtocolError: Error { case header, size, compression }
++// Pure eligibility/coordinate mapping, also exercised without NSApp or CGWarp.
++struct MacHostMousePlan {
++    let point: CGPoint, x: Int, y: Int, width: Int, height: Int, generation: Int
++    static func make(input: [String: Any], group: MacForegroundGroup?, groupAlive: Bool,
++                     frontPID: Int32?, focused: Bool, cameraActive: Bool, renderAge: Double,
++                     now: Double, buttonsDown: Bool, bounds: CGRect?, title: CGFloat) -> MacHostMousePlan? {
++        guard focused, groupAlive, let group = group, frontPID == group.game_pid,
++              input["mouse_compatibility_mode"] as? String == "relative-host-warp-v1",
++              input["mouse_owner_token"] as? String == group.token,
++              input["mouse_native_epoch"] as? String == group.native_process_epoch,
++              input["mouse_host_eligible"] as? Bool == true,
++              input["build"] as? Bool == true, input["focus"] as? Bool == true,
++              input["menu"] as? Bool == false, !buttonsDown, cameraActive,
++              renderAge >= -1, renderAge < 2.5,
++              let stamp = input["unix"] as? Double, now-stamp >= -0.25, now-stamp <= 0.25,
++              let gen = input["generation"] as? Int, gen >= 0,
++              let w = input["viewport_width"] as? Int, let h = input["viewport_height"] as? Int,
++              w > 0, h > 0, let bounds = bounds, bounds.width > 0, bounds.height > title else { return nil }
++        let x=w/2, y=h/2
++        let point=CGPoint(x: bounds.minX + CGFloat(x)/CGFloat(w)*bounds.width,
++                          y: bounds.minY + title + CGFloat(y)/CGFloat(h)*(bounds.height-title))
++        return MacHostMousePlan(point: point, x: x, y: y, width: w, height: h, generation: gen)
++    }
++    func observed(_ cursor: CGPoint) -> Bool {
++        cursor.x.isFinite && cursor.y.isFinite && abs(cursor.x-point.x) <= 0.5 && abs(cursor.y-point.y) <= 0.5
++    }
++}
+ private func hudMonotonic() -> Double { Double(DispatchTime.now().uptimeNanoseconds) / 1e9 }
+ struct HUDClock {
+     private(set) var offset = 0.0 // remote epoch seconds minus local monotonic seconds
+@@ -527,6 +554,29 @@
+         let next = focused && render?["camera_active"] as? Bool == true &&
+                    input?["build"] as? Bool == true && renderAge >= -1 && renderAge < 2.5 &&
+                    inputAge >= -1 && inputAge < 2.5
++        if let input = input {
++            let bounds = (win?[kCGWindowBounds as String] as? [String: CGFloat]).flatMap { value -> CGRect? in
++                guard let x=value["X"], let y=value["Y"], let w=value["Width"], let h=value["Height"] else { return nil }
++                return CGRect(x:x,y:y,width:w,height:h)
++            }
++            let buttons = [CGMouseButton.left, .right, .center].contains {
++                CGEventSource.buttonState(.combinedSessionState, button: $0)
++            }
++            if let plan=MacHostMousePlan.make(input: input, group: foregroundGroup, groupAlive: groupAlive,
++                    frontPID: front?.processIdentifier, focused: focused, cameraActive: render?["camera_active"] as? Bool == true,
++                    renderAge: renderAge, now: unix, buttonsDown: buttons, bounds: bounds, title: titleHeight),
++               let group=foregroundGroup, let cursor=CGEvent(source:nil)?.location,
++               !plan.observed(cursor), CGWarpMouseCursorPosition(plan.point) == .success,
++               let actual=CGEvent(source:nil)?.location, plan.observed(actual) {
++                let result: [String: Any] = ["schema":1,"owner_token":group.token,"process_epoch":group.native_process_epoch,
++                    "generation":plan.generation,"viewport_width":plan.width,"viewport_height":plan.height,
++                    "client_center_x":plan.x,"client_center_y":plan.y,"global_x":actual.x,"global_y":actual.y,
++                    "observed_unix":Date().timeIntervalSince1970]
++                if let data=try? JSONSerialization.data(withJSONObject:result, options:.sortedKeys) {
++                    try? data.write(to:root.appendingPathComponent("mac-mouse-host.json"), options:.atomic)
++                }
++            }
++        }
+         if next != eligible {
+             eligible = next
+             requireReceivedAfter = now

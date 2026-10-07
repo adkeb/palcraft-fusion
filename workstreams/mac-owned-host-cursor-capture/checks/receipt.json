@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "ok": true,
+  "bounded_source_case_groups_passed": 3,
+  "matched_observed_metadata_baseline_then_real_motion": true,
+  "actual_HUD_plan_raw_menu_focus_buttons_and_observed_cursor_gates": true,
+  "stale_foreign_epoch_token_and_oversized_record_refused": true,
+  "original_menu_Steam_LNK_and_owner_token_producer_verified": true,
+  "actual_production_headers_and_pure_HUD_functions_used": true,
+  "all_owner_window_profile_cursor_input_and_time_fixtures_synthetic": true,
+  "no_NSApp_CGWarp_GUI_Game_RPC_input_environment_install_or_runtime_operations": true,
+  "actual_runtime_mouse_capture_not_verified": true,
+  "actual_terminal_chunk": "27e6c4",
+  "actual_exit_code": 0
+}
