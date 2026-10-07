@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "public_safe": true,
+  "component": "legacy-managed-texture-root",
+  "source_slots": 2,
+  "limited_sourcecases_passed": 2,
+  "actual_runtime_acceptance_pending": true,
+  "private_or_game_assets_included": false,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1302,
+      "sha256": "4831f65f94b41c76eb255087e7d1e71fdd2fc39a7cce5300a9d8638792a4fa1b"
+    },
+    {
+      "path": "base/client/palcraft-collisions.lua",
+      "bytes": 23694,
+      "sha256": "47f22756e7e76ac458caa29d5ae1c1974df3043c8a5cb9552164815cca318968"
+    },
+    {
+      "path": "base/server/palcraft-server.lua",
+      "bytes": 21152,
+      "sha256": "6e58824cf0f2a0d0dab2c29c38d43f89f72c94e100f8617e4390ee2b75109356"
+    },
+    {
+      "path": "checks/check_paths.lua",
+      "bytes": 2426,
+      "sha256": "cbe7b02717d876fa5aff64364659da0dc249c047a24c5d51ddc209f3d821193e"
+    },
+    {
+      "path": "source/client/palcraft-collisions.lua",
+      "bytes": 25941,
+      "sha256": "0a3b7212ce111f704a789be86442454b2def8b7769dc28ba80ed3f8b3c368570"
+    },
+    {
+      "path": "source/server/palcraft-server.lua",
+      "bytes": 23399,
+      "sha256": "6d1165e836ebcc152d89f301a7ca301c2f6532ea59f31de123d8602b31cc8c47"
+    },
+    {
+      "path": "source.patch",
+      "bytes": 9224,
+      "sha256": "210833487e1c7b7c527952a5ca4efd2098d00b9bc3553f655cd72f95fe06360e"
+    }
+  ]
+}

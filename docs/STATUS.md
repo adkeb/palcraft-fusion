@@ -72,3 +72,5 @@ MC 10.7 复活同步候选已通过 Java 25 编译并在隔离环境加载。公
 新候选 22 已合入 [持续变身选择](../workstreams/native-camera-stall-form-intent)、[有限快照准备进度](../workstreams/initial-target-snapshot-progress-lease) 和 [单机上下文扫描复用](../workstreams/standalone-global-context-scan-reuse)。当前尚未安装：候选 21 在正常采掘一根火把后发生真实原生访问异常，MC 权威记录确认方块移除，但原生清理、掉落拾取和保存结果未验收；正在定位并保留异常退出事实。
 
 [材质资源生命周期修复](../workstreams/material-resource-lifetime) 与 [未保存崩溃收尾](../workstreams/unsaved-owned-crash-off-recovery) 已公开。实际收尾明确未完成保存并保留原失败记录；原更新保留 Saved，随后发现并修复崩溃 XML 编码与启动收据分支问题。新候选 25 已完成源包审核，游戏内重新采掘拾取和性能效果仍待验证。
+
+候选 25 的正常启动与六组件接入成功，但旧掉落物路径读取不存在的 texture 目录，使场景工厂退出。已完成 [受管纹理根解析修复](../workstreams/legacy-managed-texture-root)，保留原图片与材质效果，候选 26 正在正常更新及实际采掘验收。

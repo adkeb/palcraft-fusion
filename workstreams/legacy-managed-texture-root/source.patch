@@ -1,0 +1,154 @@
+--- base/client/palcraft-collisions.lua
++++ source/client/palcraft-collisions.lua
+@@ -58,6 +58,46 @@
+  for _,name in ipairs({'BoxComponent:SetBoxExtent','PrimitiveComponent:SetCollisionEnabled','PrimitiveComponent:SetGenerateOverlapEvents','PrimitiveComponent:SetCollisionResponseToAllChannels','PrimitiveComponent:SetCollisionResponseToChannel','ActorComponent:SetIsReplicated','Actor:SetReplicates','Actor:SetReplicateMovement','Actor:SetActorHiddenInGame','Actor:K2_DestroyActor'})do addresses[#addresses+1]=address('/Script/Engine.'..name)end
+  if client then addresses[1]=address('/Script/Engine.SceneComponent:SetMobility')end
+ end
++local texture_provider,texture_provider_root
++local function texture_exists(path)local f=io.open(path,'rb');if not f then return false end;f:close();return true end
++local function texture_resource(value)
++ local namespace,name=value:match('^([a-z0-9_.%-]+):([a-z0-9_./%-]+)$')
++ assert(namespace and name,'Invalid original texture resource id')
++ for part in(name..'/'):gmatch('(.-)/')do assert(part~=''and part~='.'and part~='..','Invalid texture resource path')end
++ return namespace..'/'..name
++end
++local function legacy_texture_path(id,texture_name)
++ local resource=texture_resource(id or'minecraft:oak_planks')
++ local legacy=SHARED..'textures/'..texture_name..'.png'
++ if texture_exists(legacy)then return legacy end -- Existing legacy player packages remain valid.
++ local info=assert(models and models.status(),'Original model asset package unavailable')
++ local assets=assert(info.asset_root,'Original model asset root missing')
++ assert(assets:sub(1,#SHARED)==SHARED,'Original model asset root differs from configured bridge')
++ local namespace,name=resource:match('^([^/]+)/(.*)$')
++ local path=assets..'textures/'..namespace..'/item/'..name..'.png'
++ if texture_exists(path)then return path end
++ path=assets..'textures/'..namespace..'/block/'..name..'.png'
++ if texture_exists(path)then return path end
++ -- Stair/slab aliases use the frozen geometry provider's original texture id.
++ if name:match('_stairs$')or name:match('_slab$')then
++  if texture_provider_root~=assets then
++   local version=assert(info.geometry_version,'Original model geometry provider missing')
++   assert(version==2 or version==3,'Unsupported original geometry provider')
++   texture_provider=dofile(dir..'model_geometry_v'..version..'.lua')
++   texture_provider.configure{json=J,root=assets};texture_provider_root=assets
++  end
++  local groups=texture_provider.geometry(id,'',0,0,0)
++  for _,group in ipairs(groups or{})do
++   path=assets..'textures/'..texture_resource(group.texture)..'.png'
++   if texture_exists(path)then return path end
++  end
++ end
++ local old_fallback=SHARED..'textures/stone.png'
++ if texture_exists(old_fallback)then return old_fallback end
++ path=assets..'textures/minecraft/block/stone.png'
++ assert(texture_exists(path),'Original managed stone texture missing')
++ return path
++end
+ local function material_for(id)
+  if not client then return 0 end
+  local texture_name=(id or 'minecraft:oak_planks'):gsub('^minecraft:',''):gsub('_stairs$',''):gsub('_slab$','')
+@@ -65,8 +105,7 @@
+  local cached=materials[texture_name]
+  if cached and cached.material:IsValid()and cached.texture:IsValid()then return cached.material:GetAddress()end
+  materials[texture_name]=nil
+- local texture_path=SHARED..'textures/'..texture_name..'.png';local f=io.open(texture_path,'rb')
+- if f then f:close()else texture_path=SHARED..'textures/stone.png'end
++ local texture_path=legacy_texture_path(id,texture_name)
+  local ctx=context()
+  -- Lua userdata caches are not engine GC roots. Reacquire the original asset
+  -- immediately before creation; native SetMaterial keeps the original MID /
+@@ -296,7 +335,7 @@
+   assert(retired.ok,'Legacy stop cleanup failed: '..J.encode(retired.errors))
+  end
+  if M.chunk_consumer then M.chunk_consumer.stop(true);M.chunk_consumer=nil end
+- materials={};parent=nil;normal=nil
++ materials={};parent=nil;normal=nil;texture_provider=nil;texture_provider_root=nil
+  return M.status()
+ end
+ function M.abandon()
+@@ -304,7 +343,7 @@
+  if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end
+  if models and models.abandon_models then models.abandon_models()end
+  M.running=false;M.actors={};M.items={};M.queue={};M.queued={};M.queue_head=1;M.pending=''
+- materials={};parent=nil;normal=nil
++ materials={};parent=nil;normal=nil;texture_provider=nil;texture_provider_root=nil
+  M.ingesting_row=nil;M.pending_view=nil;M.world_observer=nil;M.abandoned=true
+  clear_accepted_views()
+  world_observers={};world_observer_order={}
+--- base/server/palcraft-server.lua
++++ source/server/palcraft-server.lua
+@@ -38,6 +38,46 @@
+  for _,name in ipairs({'BoxComponent:SetBoxExtent','PrimitiveComponent:SetCollisionEnabled','PrimitiveComponent:SetGenerateOverlapEvents','PrimitiveComponent:SetCollisionResponseToAllChannels','PrimitiveComponent:SetCollisionResponseToChannel','ActorComponent:SetIsReplicated','Actor:SetReplicates','Actor:SetReplicateMovement','Actor:SetActorHiddenInGame','Actor:K2_DestroyActor'})do addresses[#addresses+1]=address('/Script/Engine.'..name)end
+  if client then addresses[1]=address('/Script/Engine.SceneComponent:SetMobility')end
+ end
++local texture_provider,texture_provider_root
++local function texture_exists(path)local f=io.open(path,'rb');if not f then return false end;f:close();return true end
++local function texture_resource(value)
++ local namespace,name=value:match('^([a-z0-9_.%-]+):([a-z0-9_./%-]+)$')
++ assert(namespace and name,'Invalid original texture resource id')
++ for part in(name..'/'):gmatch('(.-)/')do assert(part~=''and part~='.'and part~='..','Invalid texture resource path')end
++ return namespace..'/'..name
++end
++local function legacy_texture_path(id,texture_name)
++ local resource=texture_resource(id or'minecraft:oak_planks')
++ local legacy=SHARED..'textures/'..texture_name..'.png'
++ if texture_exists(legacy)then return legacy end -- Existing legacy player packages remain valid.
++ local info=assert(models and models.status(),'Original model asset package unavailable')
++ local assets=assert(info.asset_root,'Original model asset root missing')
++ assert(assets:sub(1,#SHARED)==SHARED,'Original model asset root differs from configured bridge')
++ local namespace,name=resource:match('^([^/]+)/(.*)$')
++ local path=assets..'textures/'..namespace..'/item/'..name..'.png'
++ if texture_exists(path)then return path end
++ path=assets..'textures/'..namespace..'/block/'..name..'.png'
++ if texture_exists(path)then return path end
++ -- Stair/slab aliases use the frozen geometry provider's original texture id.
++ if name:match('_stairs$')or name:match('_slab$')then
++  if texture_provider_root~=assets then
++   local version=assert(info.geometry_version,'Original model geometry provider missing')
++   assert(version==2 or version==3,'Unsupported original geometry provider')
++   texture_provider=dofile(dir..'model_geometry_v'..version..'.lua')
++   texture_provider.configure{json=J,root=assets};texture_provider_root=assets
++  end
++  local groups=texture_provider.geometry(id,'',0,0,0)
++  for _,group in ipairs(groups or{})do
++   path=assets..'textures/'..texture_resource(group.texture)..'.png'
++   if texture_exists(path)then return path end
++  end
++ end
++ local old_fallback=SHARED..'textures/stone.png'
++ if texture_exists(old_fallback)then return old_fallback end
++ path=assets..'textures/minecraft/block/stone.png'
++ assert(texture_exists(path),'Original managed stone texture missing')
++ return path
++end
+ local function material_for(id)
+  if not client then return 0 end
+  local texture_name=(id or 'minecraft:oak_planks'):gsub('^minecraft:',''):gsub('_stairs$',''):gsub('_slab$','')
+@@ -45,8 +85,7 @@
+  local cached=materials[texture_name]
+  if cached and cached.material:IsValid()and cached.texture:IsValid()then return cached.material:GetAddress()end
+  materials[texture_name]=nil
+- local texture_path=SHARED..'textures/'..texture_name..'.png';local f=io.open(texture_path,'rb')
+- if f then f:close()else texture_path=SHARED..'textures/stone.png'end
++ local texture_path=legacy_texture_path(id,texture_name)
+  local ctx=context()
+  -- Lua userdata caches are not engine GC roots. Reacquire the original asset
+  -- immediately before creation; native SetMaterial keeps the original MID /
+@@ -258,7 +297,7 @@
+   assert(retired.ok,'Legacy stop cleanup failed: '..J.encode(retired.errors))
+  end
+  if M.chunk_consumer then M.chunk_consumer.stop(true);M.chunk_consumer=nil end
+- materials={};parent=nil;normal=nil
++ materials={};parent=nil;normal=nil;texture_provider=nil;texture_provider_root=nil
+  return M.status()
+ end
+ function M.abandon()
+@@ -266,7 +305,7 @@
+  if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end
+  if models and models.abandon_models then models.abandon_models()end
+  M.running=false;M.actors={};M.items={};M.queue={};M.queued={};M.queue_head=1;M.pending=''
+- materials={};parent=nil;normal=nil
++ materials={};parent=nil;normal=nil;texture_provider=nil;texture_provider_root=nil
+  M.ingesting_row=nil;M.pending_view=nil;M.world_observer=nil;M.abandoned=true
+  bound_context=nil;bound_context_address=nil;bound_world_address=nil
+ end
