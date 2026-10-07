@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 3,
+  "failures": 0,
+  "errors": 0,
+  "runtime_source_sha256": "da4ff409739304c846c0e51879d83a721bf6be2a32425044fa49ab6d95d3902c",
+  "HUD_source_sha256": "9a4669c8d949876817d8513655613dde1dbcc789a881728328ce25b06445b12e",
+  "exact_source_resolver_and_Swift_selector_exercised": true,
+  "all_fixture_data_synthetic_temporary": true,
+  "Game_HUD_binary_GUI_CUA_RPC_or_focus_sidecar_started_or_written": false,
+  "native750_and_loss_focus_release_changed": false
+}

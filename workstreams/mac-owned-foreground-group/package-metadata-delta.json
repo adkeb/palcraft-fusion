@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "requirements_mac_hud_before": {
+    "version": "5-idle",
+    "sha256": "1eff9ccfba59fc525cb94b85443725643c9362c75a6576f59ebf5e313ec631d1",
+    "bytes": 296240,
+    "source_sha256": "fb6f6fe75de8d7e5d1fb879cbc9df211aab001bfafb9cca5ac92259910265950",
+    "relay_sha256": "685ad3caaef9c9e9792bae77e18a5b3ed3f16ca51d409f3a68a696ab5b700191",
+    "port": 25603,
+    "night_hud_fps": 10,
+    "source_age_limit_ms": 250,
+    "titlebar_height": 28,
+    "wire": "MCPT/PHUD2/HCLK unchanged",
+    "physical_HUD_verified": false
+  },
+  "requirements_mac_hud_after": {
+    "version": "6-owned-foreground-group",
+    "sha256": "bc7a12191cb599dff4f7d8ad2d5074cb4806928fd1e1c892e871a4530f9af02e",
+    "bytes": 212968,
+    "source_sha256": "9a4669c8d949876817d8513655613dde1dbcc789a881728328ce25b06445b12e",
+    "relay_sha256": "685ad3caaef9c9e9792bae77e18a5b3ed3f16ca51d409f3a68a696ab5b700191",
+    "port": 25603,
+    "night_hud_fps": 10,
+    "source_age_limit_ms": 250,
+    "titlebar_height": 28,
+    "wire": "MCPT/PHUD2/HCLK unchanged",
+    "physical_HUD_verified": false
+  },
+  "requirements_changed_keys": [
+    "version",
+    "sha256",
+    "bytes",
+    "source_sha256"
+  ],
+  "requirements_all_other_objects_preserved": true,
+  "manifest_mac_hud_before": {
+    "target": "PalCraft-Dev/player-tools/bin/hud-overlay-v4",
+    "sha256": "1eff9ccfba59fc525cb94b85443725643c9362c75a6576f59ebf5e313ec631d1",
+    "bytes": 296240,
+    "role": "mac_hud",
+    "executable": true,
+    "implementation_version": "5-idle",
+    "source_sha256": "fb6f6fe75de8d7e5d1fb879cbc9df211aab001bfafb9cca5ac92259910265950"
+  },
+  "manifest_mac_hud_after": {
+    "target": "PalCraft-Dev/player-tools/bin/hud-overlay-v4",
+    "sha256": "bc7a12191cb599dff4f7d8ad2d5074cb4806928fd1e1c892e871a4530f9af02e",
+    "bytes": 212968,
+    "role": "mac_hud",
+    "executable": true,
+    "implementation_version": "6-owned-foreground-group",
+    "source_sha256": "9a4669c8d949876817d8513655613dde1dbcc789a881728328ce25b06445b12e"
+  },
+  "other_manifest_entry_roles_and_metadata_preserved": true,
+  "no_installer_select_v5_idle_slot_added": true
+}

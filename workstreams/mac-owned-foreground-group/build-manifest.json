@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "source": {
+    "path": "source/mac/hud_overlay.swift",
+    "sha256": "9a4669c8d949876817d8513655613dde1dbcc789a881728328ce25b06445b12e",
+    "bytes": 27408
+  },
+  "binary": {
+    "path": "PalCraft-HUD-Owned-Foreground-Group-Mac13",
+    "sha256": "bc7a12191cb599dff4f7d8ad2d5074cb4806928fd1e1c892e871a4530f9af02e",
+    "bytes": 212968
+  },
+  "compile_command": [
+    "nice",
+    "-n",
+    "19",
+    "/usr/bin/swiftc",
+    "-target",
+    "arm64-apple-macosx13.0",
+    "-O",
+    "source/mac/hud_overlay.swift",
+    "-o",
+    "PalCraft-HUD-Owned-Foreground-Group-Mac13",
+    "-lz"
+  ],
+  "compiler_version": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0",
+  "actual_macho_architecture": "arm64",
+  "actual_LC_BUILD_VERSION": {
+    "platform": "macOS",
+    "minos": "13.0",
+    "sdk": "27.0"
+  },
+  "source_build_chain_tag": "arm64-apple-macosx13.0-source-build",
+  "authoritative_compile_handle": 96275,
+  "authoritative_compile_exit_code": 0,
+  "stdout": "",
+  "stderr": "",
+  "binary_executed": false,
+  "initial_default_sdk_min27_binary_excluded": true
+}

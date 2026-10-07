@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "component": "normal-Mac-owned-foreground-group",
+  "public_safe": true,
+  "fixture_data": "synthetic only",
+  "files": [
+    {
+      "path": "source/launcher/runtime.py",
+      "sha256": "da4ff409739304c846c0e51879d83a721bf6be2a32425044fa49ab6d95d3902c",
+      "bytes": 71703
+    },
+    {
+      "path": "source/mac/hud_overlay.swift",
+      "sha256": "9a4669c8d949876817d8513655613dde1dbcc789a881728328ce25b06445b12e",
+      "bytes": 27408
+    },
+    {
+      "path": "PalCraft-HUD-Owned-Foreground-Group-Mac13",
+      "sha256": "bc7a12191cb599dff4f7d8ad2d5074cb4806928fd1e1c892e871a4530f9af02e",
+      "bytes": 212968
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "d21c133235b5fab8d574db96853dcc3c4efd1b4084e88200c7cf8a913dcf03e3",
+      "bytes": 507
+    },
+    {
+      "path": "build-manifest.json",
+      "sha256": "221255752f8d1ee1ece13375e8d5c1e498565da8e3ae03ca97b2cb24f2bc8578",
+      "bytes": 1128
+    },
+    {
+      "path": "package-metadata-delta.json",
+      "sha256": "cf8136900a1cab3cc117449a5001faa146720647853b1c69230cf6e3cd3fd3d2",
+      "bytes": 2115
+    },
+    {
+      "path": "checks/check_foreground_group.py",
+      "sha256": "2d81920a97d21ac2921df8e95425c5f2ed3b1564b10e59ae537f082090ced9f5",
+      "bytes": 7202
+    },
+    {
+      "path": "README.md",
+      "sha256": "0e435984651dbe3ffe367167ca2f26dae6e8323826b0c5d821033dc4e96571fe",
+      "bytes": 1863
+    }
+  ],
+  "portable_checker_change": "same source cases; receipt emitted to stdout instead of rewriting archived receipt",
+  "actual_private_evidence_included": false
+}
