@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 3,
+  "authoritative_completion_chunk": "89a5d4",
+  "exit_code": 0,
+  "test_invocations": 3,
+  "prior_two_failures": "synthetic fixture config omitted version; then synthetic aux centres overlapped; corrected fixtures, production source unchanged",
+  "base_sha256": "e2c512444faf0e5462c4b8fed06bf90212699b8c4a946f2f5c8e52e776030538",
+  "source_sha256": "5384e9674f719299052e9869539f4e5641c8a17a8c68ecb7194ddd3f21eaf9c5",
+  "exact_protocol_dependency_sha256": "41f5738fc7a25a713319e5126aec4282f2ea7e582157040fad7a19ecd2ac0e77",
+  "cases": [
+    "initial join/reconnect/respawn authentic fixture snapshot and actual feet coverage",
+    "aux Nether/End and ordinary home MC target unchanged",
+    "no premature readiness, original collision/commit/camera/complete ACK chain"
+  ],
+  "native_actor_camera_collision_data_synthetic": true,
+  "actual_Game_RPC_SDK_Popen_installed_writes_Git_or_ACK_proven": false
+}

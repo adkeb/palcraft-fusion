@@ -1,0 +1,36 @@
+--- a/server/travel.lua
++++ b/server/travel.lua
+@@ -142,18 +142,29 @@
+  if not mapping then
+   self:_intent_error(row,e,b,txid,err,current);return false,err
+  end
+- local bounds,why=self.registry:required(mapping,e.pos)
++ local snapshot=self.actor.snapshot(b.pc)
++ local initial_home=mapping.native_overworld and(e.reason=='join'or e.reason=='reconnect'or e.reason=='respawn')
++  and(not current or current.world_session~=row.session or not P.same_binding(current.binding,b))
++ local required_pos=e.pos
++ if initial_home then
++  -- The normal saved/respawned Pal character is the initial native-home authority.
++  -- MC's old saved pose is a replica; its trusted host_pose route synchronizes after the full ACK.
++  local feet=P.copy(snapshot.position);feet.Z=feet.Z-snapshot.half_height
++  required_pos=P.to_mc(mapping,feet)
++ end
++ local bounds,why=self.registry:required(mapping,required_pos)
+  if not bounds then
+   self.registry:release(mapping,'tx:'..txid);self:_intent_error(row,e,b,txid,why,current);return false,why
+  end
+- local snapshot=self.actor.snapshot(b.pc);local target=P.to_ue(mapping,e.pos);target.Z=target.Z+snapshot.half_height
++ local target=initial_home and P.copy(snapshot.position)or P.to_ue(mapping,e.pos)
++ if not initial_home then target.Z=target.Z+snapshot.half_height end
+  local tx={tx=txid,binding=P.identity(b),world_session=row.session,view=e.view,dim=e.to,reason=e.reason,
+   phase='preparing',mapping=mapping,required_bounds=bounds,pos=P.copy(e.pos),yaw=e.yaw,pitch=e.pitch,target_pawn=target,
+   source={mapping=current and current.mapping,dim=current and current.dim,snapshot=snapshot},started=self.now,
+   deadline=self.now+self.config.prepare_timeout_ms,_pc=b.pc,_source_ticket=current and current._ticket,
+   _already_arrived=P.distance(snapshot.position,target)<=self.config.position_tolerance_cm}
+- if mapping.native_overworld and(e.reason=='join'or e.reason=='reconnect'or e.reason=='respawn')
+-  and(not current or current.world_session~=row.session or not P.same_binding(current.binding,b))then
++ if initial_home then
++  tx.initial_native_home_from_pal_spawn=true
+   tx.initial_prepare_started=self.now;tx.initial_prepare_limit=self.now+math.max(self.config.prepare_timeout_ms,180000)
+  end
+  self.pending[uid]=tx;self:_save() -- Durable intent before locks, actor creation, or travel messages.

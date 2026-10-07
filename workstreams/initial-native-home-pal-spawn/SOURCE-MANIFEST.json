@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "public_safe": true,
+  "component": "normal-initial-native-home-pal-spawn",
+  "production_slots": 1,
+  "files": [
+    {
+      "path": "base/server/travel.lua",
+      "sha256": "e2c512444faf0e5462c4b8fed06bf90212699b8c4a946f2f5c8e52e776030538",
+      "bytes": 29648
+    },
+    {
+      "path": "source/server/travel.lua",
+      "sha256": "5384e9674f719299052e9869539f4e5641c8a17a8c68ecb7194ddd3f21eaf9c5",
+      "bytes": 30158
+    },
+    {
+      "path": "initial-native-home.patch",
+      "sha256": "15aeb36b9d3a39ec8a0804d197b8ba99b4260d0d0a0721daa5f3905a27adcb3f",
+      "bytes": 2340
+    },
+    {
+      "path": "checks/check_initial_home.lua",
+      "sha256": "13e7db1afae1d4f38f15b55169f17ae7cce0008434a8eae767cdcd71b3f0b199",
+      "bytes": 5833
+    },
+    {
+      "path": "checks/dependencies/protocol.lua",
+      "sha256": "41f5738fc7a25a713319e5126aec4282f2ea7e582157040fad7a19ecd2ac0e77",
+      "bytes": 17361
+    },
+    {
+      "path": "checks/dependencies/json.lua",
+      "sha256": "f6d12670ff0c535d8359306625578f648cde5ce0b63bff788c6412cc07b6dc67",
+      "bytes": 10150
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "d3477392f6782e1e5e8aacd5ece28617779ad36e8e1dded9f734f5a61adf7093",
+      "bytes": 952
+    },
+    {
+      "path": "README.md",
+      "sha256": "d92896612e0ffee8f276a61dc88d6a4ae84e64638eb202dda3a6d7ffb74e885e",
+      "bytes": 1109
+    }
+  ],
+  "actual_runtime_pose_floor_session_or_credential_evidence_included": false,
+  "check_scope": "3 synthetic source cases; no actual Game or ACK acceptance"
+}
