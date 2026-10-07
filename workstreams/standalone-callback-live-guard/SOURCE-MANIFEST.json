@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "kind": "normal-local-realm-live-guard-next15-source-delta",
+  "source_only": true,
+  "files": [
+    {
+      "path": "client/runtime/local_realm.lua",
+      "managed_target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/local_realm.lua",
+      "base_sha256": "dc0f2d1fafdc6e07ff6a1400c30879ad37dc802f15a8bf788d0c99df5cac1446",
+      "new_sha256": "e1a30e407d32e6dca75826a080facaa1dac113398d339847194f29f037e7b3e2",
+      "bytes": 18795
+    }
+  ],
+  "inherited_main_unchanged_sha256": "daa598cabb14b300eb24d247b25c22abed17302baac7cc350d9c8821d162c9a9",
+  "patch": {
+    "path": "live-guard.patch",
+    "sha256": "994432bf0dd9ac6dc0796824b90f5f4a2fb49f3ab4f8b8d5872ed27aa1aa8f44"
+  },
+  "changes": [
+    "Replace only same-callback still_current guard; complete verify_context and original verify_owned remain byte-for-byte unchanged",
+    "Same-callback operations check live local PC/Pawn/World/GameState, possession, authority, initialization, and native transmitter/player-component ownership",
+    "Remove repeated same-callback object names, UID/save directory, native mode/options, controller counts, save-manager and selected-world getters that were already fully verified at this callback boundary",
+    "Changed live context invalidates proof and immediately invokes existing complete sample; original frame-boundary failure remains rejected until next callback",
+    "Original no-frame full sample and all native technology/material/inventory mutation checks remain unchanged"
+  ],
+  "checks": {
+    "receipt": "checks/receipt.json",
+    "sha256": "87b220d03936d07b27220b0c2e23e91b82a08a3543286da277c4cbd42374f96c",
+    "cases": 3,
+    "synthetic_same_callback_current14": {
+      "GetFullName": 2530,
+      "GetSaveGameManager": 80,
+      "permission": 1
+    },
+    "synthetic_same_callback_candidate15": {
+      "GetFullName": 160,
+      "GetSaveGameManager": 1,
+      "permission": 1
+    }
+  },
+  "new_reader_timer_protocol_cross_frame_TTL_clock_focus_ready_authority_resources_or_deadline_changed": false,
+  "actual_next15_FPS_or_control_latency_verified": false
+}

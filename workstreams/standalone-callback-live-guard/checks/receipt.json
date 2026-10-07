@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "kind": "targeted-source-object-fixture",
+  "runner": "existing Lua 5.4.8 interpreter, nice 19; no SDK or game process",
+  "invocation_count": 1,
+  "exit_code": 0,
+  "command_relative_to_workspace": "nice -n 19 work/palworld-live/research/lua-5.4.8/src/lua work/minecraft-fusion/coordination/normal-local-realm-live-guard-next15/checks/check_live_guard.lua work/minecraft-fusion work/minecraft-fusion/coordination/normal-local-realm-live-guard-next15/source work/minecraft-fusion/coordination/normal-local-realm-live-guard-next15/base",
+  "same_work": "20 rounds of current/validate/same_world/status in one callback; initialized reference context before compared callback",
+  "source_sha256": "e1a30e407d32e6dca75826a080facaa1dac113398d339847194f29f037e7b3e2",
+  "baseline_sha256": "dc0f2d1fafdc6e07ff6a1400c30879ad37dc802f15a8bf788d0c99df5cac1446",
+  "fixture_sha256": "54e3cd5e5ac2ce12a301d7358e059078268479ace217f545549e563d7b4219d1",
+  "result": {
+    "actual_FPS60_or_control_latency_proven": false,
+    "actual_installed_game_or_scene_changed": false,
+    "cases": [
+      {
+        "name": "same_callback_live_guard_removes_repeated_names_and_static_manager_getters",
+        "passed": true
+      },
+      {
+        "name": "sameframe_pawn_or_world_change_rejects_and_completely_rediscovers",
+        "passed": true
+      },
+      {
+        "name": "frame_permission_failure_never_reuses_cached_success_and_failed_frame_is_not_replayed",
+        "passed": true
+      }
+    ],
+    "counts": {
+      "candidate15": {
+        "GetFullName": 160,
+        "GetSaveGameManager": 1,
+        "permission": 1
+      },
+      "current14": {
+        "GetFullName": 2530,
+        "GetSaveGameManager": 80,
+        "permission": 1
+      }
+    },
+    "new_SDK_probe_clock_ready_or_permission_generated": false,
+    "ok": true,
+    "original_object_fixture_reused": true,
+    "targeted_cases": 3
+  }
+}
