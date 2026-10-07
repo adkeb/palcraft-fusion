@@ -10,7 +10,7 @@
 
 上一轮隔离运行已完成真实世界快照、完整目标模型与碰撞提交和本次世界 ACK，MC HUD 像素也已实际导出、编码和解码。这些记录只证明各自的数据链路；前台 HUD、物理输入、变身和完整生存玩法仍待验收。
 
-最新单机候选已在实际 Mac 启动中确认：原生 Menu Helper 自动首启游戏，Mod 与原生组件真正加载，原世界通过正常 API 加载，并获取真实 Palworld 场景图。更新后的后端启动模板也通过原事务恢复。当前正补齐流体日志路径配置并连接本地 MC 后端，前台输入、F5、完整生存玩法与 42 项验收仍未完成，见 [开发状态](docs/STATUS.md)。
+最新单机候选已在实际 Mac 启动中确认：原生 Menu Helper 自动首启游戏，Mod 与原生组件真正加载，原世界通过正常 API 加载，并获取真实 Palworld 场景图。更新后的后端启动模板也通过原事务恢复。日志路径配置已补齐，本地 MC 后端已通过原身份登记、签名验证及实际世界快照 ACK 接入，前台输入、F5、完整生存玩法与 42 项验收仍未完成，见 [开发状态](docs/STATUS.md)。
 
 最新修正源码分别保存在 [玩家保存与重启流程](workstreams/normal-journal-owned-player-flow-v2)、[原生实体身份绑定](workstreams/native-entity-binding-next)、[MCP 身份观察](workstreams/MC-local-scope-observation-next) 和 [Windows 快捷方式生成备选](workstreams/windows-shelllink-stdlib-alternative)。备选只有格式与源码检查，尚未证明实际 vendor 解析成功。
 

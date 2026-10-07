@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "kind": "explicit-mac-guest-hud-performance-override",
+  "production_target": "PalCraft-Dev/player-tools/mac/scripts/prepare_launch.py",
+  "production_role": "standalone_component",
+  "changed_production_files": 1,
+  "base_sha256": "86f2f45ff1b7e90e38d609f3309902caafca01e0a927d10cd92e138016d7ddfc",
+  "source_sha256": "15448ae8b44abe135170ae75b2358181ff78f9e27f688dbd42cc68045380df59",
+  "patch_sha256": "9fab95c53c44862ca58b5bf1af17c23ba531b8297acd89150a381275e2422c89",
+  "files": {
+    "source/mac/scripts/prepare_launch.py": {
+      "sha256": "15448ae8b44abe135170ae75b2358181ff78f9e27f688dbd42cc68045380df59",
+      "bytes": 8352
+    },
+    "base/mac/scripts/prepare_launch.py": {
+      "sha256": "86f2f45ff1b7e90e38d609f3309902caafca01e0a927d10cd92e138016d7ddfc",
+      "bytes": 6326
+    },
+    "prepare_launch.py.patch": {
+      "sha256": "9fab95c53c44862ca58b5bf1af17c23ba531b8297acd89150a381275e2422c89",
+      "bytes": 3841
+    },
+    "checks/verify_performance_override.py": {
+      "sha256": "1a1699950015630d66bdb8fc64dbacc94cf72aaa3186506dbd7b808f90f6c2dd",
+      "bytes": 10067
+    },
+    "checks/dependencies/prepare_guest.py": {
+      "sha256": "2089c971a2cf4c72ef350ef4ede4f065702de33981139de44b7d9ed4e828cce2",
+      "bytes": 15349
+    },
+    "checks/dependencies/session_client.py": {
+      "sha256": "66e4115da91db8983b028b55ec7a9e990ab1b76131c00af9fb1954b87329d7af",
+      "bytes": 5802
+    },
+    "checks/fixtures/synthetic-credential.json": {
+      "sha256": "2079e5e3984c62e8b75b9ae93b997815cd5b51ee982339a3f1bba0c3df68146d",
+      "bytes": 1090
+    },
+    "verification.json": {
+      "sha256": "e599667c9410e7b6568b12befbf88576913da57434b083a33033df14c62618d1",
+      "bytes": 965
+    },
+    "README.md": {
+      "sha256": "4d5f1c45aaf4feb7d666079d8c2fe329db8f0f2fbb5e24078ac20071608f3c93",
+      "bytes": 2059
+    }
+  },
+  "default_output_bytes_and_arguments_equal_original": true,
+  "explicit_changes_only": [
+    "guest JVM -Dpalcraft.maxFps value",
+    "HUD --fps value"
+  ],
+  "original_scope_identity_frame_ports_features_and_signature_guards_unchanged": true,
+  "existing_template_or_config_written": false,
+  "clock_global_policy_or_author_paths_added": false,
+  "original_Mac_DTO_source_2089_unchanged": true,
+  "checks_passed": 3,
+  "actual_credential_UID_SID_key_grant_role_JSON_Saved_vendor_or_process_data_included": false,
+  "runtime_applied": false,
+  "actual_performance_or_gameplay_accepted": false
+}

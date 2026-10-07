@@ -1,0 +1,69 @@
+--- a/mac/scripts/prepare_launch.py
++++ b/mac/scripts/prepare_launch.py
+@@ -3,7 +3,29 @@
+ import json
+ from pathlib import Path
+ 
+-def prepare_launch(config_path):
++def with_role_fps(values, fps, guest=False):
++    result = list(values)
++    if guest:
++        indexes = [i for i, value in enumerate(result) if value.startswith('-Dpalcraft.maxFps=')]
++    else:
++        indexes = [i for i, value in enumerate(result) if value == '--fps']
++    if len(indexes) != 1 or (not guest and indexes[0] + 1 == len(result)):
++        raise ValueError('Performance override requires one original FPS argument per guest/HUD role')
++    index = indexes[0]
++    if guest:
++        result[index] = '-Dpalcraft.maxFps=' + str(fps)
++    else:
++        result[index + 1] = str(fps)
++    return result
++
++
++def prepare_launch(config_path, performance_override=None):
++    if performance_override is not None:
++        if (not isinstance(performance_override, dict)
++                or set(performance_override) != {'mc_fps', 'hud_fps'}
++                or any(type(performance_override[key]) is not int or not 1 <= performance_override[key] <= maximum
++                       for key, maximum in (('mc_fps', 60), ('hud_fps', 120)))):
++            raise ValueError('Performance override requires only integer mc_fps (1..60) and hud_fps (1..120)')
+     cfg = json.loads(Path(config_path).read_text())
+     root = Path(cfg['software_root'])
+     plan = json.loads((root / 'setup/mac-dependency-plan.json').read_text())
+@@ -44,6 +66,13 @@
+     hud = ['--frame-file', cfg['frame_file'], '--fps', str(cfg['performance']['hud_fps']), '--port', '25603',
+            '--status-file', str(Path(cfg['guest_bridge_dir']) / 'hud-relay-status.json')]
+     template = json.loads(Path(cfg['preserve_launch_template']).read_text()) if cfg.get('preserve_launch_template') else None
++    overrides = {}
++    if performance_override is not None:
++        # Validate both positions before publishing any role file. Original template bytes stay untouched.
++        originals = {'guest': guest, 'hud': hud} if template is None else {
++            role: template['roles'][role]['arguments'] for role in ('guest', 'hud')}
++        overrides = {'guest': with_role_fps(originals['guest'], performance_override['mc_fps'], guest=True),
++                     'hud': with_role_fps(originals['hud'], performance_override['hud_fps'])}
+     for role, values, cwd, executable, main in [
+         ('server', server, cfg['server_game_dir'], str(java), 'FabricServerLauncher'),
+         ('guest', guest, cfg['guest_game_dir'], str(java), 'KnotClient'),
+@@ -54,6 +83,8 @@
+                     or before['same_original_uuid'] != uuid or before['frame_file'] != cfg['frame_file']):
+                 raise ValueError('Existing launch template belongs to another world/player/frame root')
+             values, executable, main = before['arguments'], before['executable'], before['main']
++        if role in overrides:
++            values = overrides[role]
+         if any('fabric.dli' in value or 'devlaunchinjector' in value or '.gradle' in value for value in values):
+             raise ValueError('Development route refused')
+         if role != 'hud':
+@@ -74,8 +105,11 @@
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument('--config', type=Path, required=True)
++    parser.add_argument('--performance-override', type=Path,
++                        help='Explicit JSON containing only mc_fps and hud_fps; changes only their original role arguments')
+     args = parser.parse_args()
+-    print(json.dumps(prepare_launch(args.config)))
++    override = json.loads(args.performance_override.read_text()) if args.performance_override else None
++    print(json.dumps(prepare_launch(args.config, performance_override=override)))
+ 
+ 
+ if __name__ == '__main__':

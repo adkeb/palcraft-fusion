@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 3,
+  "failures": 0,
+  "errors": 0,
+  "source_sha256": "15448ae8b44abe135170ae75b2358181ff78f9e27f688dbd42cc68045380df59",
+  "base_sha256": "86f2f45ff1b7e90e38d609f3309902caafca01e0a927d10cd92e138016d7ddfc",
+  "default_output_bytes_and_argv_equal_original": true,
+  "explicit_only_MC_maxFPS_and_HUD_FPS_values_changed": true,
+  "2089_original_role_FPS_identity_port_frame_guards_accept_producer_outputs": true,
+  "override_invalid_or_duplicate_positions_rejected_before_role_publication": true,
+  "existing_template_and_config_fixture_bytes_unchanged": true,
+  "all_fixtures_temporary_and_synthetic": true,
+  "new_credential_key_UID_SID_grant_or_signature_created": false,
+  "actual_credential_current_runtime_saved_vendor_or_installed_files_read_or_written": false,
+  "original_12_Mac_DTO_checks_rerun": false,
+  "MC_GUI_network_RPC_Popen_or_Git_operations": false,
+  "actual_performance_or_gameplay_accepted": false
+}
