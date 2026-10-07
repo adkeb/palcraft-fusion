@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "ok": true,
+  "version": "0.2.0-integration.10.9-center-source",
+  "base_mod_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "jar_sha256": "fbbf30937a85f7f8d879520de9ce663fc87b031a6a94d3110fe38bb1294cf53c",
+  "jar_bytes": 552399,
+  "java_sources_compiled": 3,
+  "production_class_count": 9,
+  "production_classes": {
+    "dev/rehan/passthrough/BridgeServerFeatures.class": "e4a5d1b6aaf6045a5521be04949117b638214ec389cd6f0238e2ce83da4c0538",
+    "dev/rehan/passthrough/BridgeTravelGate$ListKeys.class": "26f846eacb2a0390e2f85e5a182f4db3f06db6600e583fbf1bfed5e7b1ebd5bb",
+    "dev/rehan/passthrough/BridgeTravelGate.class": "a80212751a736567f92fd9aa61894f3e573bdfc48fd41ef83a05038c8656d00d",
+    "dev/rehan/passthrough/WorldCompatibility$LoadedView.class": "cac52d363891fe5fbc13b624affd0c8320f6fcb279ab1b5d633a40b276791503",
+    "dev/rehan/passthrough/WorldCompatibility$PortalContact.class": "31de92898f20dcd8c10c26f035d36610f6182237e6a15e81fba16e6de28806d5",
+    "dev/rehan/passthrough/WorldCompatibility$Restore.class": "09acdf8905e18a7e4ef1c6ade0f5bdbcaf9d8bceba6f5c68f523289df063790d",
+    "dev/rehan/passthrough/WorldCompatibility$Snapshot.class": "4bcfb41ab4641733a3f4204a8e137f5447482d9f8a8c060365064a81d9337dd2",
+    "dev/rehan/passthrough/WorldCompatibility$View.class": "34cd235f6d34c7603a9025c117d4b035b4305feff050141f8312ef90ed1a3560",
+    "dev/rehan/passthrough/WorldCompatibility.class": "e26f322c623e2562e1af88cc7bc8c75975ead1794d2dbcd14dd4e34bbf7d5eac"
+  },
+  "runtime_entries": 173,
+  "runtime_classes": 168,
+  "unchanged_entry_bytes_preserved": 163,
+  "compile_overlay_runtime_excluded": true,
+  "source_archive": "mc10_9-center-source.zip",
+  "source_archive_sha256": "816d0ba1f3f6efd7700b790b2e12eb8956f2705575e2f3b19a2bbac11fb6804b",
+  "source_archive_members": 118,
+  "existing_legal_runtime_dependencies_reused": true,
+  "full_source_project_recompiled": false,
+  "worker_concurrency": 1,
+  "nice": 19,
+  "max_heap_mib": 512,
+  "runtime_or_scene_verified": false,
+  "managed_mc_payload_slots": 1,
+  "recorded_jvm_steps": [
+    {
+      "step": 1,
+      "tool": "javac",
+      "exit_code": 0,
+      "elapsed_seconds": 0.31,
+      "heap_MiB": 128
+    },
+    {
+      "step": 2,
+      "tool": "java",
+      "exit_code": 0,
+      "elapsed_seconds": 0.063,
+      "heap_MiB": 128
+    },
+    {
+      "step": 3,
+      "tool": "javac",
+      "exit_code": 0,
+      "elapsed_seconds": 0.759,
+      "heap_MiB": 512
+    }
+  ],
+  "raw_argv_and_paths_omitted": true,
+  "actual_byte_changed_entries": 9,
+  "compiled_byte_identical_entries": [
+    "dev/rehan/passthrough/WorldCompatibility$Snapshot.class"
+  ],
+  "compiled_outputs_plus_version_entries_replaced": 10,
+  "all_other_163_raw_bytes_and_order_preserved": true,
+  "publication_recompiled_or_retested": false
+}

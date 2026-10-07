@@ -1,0 +1,196 @@
+{
+  "schema": 1,
+  "kind": "public-source-and-incremental-reproducer",
+  "allowlist": [
+    "README.md",
+    "base/client/runtime/client_options.lua",
+    "base/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java",
+    "base/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java",
+    "base/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java",
+    "build/mc10_7/build-recipe.json",
+    "build/mc10_7/compile-support/FabricCompileInterfaces.java",
+    "build/mc10_9/build-recipe.json",
+    "build/mc10_9/recorded-build-receipt.json",
+    "build/mc10_9/source.zip",
+    "build_mc_delta.py",
+    "checks/TargetRingChecks.java",
+    "checks/check_request.lua",
+    "checks/deps/io.lua",
+    "checks/deps/json.lua",
+    "checks/deps/protocol.lua",
+    "checks/deps/records.lua",
+    "checks/deps/session.lua",
+    "checks/receipt.json",
+    "manifest.json",
+    "source.patch",
+    "source/client/runtime/client_options.lua",
+    "source/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java",
+    "source/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java",
+    "source/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java"
+  ],
+  "reviewed_source_files": [
+    {
+      "source": "client/runtime/client_options.lua",
+      "base_sha256": "00ab4dc62185ff0c12314817eae6f3452ecda83a3121b3c1d5137182e07f9b94",
+      "source_sha256": "2716a3639dc24631bfd526621ea71fead15b7977dba6dca8bb895e14f337d799"
+    },
+    {
+      "source": "mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java",
+      "base_sha256": "97d13585a99fd0220861dd714bf068f49134705baca457326d3d243b86abfed9",
+      "source_sha256": "a0d9f92ccac84b2e16aeaba765b58a04d810d9627b27d920d4aea9d355c89698"
+    },
+    {
+      "source": "mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java",
+      "base_sha256": "f5e741325453fa614999f43eaa8c8e0dded43afecc41e3ef15400e371f2ce385",
+      "source_sha256": "d44ac669bdb4e6c6e4ea88fd535fb392eb669b613b1899787838a087605d98df"
+    },
+    {
+      "source": "mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java",
+      "base_sha256": "3a39287cc106ed0fa6fc30102d14cba6b03aec64af4243f9b406e54f0e13bf62",
+      "source_sha256": "4c49001de5a938f3ae8f7db8bd1c743ac4f487d927cebd0a178b0a8d5470e17e"
+    }
+  ],
+  "owned_source_changes": 4,
+  "managed_payload_slots": 2,
+  "source_review_approved": true,
+  "MC_base_mod_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "MC_JAR_sha256": "fbbf30937a85f7f8d879520de9ce663fc87b031a6a94d3110fe38bb1294cf53c",
+  "MC_JAR_bytes": 552399,
+  "MC_JAR_in_source_archive": false,
+  "MC_source_zip": "build/mc10_9/source.zip",
+  "MC_source_zip_sha256": "816d0ba1f3f6efd7700b790b2e12eb8956f2705575e2f3b19a2bbac11fb6804b",
+  "MC_source_members": 118,
+  "runtime_entries": 173,
+  "runtime_classes": 168,
+  "Java_sources_compiled": 3,
+  "regenerated_classes": 9,
+  "regenerated_and_version_entries_replaced": 10,
+  "actual_byte_changed_entries": 9,
+  "Snapshot_class_byte_identical": true,
+  "other_163_raw_bytes_and_order_preserved": true,
+  "targeted_cases_passed": 3,
+  "publication_recompiled_or_retested": false,
+  "actual_scene_ACK_or_FPS_proven": false,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "836d69dcf76ec683aa61e2a31d572fe19f1d78dcc7e986d6e52beec44cd585de",
+      "bytes": 3645
+    },
+    {
+      "path": "base/client/runtime/client_options.lua",
+      "sha256": "00ab4dc62185ff0c12314817eae6f3452ecda83a3121b3c1d5137182e07f9b94",
+      "bytes": 22873
+    },
+    {
+      "path": "base/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java",
+      "sha256": "97d13585a99fd0220861dd714bf068f49134705baca457326d3d243b86abfed9",
+      "bytes": 5781
+    },
+    {
+      "path": "base/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java",
+      "sha256": "f5e741325453fa614999f43eaa8c8e0dded43afecc41e3ef15400e371f2ce385",
+      "bytes": 12370
+    },
+    {
+      "path": "base/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java",
+      "sha256": "3a39287cc106ed0fa6fc30102d14cba6b03aec64af4243f9b406e54f0e13bf62",
+      "bytes": 40917
+    },
+    {
+      "path": "build/mc10_7/build-recipe.json",
+      "sha256": "ac06681995013b7c758499050eeb2167ba8c214a5b5614bc236ef6e4429278b8",
+      "bytes": 50422
+    },
+    {
+      "path": "build/mc10_7/compile-support/FabricCompileInterfaces.java",
+      "sha256": "a88c73c171151698bcc7885354c98eb5c16b874201796302df9eb560b2952f9b",
+      "bytes": 1501
+    },
+    {
+      "path": "build/mc10_9/build-recipe.json",
+      "sha256": "0704a2bc76c74ded590229b10877bb21996bd4ab7ea9d79ddb651aef8cf7170c",
+      "bytes": 50412
+    },
+    {
+      "path": "build/mc10_9/recorded-build-receipt.json",
+      "sha256": "ec4642f75a38ec55fe1a678fdf6d2bb0f379b557aef6c50ef25b0e4f76e20b60",
+      "bytes": 2823
+    },
+    {
+      "path": "build/mc10_9/source.zip",
+      "sha256": "816d0ba1f3f6efd7700b790b2e12eb8956f2705575e2f3b19a2bbac11fb6804b",
+      "bytes": 212444
+    },
+    {
+      "path": "build_mc_delta.py",
+      "sha256": "d5224d71254ba6dc657f801843056b278384e093965d4f6d07a5554f11c2b167",
+      "bytes": 7804
+    },
+    {
+      "path": "checks/TargetRingChecks.java",
+      "sha256": "df5a59a1e51ac7babd8183156651517daf9ad3a8e32efc77905309f764bfea2b",
+      "bytes": 15389
+    },
+    {
+      "path": "checks/check_request.lua",
+      "sha256": "bff5e8425b392f36862ee0be1fd86f59ee6f62452c080bd575642ff6fe2a31da",
+      "bytes": 2734
+    },
+    {
+      "path": "checks/deps/io.lua",
+      "sha256": "2656a2c0334c4545247b50f0c81c85e125362d30dd60edfa9c81d025a0f85b69",
+      "bytes": 866
+    },
+    {
+      "path": "checks/deps/json.lua",
+      "sha256": "f6d12670ff0c535d8359306625578f648cde5ce0b63bff788c6412cc07b6dc67",
+      "bytes": 10150
+    },
+    {
+      "path": "checks/deps/protocol.lua",
+      "sha256": "41f5738fc7a25a713319e5126aec4282f2ea7e582157040fad7a19ecd2ac0e77",
+      "bytes": 17361
+    },
+    {
+      "path": "checks/deps/records.lua",
+      "sha256": "caeb5e208c2c56e823f8a33572379a639b4e26d3b9f01a72dd96c07f831c56d9",
+      "bytes": 2272
+    },
+    {
+      "path": "checks/deps/session.lua",
+      "sha256": "f5c1490373a5cb9b8f65139e4bd4b6662b0b7fa09abb01c3794767af9eda2275",
+      "bytes": 3995
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "cfad108fc17db3299051323dbbff022954f167aba30a532769ba20c0dd73264f",
+      "bytes": 1569
+    },
+    {
+      "path": "source.patch",
+      "sha256": "31b9a9b1ba76d14c7ee8fc6ff314f72c1d02e48f52d4c700e5ef162aea4401af",
+      "bytes": 9477
+    },
+    {
+      "path": "source/client/runtime/client_options.lua",
+      "sha256": "2716a3639dc24631bfd526621ea71fead15b7977dba6dca8bb895e14f337d799",
+      "bytes": 22964
+    },
+    {
+      "path": "source/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java",
+      "sha256": "a0d9f92ccac84b2e16aeaba765b58a04d810d9627b27d920d4aea9d355c89698",
+      "bytes": 6047
+    },
+    {
+      "path": "source/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java",
+      "sha256": "d44ac669bdb4e6c6e4ea88fd535fb392eb669b613b1899787838a087605d98df",
+      "bytes": 14155
+    },
+    {
+      "path": "source/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java",
+      "sha256": "4c49001de5a938f3ae8f7db8bd1c743ac4f487d927cebd0a178b0a8d5470e17e",
+      "bytes": 41906
+    }
+  ]
+}

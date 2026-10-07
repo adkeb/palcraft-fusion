@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "kind": "targeted-source-object-fixture",
+  "targeted_cases": 3,
+  "invocation_count_per_case": 1,
+  "ok": true,
+  "cases": [
+    {
+      "bounds": [
+        -66,
+        46,
+        -70,
+        63,
+        94,
+        59
+      ],
+      "center": [
+        -2,
+        -6
+      ],
+      "fixture_only": true,
+      "name": "root_numbers_request_uses_bounds_center_and_preserves_tx_pos_full_ring",
+      "old_wrong_radius": 79,
+      "passed": true,
+      "request_implies_readiness": false,
+      "requested_radius": 64
+    },
+    {
+      "name": "authenticated_prepare_precedes_request_and_exact_full_ring_tiles_preserve_real_player_tracking",
+      "passed": true,
+      "tiles": 81,
+      "covered_cells": 798768
+    },
+    {
+      "name": "old_default_tiles_unchanged_and_unauthenticated_or_client_selected_bounds_rejected",
+      "passed": true,
+      "default_tiles": 25
+    }
+  ],
+  "java_method_bodies_copied_verbatim_from_candidate": true,
+  "original_TravelAckValidator_used": true,
+  "source_methods_use_fixture_MC_server_player_loaded_chunk_queue_endpoints": true,
+  "production_three_Java_sources_compiled_separately": true,
+  "native_render_collision_or_actual_coverage_proven": false,
+  "actual_installed_game_GUI_RPC_Save_pose_ready_or_materials_changed": false,
+  "runtime_benchmark_or_scene_probe": false,
+  "portable_fixture_adjustment": "Only the illustrative local pawn coordinate is synthetic in this public copy; request radius/bounds and production method bodies are unchanged.",
+  "checks_not_rerun_for_publication": true
+}

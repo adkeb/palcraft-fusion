@@ -1,0 +1,121 @@
+--- a/client/runtime/client_options.lua
++++ b/client/runtime/client_options.lua
+@@ -232,10 +232,12 @@
+      -- Issuing this request never asserts snapshot coverage or native readiness.
+      local key=b.mc_epoch..'/'..b.session_id..'/'..b.generation..'/'..v.world_session..'/'..v.dim..'/'..v.view
+      if self.snapshot_requested_tuple~=key then
+-      local bounds=row.required_bounds;local x,z=math.floor(row.pos[1]),math.floor(row.pos[3])
++      local bounds=row.required_bounds
++      local x,z=math.floor((bounds[1]+bounds[4]-1)/2),math.floor((bounds[3]+bounds[6]-1)/2)
+       local radius=math.max(x-bounds[1],bounds[4]-1-x,z-bounds[3],bounds[6]-1-z,1)
+       assert(radius<=64,'Authoritative target ring exceeds public blocksync capacity')
+-      assert(commands.send{t='blocksync',r=radius,world_session=v.world_session,dim=v.dim,view=v.view}==true,
++      assert(commands.send{t='blocksync',r=radius,tx=row.tx,required_bounds=TravelP.copy(bounds),
++       world_session=v.world_session,dim=v.dim,view=v.view}==true,
+        'Initial authoritative snapshot request failed')
+       self.snapshot_requested_tuple=key;self.snapshot_requested_radius=radius
+      end
+--- a/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
++++ b/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
+@@ -50,8 +50,13 @@
+             for (int i = 0; i < columns.length; i++) columns[i] = array.get(i).getAsInt();
+             WorldBridge.solid(player.level(), columns);
+         });
+-        BridgeNetwork.registerOperation("world", "blocksync", (server, player, query, reply) ->
+-            WorldBridge.syncFor(player, Math.clamp(query.has("r") ? query.get("r").getAsInt() : 32, 1, 64), query.has("request_id") ? query.get("request_id").getAsString() : null));
++        BridgeNetwork.registerOperation("world", "blocksync", (server, player, query, reply) -> {
++            int radius = Math.clamp(query.has("r") ? query.get("r").getAsInt() : 32, 1, 64);
++            String requestId = query.has("request_id") ? query.get("request_id").getAsString() : null;
++            if (query.has("required_bounds"))
++                WorldCompatibility.syncFor(player, radius, requestId, BridgeTravelGate.snapshotBounds(server, player, query));
++            else WorldBridge.syncFor(player, radius, requestId);
++        });
+         BridgeNetwork.registerOperation("world", "inspect", (server, player, query, reply) -> WorldBridge.inspect(reply));
+         BridgeNetwork.registerOperation("world", "blockinspect", (server, player, query, reply) ->
+             WorldBridge.inspectAt(player.level(), query.get("x").getAsInt(), query.get("y").getAsInt(), query.get("z").getAsInt(), reply));
+--- a/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java
++++ b/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java
+@@ -27,6 +27,7 @@
+     private static final double POSITION_TOLERANCE_CM=Double.parseDouble(System.getProperty("palcraft.travelAckPositionToleranceCm","50"));
+     private static final LinkedHashSet<String> completed=new LinkedHashSet<>();
+     private static final LinkedHashSet<String> completedRebases=new LinkedHashSet<>();
++    private static final java.util.Map<UUID,JsonObject> snapshotPrepares=new java.util.HashMap<>();
+     private static BiFunction<ServerPlayer,Vec3,JsonObject> rebaseTransition;
+     private static CompleteLineJournal reader;
+     private static CompleteLineJournal eventReader;
+@@ -39,10 +40,10 @@
+     public static void attach(MinecraftServer server) {
+         authority=server;reader=new CompleteLineJournal(JOURNAL,262144);
+         eventReader=new CompleteLineJournal(EVENTS,262144);
+-        ticks=0;applied=rejected=duplicates=rebases=0;completed.clear();completedRebases.clear();lastError=null;
++        ticks=0;applied=rejected=duplicates=rebases=0;completed.clear();completedRebases.clear();snapshotPrepares.clear();lastError=null;
+     }
+ 
+-    public static void detach(MinecraftServer server) { if(authority==server){authority=null;reader=eventReader=null;completed.clear();completedRebases.clear();} }
++    public static void detach(MinecraftServer server) { if(authority==server){authority=null;reader=eventReader=null;completed.clear();completedRebases.clear();snapshotPrepares.clear();} }
+     /** The world owner supplies the server-only private-source/rollback implementation at feature registration. */
+     public static void bindRebaseTransition(BiFunction<ServerPlayer,Vec3,JsonObject> transition){rebaseTransition=Objects.requireNonNull(transition);}
+ 
+@@ -98,6 +99,25 @@
+ 
+     private static final class ListKeys {static final Set<String> CLIENT_EVIDENCE=Set.of("proof","position","region_id","error");}
+ 
++    /** The caller selects a known transaction; only the authenticated Pal prepare supplies its snapshot region. */
++    public static int[] snapshotBounds(MinecraftServer server,ServerPlayer player,JsonObject query) {
++        if(!ENABLED||authority!=server||!server.isSameThread())throw new IllegalArgumentException("travel_feature_not_ready");
++        TravelAckValidator.Binding binding=binding(player);
++        JsonObject prepare=player==null?null:snapshotPrepares.get(player.getUUID());
++        if(binding==null||prepare==null||TravelAckValidator.rejectBinding(prepare,binding)!=null)
++            throw new IllegalArgumentException("current_authoritative_prepare_required");
++        if(!binding.worldSession().equals(query.get("world_session").getAsString())
++            ||!binding.dimension().equals(query.get("dim").getAsString())||binding.view()!=query.get("view").getAsLong()
++            ||!prepare.get("tx").getAsString().equals(query.get("tx").getAsString())
++            ||!prepare.get("required_bounds").equals(query.get("required_bounds")))
++            throw new IllegalArgumentException("stale_authoritative_snapshot_request");
++        var bounds=prepare.getAsJsonArray("required_bounds");
++        if(bounds.size()!=6)throw new IllegalArgumentException("invalid_authoritative_snapshot_bounds");
++        int[] values=new int[6];
++        for(int i=0;i<values.length;i++)values[i]=bounds.get(i).getAsBigDecimal().toBigIntegerExact().intValueExact();
++        return values;
++    }
++
+     private static void consumeEvent(MinecraftServer server,JsonObject row) {
+         if(!row.get("t").getAsString().equals("travel")||row.get("v").getAsInt()!=1){reject("invalid_travel_event");return;}
+         String phase=row.get("phase").getAsString();
+@@ -106,6 +126,8 @@
+         TravelAckValidator.Binding binding=binding(player);if(binding==null){reject("missing_authenticated_player");return;}
+         if(phase.equals("rebase_required")){consumeRebase(player,row,binding);return;}
+         String reason=TravelAckValidator.rejectBinding(row,binding);if(reason!=null){reject(reason);return;}
++        if(phase.equals("prepare"))snapshotPrepares.put(player.getUUID(),row.deepCopy());
++        else snapshotPrepares.remove(player.getUUID());
+         if(phase.equals("error")&&row.has("needs_mc_rollback")&&row.get("needs_mc_rollback").getAsBoolean()){
+             // Restore coordinates in the wire record are diagnostic only; MC restores its internally captured source.
+             JsonObject rollback=WorldCompatibility.rollbackView(player,binding.worldSession(),binding.view());
+--- a/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
++++ b/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
+@@ -338,6 +338,9 @@
+ 
+     public static void syncFor(ServerPlayer player, int requestedRadius) { syncFor(player,requestedRadius,null); }
+     public static void syncFor(ServerPlayer player, int requestedRadius, String requestId) {
++        syncFor(player,requestedRadius,requestId,null);
++    }
++    public static void syncFor(ServerPlayer player, int requestedRadius, String requestId, int[] requestedBounds) {
+         if (requestId != null && !UUID.fromString(requestId).toString().equals(requestId)) throw new IllegalArgumentException("Invalid request_id");
+         if (server == null || player.level().getServer() != server) return;
+         ServerLevel level = player.level(); String dimension = dimension(level);
+@@ -348,6 +351,15 @@
+         int minX = center.getX()-radius, maxX = center.getX()+radius+1;
+         int minZ = center.getZ()-radius, maxZ = center.getZ()+radius+1;
+         int minY = Math.max(level.getMinY(), center.getY()-24), maxY = Math.min(level.getMaxY()+1, center.getY()+41);
++        if (requestedBounds != null) {
++            if (requestedBounds.length != 6 || requestedBounds[0] >= requestedBounds[3] || requestedBounds[1] >= requestedBounds[4]
++                    || requestedBounds[2] >= requestedBounds[5] || (long)requestedBounds[3]-requestedBounds[0] > 129
++                    || (long)requestedBounds[5]-requestedBounds[2] > 129 || (long)requestedBounds[4]-requestedBounds[1] > 65
++                    || requestedBounds[1] < level.getMinY() || requestedBounds[4] > level.getMaxY()+1)
++                throw new IllegalArgumentException("Authoritative target ring exceeds public blocksync capacity");
++            minX=requestedBounds[0];minY=requestedBounds[1];minZ=requestedBounds[2];
++            maxX=requestedBounds[3];maxY=requestedBounds[4];maxZ=requestedBounds[5];
++        }
+         int accepted = 0;
+         for (int cx = minX >> 4; cx <= (maxX-1) >> 4; cx++) for (int cz = minZ >> 4; cz <= (maxZ-1) >> 4; cz++) {
+             if (level.getChunkSource().getChunkNow(cx, cz) == null) continue;
