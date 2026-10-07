@@ -12,7 +12,7 @@ f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55
 
 ## 输入由使用者提供
 
-- 自己的合法 exact10.6 mod，SHA256 `401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af`。可以先用历史 D04 10.6 入口重建。此目录不附作者安装目录或 base 缓存。
+- 自己的合法 exact10.6 mod，SHA256 `401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af`。推荐先按 [完整 100 生产源构建指南](../../full-mc-source/BUILD.zh-CN.md) 从源码生成基础包。此目录不附作者安装目录或 base 缓存。
 - 官方 JDK25.0.4.1；原记录为 Oracle `25.0.4.1+1-LTS-5`、Mac arm64。builder 读取 JDK `release` 文件确认版本，11 个 class 的最终字节 pin 仍是验收条件。
 - 自己通过正常合法 Minecraft 安装取得的 26.3 runtime 与其依赖。`--runtime-root` 是使用者任意目录；按 recipe 的 `runtime` 相对布局放置 `client/versions/26.3/26.3.jar` 和 `client/libraries/...`。
 - 官方 Fabric API `0.161.0+26.3` 发行 JAR，SHA256 `86f16178a3cecc887a85a4cfe9a79d92fa7341d8f39b5951a4d6ad800ab657a6`。builder 从其 `META-INF/jars` 提取 recipe 所列的原分包依赖。合法 Java-WebSocket 依赖从 exact base 自己的 `META-INF/jars/Java-WebSocket-1.6.0.jar` 取得。
@@ -54,6 +54,8 @@ nice -n 19 python3 launcher/build_mc_10_7.py \
 
 此模式不启动 JVM。它能证明生产 class 与 ZIP 装包字节一致，不能证明该使用者的新环境曾从源码编译成功。
 
-本公开修订用原冻结 11 个 class 经新 builder 的一次 Python 装包路径，真实重现 F35/552361B。原本机六源 javac 成功 receipt 已附；本轮没有重新运行它。完整新环境源码编译、完整项目 Gradle 构建或测试、Mixin 实际运行、游戏/像素验收均未由本交付证明。三个净化成员中的开发身份和历史测试断言采用公开占位，不作为生产编译输入。receipt 中验证范围明确为 false，不能将装包一致替代源码编译或测试成功。
+初次公开修订仅以原冻结 11 个 class 执行 Python 装包，重现 F35/552361B。随后已真实运行同一公开入口的六源编译模式：三个 JVM 步骤均退出 0，重新生成 11 个生产 class，未使用此前 class 目录，产物仍为相同 F35/552361B。见 [后续六源编译回执](../../../docs/evidence/MC10.7-fresh-six-source-compile.json)。原装包 receipt 的历史范围保留，不能将其自身解释为重新编译。
+
+完整 100 生产源基础包也已由 [公开整合入口](../../full-mc-source/BUILD.zh-CN.md) 在本机新编译并重现 exact10.6，衔接上述六源结果得到相同 10.7 产物。其他用户全新环境、完整项目 Gradle 构建或测试、完整 Mixin 与游戏验收仍未完成。三个净化成员中的开发身份和历史测试断言采用公开占位，不作为生产编译输入。
 
 源码与相对 recipe 可公开。官方 JDK、Minecraft runtime/商业库、Fabric 输入、用户凭据、Saved、作者缓存与编译 overlay 不随本源码交付发布。

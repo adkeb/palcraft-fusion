@@ -15,10 +15,10 @@
 
 从本次完整源码基包，衔接此前已真正fresh六源生成的11class，用现公开10.7 builder的纯Python装包路径，得到 exact F35 /552361B。这最后一步没有再运行JVM，也没有使用旧冻结11class目录。
 
-新用户从本候选目录调用完整source模式，路径均为用户自供的合法工具/依赖：
+从仓库根目录调用完整 source 模式，路径均为用户自供的合法工具和依赖：
 
 ```sh
-nice -n 19 python3 build_mc_full_10_6.py \
+nice -n 19 python3 player-standalone/full-mc-source/build_mc_full_10_6.py \
   --jdk-home '/自己的JDK/Contents/Home' \
   --runtime-root '/自己的MC缓存根' \
   --fabric-api '/自己的合法依赖/fabric-api-0.161.0+26.3.jar' \

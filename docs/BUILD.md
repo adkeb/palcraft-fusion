@@ -13,7 +13,9 @@ gradle build
 
 原始 10.6 快照的 Gradle 属性仍沿用 10.5 标签，10.6 的实际成品通过两份 Java 增量和保持原 JAR 结构的装包流程生成。普通 Gradle 构建不等同于字节一致的历史成品。历史 10.6 的字节一致专用重建入口为 `player-standalone/launcher/build_mc_10_6.py`，构建配方位于 `player-standalone/build/mc10_6`。该入口已实际重现原 10.6 成品的 SHA256；它不是当前 10.7 候选的构建入口。
 
-当前 10.7 的专用入口为 `player-standalone/launcher/build_mc_10_7.py`，相对配方和说明见 [10.7 构建指南](../player-standalone/build/mc10_7/BUILD.zh-CN.md)。公开快照为 118 个成员（原私有 119 成员中的 wrapper JAR 被排除），六个实际生产源与 11 个 class pin 保持。新 builder 已用已编译的 11 个生产 class 准确重现 F35／552361B；这项装包检查没有重新编译源码。源码编译入口需要用户自行准备配方中列明的合法、准确依赖，完整新环境编译仍未验证。
+当前 10.7 的专用入口为 `player-standalone/launcher/build_mc_10_7.py`，相对配方和说明见 [10.7 构建指南](../player-standalone/build/mc10_7/BUILD.zh-CN.md)。公开快照为 118 个成员（原私有 119 成员中的 wrapper JAR 被排除），六个实际生产源与 11 个 class pin 保持。该公开入口已真正重新编译六份源、生成 11 个新 class，重现 F35／552361B；见 [六源编译回执](evidence/MC10.7-fresh-six-source-compile.json)。
+
+构建基础包可使用 [完整 100 生产源入口](../player-standalone/full-mc-source/BUILD.zh-CN.md)。此入口已在本机从新编译的 168 个 class 重现 exact10.6，再衔接六源输出得到相同 10.7 产物，旧项目 class 字节复用为 0。用户仍需自行提供配方中的合法依赖；其他用户全新环境和完整项目 Gradle 构建尚未验证。
 
 Gradle wrapper 的依赖 JAR、Minecraft/Fabric 库和游戏客户端不作为本仓库源码附件提供，使用官方依赖流程取得。
 
@@ -34,7 +36,7 @@ cd mac/hud
 nice -n 19 swiftc -O -target arm64-apple-macosx13.0 hud_overlay.swift -lz -o hud-overlay-v5-public-macos13
 ```
 
-该次构建的源码、二进制哈希与工具链记录见 [HUD 构建回执](evidence/HUD-v5-BUILD-macos13.json)。实际前台 HUD 显示仍在验收。
+该次基础 HUD 构建的源码、二进制哈希与工具链记录见 [HUD 构建回执](evidence/HUD-v5-BUILD-macos13.json)。当前候选使用追加前台进程归属组的 [HUD 源码与构建入口](../workstreams/mac-owned-foreground-group/README.md)，并搭配 [启动阶段修复](../workstreams/mac-hud-normal-starting-phase/README.md)。请按对应增量的基线与哈希组合，基础 HUD v5 发布包不能代替这些新构件。实际前台 HUD 显示仍在验收。
 
 ## 资产生成
 
