@@ -1,0 +1,174 @@
+--- a/installer/core.py
++++ b/installer/core.py
+@@ -704,9 +704,149 @@
+     return {target: content}
+ 
+ 
++NORMAL_STANDALONE_DATA = {'.palcraft/standalone/scope.json',
++    TOOLS + '/standalone/mac-runtime-config.json', DEV + '/bridge/lab-identity.json'}
++
++
++def _managed_generated_baseline(root, before, target):
++    """Only the exact managed bytes from an original committed transaction qualify."""
++    expected = before.get('files', {}).get(target)
++    if not isinstance(expected, str) or not re.fullmatch(r'[a-f0-9]{64}', expected):
++        fail('GENERATED_OWNER_UNMANAGED', '正常生成数据必须已有本安装的文件归属：' + target)
++    candidates = {}
++    directory = owned_path(root, '.palcraft/transactions')
++    for receipt in sorted(directory.glob('*/journal.json')):
++        receipt = owned_path(root, receipt.relative_to(root).as_posix())
++        journal = read_json(receipt)
++        if journal.get('phase') != 'committed' or journal.get('id') != receipt.parent.name:
++            continue
++        changes = journal.get('changes', [])
++        for location in ('generated', 'before'):
++            proven = (journal.get('before_state', {}).get('files', {}).get(target) == expected
++                      or any(row.get('target') == target and row.get('new_sha256' if location == 'generated' else 'old_sha256') == expected
++                             for row in changes))
++            if not proven:
++                continue
++            path = owned_path(root, (receipt.parent / location / target).relative_to(root).as_posix())
++            if path.is_file() and digest(path) == expected:
++                candidates[expected] = path.read_bytes()
++    if len(candidates) != 1:
++        fail('GENERATED_OWNER_BASELINE', '缺少原已提交事务内校验通过的受管理生成数据：' + target)
++    return json.loads(next(iter(candidates.values())))
++
++
++def _same_boot_generated_stop(root, before, after):
++    """Read the original complete off witness; never save, stop, rotate, or mint one."""
++    from launcher.journal_lifecycle import (EVENTS, LIFECYCLE, _check_previous_actors,
++        _persistent_inventory, file_identity)
++    owner = marker(root)
++    session = read_json(owned_path(root, '.palcraft/session.json'))
++    pointer = read_json(owned_path(root, LIFECYCLE + '/current.json'))
++    token = session.get('token', '')
++    if (session.get('phase') != 'stopped' or not re.fullmatch(r'[a-f0-9]{32}', token)
++            or pointer.get('token') != token):
++        fail('GENERATED_OWNER_STOP', '正常生成数据归属需要当前同 boot 的完整正常停机见证。')
++    prefix = LIFECYCLE + '/' + token + '/'
++    scope = read_json(owned_path(root, prefix + 'scope.json'))
++    receipt_path = owned_path(root, prefix + 'normal-stop-receipt.json')
++    if not receipt_path.is_file():
++        fail('GENERATED_OWNER_STOP', '尚无当前同 boot 的完整正常停机回执，未采纳生成数据。', '用原 finalize-stop 签收已有真实正常关闭记录后，再运行普通 update。')
++    receipt = read_json(receipt_path)
++    native = scope.get('native_scope', {})
++    title = scope.get('normal_title_observed', {})
++    actors, exits = scope.get('actors', {}), receipt.get('actor_exits', {})
++    witness = receipt.get('normal_save_witness', {})
++    stream = owned_path(root, EVENTS)
++    stream_identity = file_identity(stream) if stream.exists() else None
++    identity = before['profile']['connection'].get('identity', {})
++    next_connection = after['profile']['connection']
++    required = ('server_session_id', 'process_epoch', 'world_id', 'pal_uid', 'save_boot_id')
++    if (scope.get('root') != str(root) or scope.get('root_id') != owner['id'] or scope.get('token') != token
++            or receipt.get('schema') != 1 or receipt.get('kind') != 'palcraft-owned-normal-stop-v1'
++            or receipt.get('root') != str(root) or receipt.get('root_id') != owner['id'] or receipt.get('token') != token
++            or receipt.get('native_scope') != native or not isinstance(title, dict)
++            or title.get('action') != 'observe_title' or title.get('token') != token
++            or title.get('process_epoch') != native.get('process_epoch') or not title.get('request_id')
++            or any(not isinstance(native.get(key), str) or not native[key] for key in required)
++            or type(native.get('pid')) is not int or native['pid'] < 1
++            or native['world_id'] != identity.get('world_id') or native['pal_uid'] != identity.get('pal_uid')
++            or native['server_session_id'] != before['profile']['connection'].get('server_session_id')
++            or next_connection.get('identity') != identity or next_connection.get('server_session_id') != native['server_session_id']
++            or receipt.get('active_events_path') != str(stream) or scope.get('active_events_path') != str(stream)
++            or receipt.get('stream_identity') != stream_identity
++            or not actors or set(exits) != set(actors)
++            or any(exits[name].get('actual_wait_completed') is not True
++                   or any(exits[name].get(key) != actor.get(key) for key in ('pid', 'identity', 'role'))
++                   for name, actor in actors.items())
++            or any(receipt.get(key) is not True for key in ('normal_save_completed', 'normal_title_Quit_and_native_exit0',
++                   'all_owned_producers_and_consumers_stopped', 'all_this_stream_producers_and_consumers_off_before_rotation',
++                   'Saved_and_WAL_stable_after_all_actors_off'))
++            or witness.get('native_scope') != native or witness.get('after_submission') is not True or witness.get('stable') is not True
++            or not witness.get('normal_save_id')):
++        fail('GENERATED_OWNER_SCOPE', '完整正常停机见证、当前进程世界身份或事件卷不一致，未采纳生成数据。')
++    if _persistent_inventory(root) != receipt.get('persistent_stat_inventory'):
++        fail('GENERATED_OWNER_SAVE', '正常停机后 Saved/WAL 已更改，未采纳旧见证。')
++    _check_previous_actors(root, scope)
++    return native, scope, receipt, digest(receipt_path)
++
++
++def _normal_generated_adoption(root, before, after, extra_files):
++    profile = before.get('profile', {})
++    if (profile.get('platform') != 'crossover' or profile.get('pal_entry_mode') != 'singleplayer'
++            or profile.get('standalone') is None or profile.get('connection', {}).get('transport') != 'local'):
++        return {}, None
++    changed = {}
++    for target in NORMAL_STANDALONE_DATA:
++        path = owned_path(root, target)
++        expected = before.get('files', {}).get(target)
++        if expected and path.is_file() and digest(path) != expected:
++            changed[target] = path.read_bytes()
++    if not changed:
++        return {}, None
++    native, scope, receipt, receipt_sha = _same_boot_generated_stop(root, before, after)
++    identity = profile['connection']['identity']
++    expected_log = profile['windows_root'] + '/' + BIN + 'ue4ss/UE4SS.log'
++    adopted = {}
++    for target, raw in changed.items():
++        value = json.loads(raw)
++        baseline = _managed_generated_baseline(root, before, target)
++        if target == '.palcraft/standalone/scope.json':
++            expected = dict(baseline)
++            if type(baseline.get('configured_for_runtime')) is not bool or value.get('configured_for_runtime') is not True:
++                fail('GENERATED_OWNER_DATA', '只接受原正常登记生成的 configured_for_runtime=true。')
++            expected.update(configured_for_runtime=True, client_log_windows=expected_log)
++            if (value != expected or value.get('world_directory') != native['world_id'] or value.get('pal_uid') != native['pal_uid']
++                    or value.get('install_root_windows') != profile['windows_root']):
++                fail('GENERATED_OWNER_DATA', 'scope 只能含原正常登记位和真实客户端日志路径变化。')
++            desired = json.loads(extra_files[target]) if target in extra_files else {}
++            if desired.get('client_log_windows') != expected_log:
++                fail('GENERATED_OWNER_LOG', '新正常生成器必须保留原真实 client_log_windows，不能退回旧字段。')
++        elif target == TOOLS + '/standalone/mac-runtime-config.json':
++            expected = dict(baseline)
++            if type(baseline.get('configured_for_actual_boot')) is not bool or value.get('configured_for_actual_boot') is not True:
++                fail('GENERATED_OWNER_DATA', '只接受原正常登记生成的 configured_for_actual_boot=true。')
++            expected['configured_for_actual_boot'] = True
++            if value != expected or value.get('guest_mc_uuid') != identity['mc_uuid'] or value.get('guest_mc_name') != identity['mc_name']:
++                fail('GENERATED_OWNER_DATA', 'Mac 配置除原正常登记位外发生变化，未采纳。')
++        else:
++            keys = {'realm_mode', 'world_directory', 'server_session_id', 'host_uid', 'process_epoch', 'observed_unix'}
++            observed = value.get('observed_unix')
++            if (set(baseline) not in ({'server_session_id'}, keys) or set(value) != keys or value.get('realm_mode') != 'standalone'
++                    or value.get('world_directory') != native['world_id'] or value.get('host_uid') != native['pal_uid']
++                    or value.get('server_session_id') != native['server_session_id'] or value.get('process_epoch') != native['process_epoch']
++                    or type(observed) is not int or observed < scope.get('started_unix', float('inf')) - 5
++                    or observed > receipt.get('observed_unix', 0) + 5):
++                fail('GENERATED_OWNER_DATA', 'lab identity 必须来自当前同 boot 原 dispatcher 的六项真实字段。')
++            # Keep the actual current SID/process epoch, never an old release's identity placeholder.
++            extra_files[target] = raw
++        adopted[target] = hashlib.sha256(raw).hexdigest()
++    return adopted, {'normal_stop_receipt_sha256': receipt_sha, 'targets': sorted(adopted)}
++
++
+ def _apply(root, release, state_after, extra_files=None, fault=None, configuration_only=False):
+     before = get_state(root)
+     extra_files = dict(extra_files or {})
++    adopted_generated, adoption_receipt = _normal_generated_adoption(root, before, state_after, extra_files)
+     if not configuration_only:
+         extra_files.update(_retained_launch_template(root, state_after['profile'], before))
+     directory = root / '.palcraft/transactions' / uuid.uuid4().hex
+@@ -727,10 +867,10 @@
+         path = owned_path(root, target)
+         old_sha = digest(path) if path.is_file() else None
+         expected = before.get('files', {}).get(target)
+-        if expected and old_sha not in (None, expected):
++        if expected and old_sha not in (None, expected) and adopted_generated.get(target) != old_sha:
+             fail('UPDATE_CONFLICT', '已安装文件被修改，不能覆盖：' + target, '备份自己的修改，或保留存档后重新安装。')
+         new_sha = desired[target][1] if target in desired else None
+-        if old_sha == new_sha:
++        if old_sha == new_sha and target not in adopted_generated:
+             continue
+         if old_sha:
+             backup = directory / 'before' / target
+@@ -738,6 +878,8 @@
+             shutil.copy2(path, backup)
+         changes.append({'target': target, 'old_sha256': old_sha, 'new_sha256': new_sha})
+     journal = {'schema': SCHEMA, 'id': directory.name, 'phase': 'applying', 'before_state': before, 'changes': changes}
++    if adoption_receipt is not None:
++        journal['normal_generated_adoption'] = adoption_receipt
+     atomic_json(directory / 'journal.json', journal)
+     try:
+         for number, change in enumerate(changes):

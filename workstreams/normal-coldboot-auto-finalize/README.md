@@ -1,0 +1,7 @@
+# Finish an already completed normal stop during the next ordinary start
+
+The ordinary launcher calls prepare_cold_boot before allocating a new session token and before taking its start lock. If the previous event volume exists but its same-boot normal-stop receipt is missing, the revised entry invokes the original finalize_stop once. That entry validates the original save, Title/Quit and recorded actual Popen waits, confirms all actors are off, and issues the original receipt. The unchanged ordinary rotator then consumes it. No second save/stop, process signals, fresh identity, state/phase edits or adopted processes are introduced.
+
+A pre-existing receipt follows the original path unchanged. An explicit externally supplied receipt also follows the original path. Dry-run validates eligibility and reports that finalization and rotation would occur without writing a receipt or moving the stream. Actual source checks use self-created child processes and a temporary event volume; native save/Title/host boundaries are simulated. The real automatic-start branch has not yet been exercised in a game installation.
+
+This nine-line addition applies to the frozen original normal-stop finalizer journal with base SHA 2f7cf14b2aad8fb4b2dfbc39ab15868e1c655fbb8a4f9d0e9d6190e7f9cdd33f. It requires the original finalize-stop CLI/source delta and complete normal player tools; it is not a standalone replacement launcher.

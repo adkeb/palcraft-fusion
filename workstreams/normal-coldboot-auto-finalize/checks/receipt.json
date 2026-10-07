@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "passed": true,
+  "checks": [
+    "wrong_scope_rejected",
+    "missing_original_actualwait_rejected",
+    "actual_owned_live_supervisor_rejected_without_signalling",
+    "original_incomplete_finish_restored_by_same_issuer_without_save_stop_Popen_or_phase_edit",
+    "normal_coldboot_auto_finalizes_existing_stop_then_uses_original_rotator",
+    "unchanged_conservative_port_probe_rejects_real_ephemeral_LISTEN"
+  ],
+  "original_NormalLifecycle_finish_actual_Popen_wait_record_used": true,
+  "native_save_Title_host_boundary_simulated_in_temporary_fixture_only": true,
+  "new_save_stop_signal_adopted_PID_or_fake_Popen_in_finalizer": false,
+  "current_game_GUI_RPC_credential_Git_installed_state_or_actual_receipt_written": false,
+  "actual_same_boot_finalization_by_runtime_done": false
+}

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 4,
+  "failures": 0,
+  "errors": 0,
+  "source_sha256": "ef261fdbf486fdd2c9c807eb62a15b63f92ef810589f929d777dfd35c1ce8b6c",
+  "original_apply_transaction_used": true,
+  "specific_three_generated_targets_only": true,
+  "second_normal_cycle_six_field_baseline_checked": true,
+  "original_Title_result_dict_schema_used": true,
+  "arbitrary_data_code_oldSID_and_wrong_boot_rejected": true,
+  "backup_pending_ledger_fault_undo_checked": true,
+  "all_inputs_synthetic_temporary": true,
+  "actual_root_credentials_SDK_Game_UI_currentwrites_or_Git_used": false,
+  "large_SourceCheck_or_asset_SHA_matrix_rerun": false
+}

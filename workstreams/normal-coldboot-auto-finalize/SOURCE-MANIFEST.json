@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "target": "PalCraft-Dev/player-tools/launcher/journal_lifecycle.py",
+  "base_sha256": "2f7cf14b2aad8fb4b2dfbc39ab15868e1c655fbb8a4f9d0e9d6190e7f9cdd33f",
+  "source_sha256": "af3d02f83aa4eeb48efbcae8a8ab31a52e80631c770202e6cea68ff1556ee561",
+  "source_bytes": 39775,
+  "patch_sha256": "de6092b05dfdadd00f603b790376d14cdc03619ec96c63e010fd3c4a517fab01",
+  "production_added_lines": 9,
+  "entry": "original launcher.runtime.start -> original journal.prepare_cold_boot -> same original finalize_stop -> original rotate_events",
+  "checks_passed": true,
+  "actual_automatic_game_coldboot_verified": false,
+  "installed_sources_or_game_data_modified": false,
+  "files": [
+    {
+      "path": "source/launcher/journal_lifecycle.py",
+      "sha256": "af3d02f83aa4eeb48efbcae8a8ab31a52e80631c770202e6cea68ff1556ee561",
+      "bytes": 39775
+    },
+    {
+      "path": "auto-finalize.patch",
+      "sha256": "de6092b05dfdadd00f603b790376d14cdc03619ec96c63e010fd3c4a517fab01",
+      "bytes": 1138
+    },
+    {
+      "path": "checks/check_auto_finalize.py",
+      "sha256": "4e5a765e7d0606934f4f2d0205d1290dcf35188fa59d40d15c62981daf737036",
+      "bytes": 10663
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "fb8b1281bd58b7fe38ffc68f14d0f49b72b41294265cf803e32322107591f079",
+      "bytes": 808
+    },
+    {
+      "path": "README.md",
+      "sha256": "a2a505fa49bdf06defe5cb4de731c054ef31eb248dfcb8152a4344dab3cf2f65",
+      "bytes": 1424
+    }
+  ]
+}

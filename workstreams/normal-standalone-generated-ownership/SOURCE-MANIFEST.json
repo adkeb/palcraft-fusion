@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "kind": "normal-standalone-specific-generated-ownership",
+  "target": "PalCraft-Dev/player-tools/installer/core.py",
+  "outer_mirror": "PalCraft-Player/installer/core.py",
+  "role": "player_tool",
+  "changed_production_files": 1,
+  "base_sha256": "9880d8dd8d4e672cf13836e4ca10e4d553a5fdf5886a73b40bd5418ce81fbcee",
+  "source_sha256": "ef261fdbf486fdd2c9c807eb62a15b63f92ef810589f929d777dfd35c1ce8b6c",
+  "source_bytes": 65849,
+  "patch_sha256": "4c9bea2e788956348e81177446a6821fdf6eee7bde2365f96921f66219191aa0",
+  "unchanged_original_data_producer_sha256": "d24fd399d18b2b10d90ecc3df3489e551e7b931f72f648e887f57f45bf4f9ae3",
+  "exact_normal_generated_targets": [
+    ".palcraft/standalone/scope.json",
+    "PalCraft-Dev/player-tools/standalone/mac-runtime-config.json",
+    "PalCraft-Dev/bridge/lab-identity.json"
+  ],
+  "original_transaction_backup_pending_ledger_and_undo": true,
+  "arbitrary_code_binary_or_other_data_guard_lowered": false,
+  "same_boot_complete_original_normal_stop_required": true,
+  "source_mints_or_finalizes_receipt": false,
+  "old_UID_SID_or_private_key_adopted": false,
+  "initial_and_second_normal_identity_baseline_supported": true,
+  "source_checks_passed": 4,
+  "actual_application_not_performed": true,
+  "files": {
+    "source/installer/core.py": {
+      "sha256": "ef261fdbf486fdd2c9c807eb62a15b63f92ef810589f929d777dfd35c1ce8b6c",
+      "bytes": 65849
+    },
+    "base/installer/core.py": {
+      "sha256": "9880d8dd8d4e672cf13836e4ca10e4d553a5fdf5886a73b40bd5418ce81fbcee",
+      "bytes": 55648
+    },
+    "dependencies/installer/standalone.py": {
+      "sha256": "d24fd399d18b2b10d90ecc3df3489e551e7b931f72f648e887f57f45bf4f9ae3",
+      "bytes": 16766
+    },
+    "core.patch": {
+      "sha256": "4c9bea2e788956348e81177446a6821fdf6eee7bde2365f96921f66219191aa0",
+      "bytes": 11872
+    },
+    "run_frozen_cli.py": {
+      "sha256": "1d6673b332b289d1042a3993254c93e4cdc9ffa7dcb5885db0738a26074cd17f",
+      "bytes": 1179
+    },
+    "checks/check_generated_ownership.py": {
+      "sha256": "da2355114eb05327c6157c0cd6861655c2ceb4840e948a54dca91e0b9fe32acf",
+      "bytes": 12218
+    },
+    "checks/dependencies/installer/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "checks/dependencies/installer/paths.py": {
+      "sha256": "36f2236346983a514bb26233914bedafa73f282462809d1156b27aba094c9cdf",
+      "bytes": 2845
+    },
+    "checks/receipt.json": {
+      "sha256": "3221ccc9d5c7545508e85433867e93b54d0d43d05de0f87fbf591437391121a4",
+      "bytes": 655
+    },
+    "README.md": {
+      "sha256": "aac2611bbb7ba944bec37df36ce138130c8dabf6750710b4add124d3f84adfee",
+      "bytes": 2804
+    }
+  }
+}

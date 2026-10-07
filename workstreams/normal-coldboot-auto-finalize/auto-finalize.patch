@@ -1,0 +1,18 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -64,6 +64,15 @@
+     automatic = normal_stop_receipt is None
+     path = (_scope_path(root, scope['token'], 'normal-stop-receipt.json') if automatic and scope
+             else Path(normal_stop_receipt) if not automatic else None)
++    if automatic and scope and path is not None and not path.is_file():
++        # start calls this before allocating a new token and outside its lock.
++        # Reuse the original completed stop; never request a second shutdown.
++        completed = finalize_stop(root, dry_run=dry_run)
++        if completed.get('ok') is not True:
++            fail('JOURNAL_WITNESS_PENDING', '上一正常退出尚未完成收尾，不能启动新会话。')
++        if dry_run:
++            return {**completed, 'would_finalize_original_stop': True,
++                    'rotation_needed': True, 'rotation_performed': False}
+     if path is None or not path.is_file():
+         fail('JOURNAL_STOP_REQUIRED', '上一事件卷尚无完整正常保存及本 boot 全部进程停机见证，未重放历史卷。')
+     receipt = read_json(path)
