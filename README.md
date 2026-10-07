@@ -10,13 +10,13 @@
 
 候选 19 已在真实 Mac 上完成正常升级、离线单机原世界加载、身份登记验签和同一监督器下的六组件接入。初始世界 ACK 已自然完成；MC 通过原可信姿态同步跟随 Pal 的真实存档出生位置，未移动原角色来绕过地形检查。既有物品记录保留，详见 [开发状态](docs/STATUS.md)。
 
-最新源码包括 [完整目标区域同步](workstreams/target-ring-centre)、[保留真实 Pal 出生位置](workstreams/initial-native-home-pal-spawn)、[帧内服务复用](workstreams/standalone-service-frame-reuse) 和 [返回标题时暂停旧世界回调](workstreams/paused-native-title-lifecycle)。前台物理 F5、HUD、完整生存操作、实际性能及正常退出仍在验收，项目没有宣称完整可玩。
+最新源码包括 [完整目标区域同步](workstreams/target-ring-centre)、[保留真实 Pal 出生位置](workstreams/initial-native-home-pal-spawn)、[帧内服务复用](workstreams/standalone-service-frame-reuse) 和 [返回标题时暂停旧世界回调](workstreams/paused-native-title-lifecycle)。一次真实前台 F5 已切入第一人称，实际 MC HUD 可见；持续输入、完整生存操作、实际性能及正常退出仍在验收，项目没有宣称完整可玩。
 
-今天另公开 [晚写存档的崩溃收尾](workstreams/late-saved-crash-final-observation) 和 [原启动阶段的受管后端准备](workstreams/normal-bootstrap-managed-backend-prepare)。两项已在独立测试安装执行，分别保留真实异常退出事实并完成后续正常升级，以及通过原生产入口更新三个后端副本；还未整合进普通安装包。
+今天另公开 [晚写存档的崩溃收尾](workstreams/late-saved-crash-final-observation) 和 [原启动阶段的受管后端准备](workstreams/normal-bootstrap-managed-backend-prepare)。两项已在独立测试安装执行，分别保留真实异常退出事实并完成后续正常升级，以及通过原生产入口更新三个后端副本；已整合成源码审核通过的候选 20，实际普通更新尚待执行。
 
 已有 [正常退出收尾源码](workstreams/normal-stop-off-finalize)、[上下文发现性能修正](workstreams/standalone-realm-cadence) 和 [定时画质接口修正](workstreams/power-profile-observed-api)，每项均标明源码检查与实机验证范围。
 
-MC 10.7 复活同步与 macOS 13 ARM64 HUD 已提供 [实验发布包](https://github.com/adkeb/palcraft-fusion/releases)。MC 完整 100 生产源已通过 [整合源码构建入口](player-standalone/full-mc-source/BUILD.zh-CN.md) 重建基础包，再衔接六源增量得到相同的 10.7 产物；历史混合 debug 策略公开记录，未使用旧项目 class。其他用户的全新环境与完整游戏验收仍待验证。
+MC 10.9 目标区域同步已提供 [组件实验包](https://github.com/adkeb/palcraft-fusion/releases/tag/v0.2.0-integration.10.9-center-source)；MC 10.7 复活同步与 macOS 13 ARM64 HUD 已提供 [实验发布包](https://github.com/adkeb/palcraft-fusion/releases)。MC 完整 100 生产源已通过 [整合源码构建入口](player-standalone/full-mc-source/BUILD.zh-CN.md) 重建基础包，再衔接六源增量得到相同的 10.7 产物；历史混合 debug 策略公开记录，未使用旧项目 class。其他用户的全新环境与完整游戏验收仍待验证。
 
 ## 源码地图
 

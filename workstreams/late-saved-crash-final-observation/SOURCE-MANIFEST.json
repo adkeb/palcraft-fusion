@@ -2,46 +2,54 @@
   "schema": 1,
   "component": "late-saved-crash-final-observation",
   "public_safe": true,
-  "production_changes": 1,
   "files": [
     {
       "path": "README.md",
-      "bytes": 2155,
-      "sha256": "91b5ba632a86334d6d5cac525a5434d5e578cc2a1364c532535a672d2125e5d0"
+      "sha256": "39791c1dd3bde0e253290a4747d7f2659ff9f280c0b843651a4f58f8088325c2",
+      "bytes": 2515
     },
     {
       "path": "base/launcher/journal_lifecycle.py",
-      "bytes": 43984,
-      "sha256": "bab797abf0ba93f7ce63528d8539c0598107a42f995e7a5c184bcc7ee4b2ba07"
+      "sha256": "bab797abf0ba93f7ce63528d8539c0598107a42f995e7a5c184bcc7ee4b2ba07",
+      "bytes": 43984
     },
     {
       "path": "checks/check_late.py",
-      "bytes": 4004,
-      "sha256": "932878c48dc37c866f2a874d74b199ecfd469b9db1d7e00e2a79c2247a0a13fe"
+      "sha256": "932878c48dc37c866f2a874d74b199ecfd469b9db1d7e00e2a79c2247a0a13fe",
+      "bytes": 4004
     },
     {
       "path": "checks/receipt.json",
-      "bytes": 673,
-      "sha256": "13d9c5ce73629d6f5f688d1997e87cbd1353d639e5b36a52dd1a31ed8971271a"
+      "sha256": "13d9c5ce73629d6f5f688d1997e87cbd1353d639e5b36a52dd1a31ed8971271a",
+      "bytes": 673
+    },
+    {
+      "path": "integrated/launcher/journal_lifecycle.py",
+      "sha256": "5626207fbdc5472c50d2d2814c1d59f655f480b89231ad5cb4e3a188912a30b6",
+      "bytes": 51646
+    },
+    {
+      "path": "integration.patch",
+      "sha256": "e91800613d9bd120e03ec261554f8fa8bb1b39f1c92fdf8c705a9b0177005df3",
+      "bytes": 11936
     },
     {
       "path": "run_frozen_cli.py",
-      "bytes": 868,
-      "sha256": "bb0dc52bd3055ac1807309ff7475d5d05844c70e337ad2b11cb9915555610f9f"
+      "sha256": "bb0dc52bd3055ac1807309ff7475d5d05844c70e337ad2b11cb9915555610f9f",
+      "bytes": 868
     },
     {
       "path": "source/launcher/journal_lifecycle.py",
-      "bytes": 51504,
-      "sha256": "1b310fc8067b6a92c209722d40c6c6c7679b119ce9f9894570435fadb0797448"
+      "sha256": "1b310fc8067b6a92c209722d40c6c6c7679b119ce9f9894570435fadb0797448",
+      "bytes": 51504
     },
     {
       "path": "source.patch",
-      "bytes": 11936,
-      "sha256": "e91800613d9bd120e03ec261554f8fa8bb1b39f1c92fdf8c705a9b0177005df3"
+      "sha256": "e91800613d9bd120e03ec261554f8fa8bb1b39f1c92fdf8c705a9b0177005df3",
+      "bytes": 11936
     }
   ],
-  "original_source_and_patch_bytes_preserved": true,
-  "actual_private_saves_receipts_paths_identities_or_credentials_included": false,
-  "actual_runtime_observation_summary": "README.md",
-  "ordinary_candidate19_package_contains_this_increment": false
+  "private_runtime_data_published": false,
+  "full_gameplay_accepted": false,
+  "actual_integrated_candidate20_installed": false
 }

@@ -1,0 +1,174 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -59,6 +59,17 @@
+         return False
+     code = clients[0].get('exit_code')
+     host = read_json(owned_path(root, '.palcraft/control/' + session['token'] + '.host.json'), {})
++    late=receipt.get('final_post_exit_level_witness')
++    if late is not None:
++        level=Path(read_json(root / '.palcraft/standalone/scope.json')['installed_level_path_host'])
++        if (late.get('kind')!='palcraft-final-late-game-save-observation-v1'
++                or late.get('normal_save_id')!=receipt.get('normal_save_witness',{}).get('normal_save_id')
++                or late.get('native_scope')!=scope.get('native_scope')
++                or late.get('original_early_witness_preserved') is not True
++                or late.get('standard_codec_reparsed_this_call') is not True
++                or late.get('level_identity')!=file_identity(level)
++                or late.get('level_sha256')!=digest(level)):
++            return False
+     return (session.get('phase') == 'failed' and session.get('code') == 'CLIENT_EXIT'
+         and receipt.get('kind') == SAVED_CRASH_KIND and receipt.get('saved_crash_off_completed') is True
+         and receipt.get('normal_title_Quit_and_native_exit0') is False
+@@ -466,7 +477,7 @@
+ 
+ 
+ def _issue_off_receipt(root, token, scope, exits, save_witness, phase, quiet_seconds=2, dry_run=False,
+-                       saved_crash=False, session=None):
++                       saved_crash=False, session=None, late_level_witness=None):
+     from launcher.runtime import process_matches
+     current_exits = {v['role']: v for v in exits.values()}
+     native = scope.get('native_scope', {})
+@@ -532,9 +543,10 @@
+         fail('JOURNAL_SAVE_PENDING', 'Saved/WAL 在散列期间变化，未签发完整停机见证。')
+     level = Path(read_json(root / '.palcraft/standalone/scope.json')['installed_level_path_host'])
+     level_relative = level.relative_to(root).as_posix()
+-    if (hashes.get(level_relative) != save_witness.get('level_sha256')
+-            or before.get(level_relative, {}).get('bytes') != save_witness.get('level_bytes')
+-            or before.get(level_relative, {}).get('mtime_ns', 0) / 1e9 != save_witness.get('level_mtime')):
++    final_level_witness = late_level_witness or save_witness
++    if (hashes.get(level_relative) != final_level_witness.get('level_sha256')
++            or before.get(level_relative, {}).get('bytes') != final_level_witness.get('level_bytes')
++            or before.get(level_relative, {}).get('mtime_ns', 0) / 1e9 != final_level_witness.get('level_mtime')):
+         fail('JOURNAL_SAVE_CHANGED', '签发时原 Level 见证不再匹配，未使用新文件替代。')
+     source = root / EVENTS
+     stream = file_identity(source) if source.exists() else None
+@@ -555,6 +567,9 @@
+         'Saved_and_WAL_stable_after_all_actors_off': True, 'persistent_stat_inventory': before,
+         'persistent_sha256': hashes, 'observed_unix': time.time(),
+         'new_SID_credential_permission_ACK_reader_offset_or_transaction_WAL_written': False}
++    if late_level_witness is not None:
++        assert saved_crash and late_level_witness['original_early_witness_preserved']
++        receipt['final_post_exit_level_witness'] = late_level_witness
+     if saved_crash:
+         receipt.update(saved_crash_off_completed=True, original_session_phase=session['phase'],
+             original_session_code=session['code'], normal_stop_stage=session.get('normal_stop_stage'),
+@@ -565,6 +580,99 @@
+     key = 'saved_crash_off_receipt' if saved_crash else 'normal_stop_receipt'
+     return {'ok': True, key: str(path), 'actor_exits': exits,
+             'normal_save_completed': True, 'next_cold_boot_uses_original_rotator': True}
++
++def _late_saved_level(root, token, scope, session, save, witness, level):
++    """Observe a final game-written Level alongside, never instead of, the original witness."""
++    import xml.etree.ElementTree as ET
++    actual = file_identity(level)
++    host_path = owned_path(root, '.palcraft/control/' + token + '.host.json')
++    host = read_json(host_path)
++    if (actual['mtime_ns'] <= int(witness['level_mtime'] * 1e9)
++            or actual['mtime_ns'] <= int(save['submitted_unix'] * 1e9)
++            or host.get('primary_pid') != scope['native_scope']['pid']
++            or host.get('primary_alive') is not False or host.get('job_active_processes') != 0
++            or host.get('exit_code') != 3 or host.get('phase') != 'failed'):
++        fail('JOURNAL_SAVE_CHANGED', '晚写 Level 没有原已保存 crash-off 的真实边界。')
++    reports=[]
++    for path in (root / USER / 'Saved/Crashes').glob('*/CrashContext.runtime-xml'):
++        raw=path.read_bytes()
++        text=raw.decode('utf-16') if raw.startswith((bytes.fromhex('fffe'),bytes.fromhex('feff'))) else raw.decode('utf-8-sig')
++        try:
++            document=ET.fromstring(re.sub(r'^<?xml[^>]*?>','',text))
++            pid=int(document.findtext('.//ProcessId') or '0')
++        except (ValueError,ET.ParseError):
++            continue
++        stamp=file_identity(path)
++        if (pid==scope['native_scope']['pid'] and stamp['mtime_ns'] >= actual['mtime_ns']
++                and stamp['mtime_ns'] <= host_path.stat().st_mtime_ns
++                and stamp['mtime_ns']/1e9 >= scope['started_unix']
++                and document.findtext('.//CrashType')=='Crash'):
++            reports.append((path,stamp))
++    if len(reports)!=1:
++        fail('JOURNAL_SAVE_CHANGED', '缺少同 native PID 晚写之后、原 host 退出之前的唯一 crash report。')
++    import os
++    codec_path=Path(os.environ.get('PALCRAFT_LATE_LEVEL_CODEC_PROOF',''))
++    if not codec_path.is_absolute() or not codec_path.is_file():
++        fail('JOURNAL_SAVE_CHANGED', '晚写收尾需要原标准 codec 的只读归属解析记录。')
++    codec=read_json(codec_path)
++    if (codec.get('schema')!=1 or codec.get('codec_parse_succeeded') is not True
++            or codec.get('standard_original_codec')!='palworld_save_tools decompress_sav_to_gvas + GvasFile.read PALWORLD_TYPE_HINTS'
++            or codec.get('Level_bytes')!=actual['bytes'] or codec.get('Level_sha256')!=digest(level)
++            or codec.get('owned_path_world_id')!=scope['native_scope']['world_id']
++            or codec.get('uid1_exists_in_CharacterSaveParameterMap') is not True
++            or codec.get('uid1_PlayerSav_exists') is not True
++            or scope['native_scope']['pal_uid']!='00000000-0000-0000-0000-000000000001'
++            or codec.get('same_normal_save_id')!=witness['normal_save_id']
++            or codec.get('same_native_scope')!=scope['native_scope']
++            or codec.get('save_or_side_effects') is not False
++            or codec.get('observed_unix',0)<session.get('stopped_unix',0)):
++        fail('JOURNAL_SAVE_CHANGED', '原标准 codec 解析记录不属于该最终 Level、UID 或原保存 boot。')
++    codec_python=Path(codec.get('codec_python_executable',''))
++    if not codec_python.is_absolute() or not codec_python.is_file():
++        fail('JOURNAL_SAVE_CHANGED', '原标准 codec Python 入口不可用。')
++    verify_code = '''import json,sys
++from palworld_save_tools.palsav import decompress_sav_to_gvas
++from palworld_save_tools.gvas import GvasFile
++from palworld_save_tools.paltypes import PALWORLD_TYPE_HINTS
++from contextlib import redirect_stdout
++import io
++data=decompress_sav_to_gvas(open(sys.argv[1],"rb").read())[0]
++with redirect_stdout(io.StringIO()):
++    parsed=GvasFile.read(data,PALWORLD_TYPE_HINTS,{},allow_nan=True)
++entries=parsed.properties["worldSaveData"]["value"]["CharacterSaveParameterMap"]["value"]
++entries=entries.get("values",[]) if isinstance(entries,dict) else entries
++uid=sys.argv[2].lower()
++found=any(str(row["key"]["PlayerUId"]["value"]).lower()==uid for row in entries)
++print(json.dumps({"parsed":True,"owned_uid_present":found}))
++'''
++    codec_env=os.environ.copy()
++    codec_env['PYTHONPATH']=str(root / DEV / 'mcp/vendor')
++    check=subprocess.run([str(codec_python),'-B','-c',verify_code,str(level),scope['native_scope']['pal_uid']],
++        capture_output=True,text=True,timeout=30,env=codec_env)
++    if check.returncode!=0:
++        fail('JOURNAL_SAVE_CHANGED', '原标准 codec 不能重新解析最终 Level。')
++    try:
++        actual_codec=json.loads(check.stdout)
++    except ValueError:
++        fail('JOURNAL_SAVE_CHANGED', '原标准 codec 返回不可解析。')
++    if actual_codec!={'parsed':True,'owned_uid_present':True}:
++        fail('JOURNAL_SAVE_CHANGED', '最终 Level 不包含该原生 UID。')
++    player=level.parent/'Players'/(scope['native_scope']['pal_uid'].replace('-','').upper()+'.sav')
++    if not player.is_file() or player.stat().st_size!=codec.get('uid1_PlayerSav_bytes'):
++        fail('JOURNAL_SAVE_CHANGED', '晚写角色文件不属于该标准解析记录。')
++    report,identity=reports[0]
++    if actual!=file_identity(level):
++        fail('JOURNAL_SAVE_PENDING', '解析期间晚写 Level 又变化。')
++    return {'schema':1,'kind':'palcraft-final-late-game-save-observation-v1','normal_save_id':witness['normal_save_id'],
++        'native_scope':scope['native_scope'],'level_mtime':actual['mtime_ns']/1e9,'level_bytes':actual['bytes'],
++        'level_sha256':codec['Level_sha256'],'level_identity':actual,'after_submission':True,'stable':True,
++        'normal_save_completed':True,'original_early_witness_preserved':True,
++        'game_crash_report':{'relative_path':report.relative_to(root).as_posix(),'identity':identity,'sha256':digest(report),
++            'file_creation_not_exact_fault_time':True},
++        'original_host_exit_observation':host,'codec_observation_record_sha256':digest(codec_path),
++        'codec_ownership':{'world_id':codec['owned_path_world_id'],'pal_uid':scope['native_scope']['pal_uid'],
++            'CharacterSaveParameterMap_contains_UID1':True,'UID1_PlayerSav_bytes':codec['uid1_PlayerSav_bytes']},
++        'extra_native_BootRegistry_not_claimed':True,'standard_codec_reparsed_this_call':True,'observed_unix':time.time()}
+ 
+ def finalize_stop(root, dry_run=False, quiet_seconds=2):
+     return _finalize_off(root, dry_run, quiet_seconds)
+@@ -647,10 +755,13 @@
+             fail('JOURNAL_SAVE_SCOPE', '原保存 durable r1/r2 与本 boot/file witness 不一致。')
+         level = owned_path(root, USER + '/Saved/SaveGames/' + profile['standalone']['save_account_directory'] + '/' + native['world_id'] + '/Level.sav')
+         actual = file_identity(level)
++        late_level_witness = None
+         if (actual['mtime_ns'] <= save['submitted_unix'] * 1e9
+                 or actual['mtime_ns'] / 1e9 != witness['level_mtime']
+                 or actual['bytes'] != witness['level_bytes'] or digest(level) != witness['level_sha256']):
+-            fail('JOURNAL_SAVE_CHANGED', '原提交之后的 Level 文件见证已变化。')
++            if not saved_crash:
++                fail('JOURNAL_SAVE_CHANGED', '原提交之后的 Level 文件见证已变化。')
++            late_level_witness = _late_saved_level(root, token, scope, session, save, witness, level)
+         for action in (() if saved_crash else ('return_title', 'observe_title', 'quit_title')):
+             submitted = read_json(_scope_path(root, token, action + '-request.json'))
+             observed = read_json(_scope_path(root, token, action + '-observation.json'))
+@@ -664,4 +775,4 @@
+                 fail('JOURNAL_SCOPE', '原 Title 回执与 scope 不一致。')
+         # Same issuer as normal finish. No fake owner/Popen and no phase/state edit.
+         return _issue_off_receipt(root, token, scope, exits, witness, session['phase'], quiet_seconds, dry_run,
+-                                  saved_crash=saved_crash, session=session)
++                                  saved_crash=saved_crash, session=session, late_level_witness=late_level_witness)

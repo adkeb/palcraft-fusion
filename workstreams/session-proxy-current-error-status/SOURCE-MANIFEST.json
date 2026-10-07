@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "component": "session-proxy-current-error-status",
+  "public_safe": true,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "1d307efdf7e035fa20b4d65f82b490ba10a9655b745e41e42bc6b58e11bf1661",
+      "bytes": 817
+    },
+    {
+      "path": "base/launcher/session_proxy.py",
+      "sha256": "3e7700d14327cf3e8dd52a0f16e2de272b8135c7bf17d001fab19ed3acda43c5",
+      "bytes": 19921
+    },
+    {
+      "path": "source/launcher/session_proxy.py",
+      "sha256": "89b5c7b974cd23300d8bd471197878f3510f479811f1cfd72197e8237128798d",
+      "bytes": 20063
+    },
+    {
+      "path": "source.patch",
+      "sha256": "91d29ef31310c9ce7853991cab64ed1d01c784a3cde75f47d15d08e23e4fca26",
+      "bytes": 738
+    }
+  ],
+  "private_runtime_data_published": false,
+  "full_gameplay_accepted": false,
+  "actual_integrated_candidate20_installed": false
+}

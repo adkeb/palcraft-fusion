@@ -1,0 +1,13 @@
+--- a/launcher/session_proxy.py
++++ b/launcher/session_proxy.py
+@@ -93,7 +93,9 @@
+                  'mc_epoch': None, 'mc_epoch_verified': False,
+                  'grant_signature_verified_locally': False}
+         if self.latest_rejection is not None:
+-            value['session_error'] = self.latest_rejection
++            value['last_session_rejection'] = self.latest_rejection
++            if state == 'error' and code == 'PROXY_SESSION_REJECTED':
++                value['session_error'] = self.latest_rejection
+         if state == 'bound' and self.sign_receiver_scope == (scope.get('session_id'), scope.get('generation')):
+             value['sign_text_receiver'] = {'version': 1, 'installed': True}
+         if state != 'bound':
