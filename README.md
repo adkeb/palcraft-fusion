@@ -8,13 +8,13 @@
 
 截至 2026-10-07，开发环境为 macOS、CrossOver、《幻兽帕鲁》Steam 离线单机和本地 Minecraft 后端。既有 AI 生存建造、基地管理和箱子整理代码，以及跨游戏原生桥接、安装器和 MCP 工具均已公开。
 
-上一轮隔离运行已完成真实世界快照、完整目标模型与碰撞提交和本次世界 ACK，MC HUD 像素也已实际导出、编码和解码。这些记录只证明各自的数据链路；前台 HUD、物理输入、变身和完整生存玩法仍待验收。
-
-最新单机候选已在实际 Mac 启动中确认：原生 Menu Helper 自动首启游戏，Mod 与原生组件真正加载，原世界通过正常 API 加载，并获取真实 Palworld 场景图。更新后的后端启动模板也通过原事务恢复。日志路径配置已补齐，本地 MC 后端已通过原身份登记、签名验证及实际世界快照 ACK 接入，前台输入、F5、完整生存玩法与 42 项验收仍未完成，见 [开发状态](docs/STATUS.md)。
+候选 14 已在实际 Mac 上完成正常更新、冷启动、原世界加载、新身份登记验签和同一监督器下的六组件接入。初始世界 ACK 自然完成；通过原变身接口进入第一人称时，实际引擎画面中原角色与工具已隐藏。这些证据尚不覆盖物理 F5、前台 HUD 和完整生存玩法，见 [开发状态](docs/STATUS.md)。
 
 最新修正源码分别保存在 [玩家保存与重启流程](workstreams/normal-journal-owned-player-flow-v2)、[原生实体身份绑定](workstreams/native-entity-binding-next)、[MCP 身份观察](workstreams/MC-local-scope-observation-next) 和 [Windows 快捷方式生成备选](workstreams/windows-shelllink-stdlib-alternative)。备选只有格式与源码检查，尚未证明实际 vendor 解析成功。
 
-候选 13 已完成真实更新、正常世界加载、新身份登记验签和六组件接入。当前仍有落点确认、Mac 前台归属与完整负载性能问题，完整可玩尚未验收；新增 [控制器性能修正](workstreams/standalone-native-controller-cadence) 与 [冻结锁保持修复](workstreams/travel-owned-hold-maintenance) 等待下一版实机验证。
+候选 14 的正常复活已恢复原 33 级角色，但后续世界 ACK 未完成，完整负载下仍约 6 FPS。随后的一次正常保存已完成，客户端在返回标题期间以退出码 3 崩溃。新增 [已保存崩溃恢复](workstreams/saved-crash-off-recovery) 已在真实安装签发独立收据，保留异常退出事实；候选 16 正在验证恢复后的更新、冷启动、复活同步与实际操作。
+
+候选 16 还包含 [帧内检查优化](workstreams/standalone-callback-live-guard)、[HUD 启动阶段归属修复](workstreams/mac-hud-normal-starting-phase) 和 [单机复活生命周期修复](workstreams/standalone-respawn-lifecycle)。这些修正已通过各自针对性源码检查，完整实机效果仍待验证。
 
 已有 [正常退出收尾源码](workstreams/normal-stop-off-finalize)、[上下文发现性能修正](workstreams/standalone-realm-cadence) 和 [定时画质接口修正](workstreams/power-profile-observed-api)，每项均标明源码检查与实机验证范围。
 
