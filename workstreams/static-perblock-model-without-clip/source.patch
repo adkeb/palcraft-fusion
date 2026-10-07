@@ -1,0 +1,30 @@
+--- base/client/models.lua
++++ source/client/models.lua
+@@ -250,9 +250,11 @@
+  assert(type(entry)=='table'and entry.id and entry.at and entry.groups,'Exact dynamic block descriptor required')
+  assert(Geometry.clip,'Geometry provider does not expose block clips')
+  local clip,spec=Geometry.clip(entry.id,entry.state,entry.at[1],entry.at[2],entry.at[3])
+- assert(clip,'Block is not a supported original animation')
+  local h=M.prepare(ctx,origin,{groups=entry.groups,at=entry.at,revision=packet.revision,generation=packet.generation,
+   fence=packet.fence,block_clip=clip})
++ -- Block-entity/part metadata can require an owned per-block model without a clip.
++ -- Keep those exact groups; only original geometry clips register animation state.
++ if not clip then return h end
+  local dim=packet.dimension or packet.dim or packet.fence.dim
+  local key=dim..':'..entry.at[1]..':'..entry.at[2]..':'..entry.at[3]
+  block_animations[h.actor]={actor=h.actor,id=entry.id,at=entry.at,dim=dim,key=key,groups=entry.groups,
+--- base/server/models.lua
++++ source/server/models.lua
+@@ -238,9 +238,11 @@
+  assert(type(entry)=='table'and entry.id and entry.at and entry.groups,'Exact dynamic block descriptor required')
+  assert(Geometry.clip,'Geometry provider does not expose block clips')
+  local clip,spec=Geometry.clip(entry.id,entry.state,entry.at[1],entry.at[2],entry.at[3])
+- assert(clip,'Block is not a supported original animation')
+  local h=M.prepare(ctx,origin,{groups=entry.groups,at=entry.at,revision=packet.revision,generation=packet.generation,
+   fence=packet.fence,block_clip=clip})
++ -- Block-entity/part metadata can require an owned per-block model without a clip.
++ -- Keep those exact groups; only original geometry clips register animation state.
++ if not clip then return h end
+  local dim=packet.dimension or packet.dim or packet.fence.dim
+  local key=dim..':'..entry.at[1]..':'..entry.at[2]..':'..entry.at[3]
+  block_animations[h.actor]={actor=h.actor,id=entry.id,at=entry.at,dim=dim,key=key,groups=entry.groups,

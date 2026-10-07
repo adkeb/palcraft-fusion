@@ -55,4 +55,4 @@ MC 10.9 目标区域同步已提供 [组件实验包](https://github.com/adkeb/p
 
 [材质资源生命周期修复](workstreams/material-resource-lifetime) 与 [未保存崩溃收尾](workstreams/unsaved-owned-crash-off-recovery) 已公开。实际收尾明确未完成保存并保留原失败记录；原更新保留 Saved，随后发现并修复崩溃 XML 编码与启动收据分支问题。新候选 25 已完成源包审核，游戏内重新采掘拾取和性能效果仍待验证。
 
-候选 25 的正常启动与六组件接入成功，但旧掉落物路径读取不存在的 texture 目录，使场景工厂退出。已完成 [受管纹理根解析修复](workstreams/legacy-managed-texture-root)，保留原图片与材质效果，候选 26 正在正常更新及实际采掘验收。
+候选 26 已完成正常更新、离线单机原世界加载和同一监督器的六组件接入，受管纹理目录错误已消失。当前场景准备因炉子的方块实体元数据与动画 clip 判断混用而受阻；已公开 [静态方块实体模型修复](workstreams/static-perblock-model-without-clip)，保留完整模型和箱子的原动画。3 项限定源码案例通过，实际新候选场景 ACK、挖掘拾取和性能仍待验证。

@@ -1,0 +1,9 @@
+# Per-block model metadata is separate from geometry animation
+
+The current actual furnace at(8,63,-16) belongs to error section0:3:-1, whose origin is[0,48,-16]. Its authoritative block-entity metadata routes it through the owned per-block special model path. The original furnace/furnace_on geometry assets have faces but no geometry animation clip. Models.prepare_block therefore rejected the ordinary static furnace. The current chest at(6,63,-16), single/west, selects the original chest/single model with clip minecraft:block_entity/chest/single; its animation must remain intact. Torch/texture-timeline identity was not guessed from the unrelated previous status peak.
+
+The tiny paired-source fix uses the original M.prepare with exact entry.groups, position, revision, generation and fence for every per-block model. If the original Geometry.clip exists, original animation registration continues unchanged. If it does not, the model is still fully prepared and owned, with no dummy clip or animation state. No block parts are flattened/merged, no texture timeline/light/material metadata is removed, and no capability/coverage/ready/ACK flag is changed. This keeps static multipart/block-entity geometry, sign/pot descriptors and real chest/door clips on their original paths.
+
+Three bounded source cases passed: actual semantic furnace no-clip previously rejected but now retains the exact complete batch; original chest clip registers; multipart parts/texture timeline/light metadata remains complete without fake animation. Native preparation callbacks in tests are explicitly synthetic. Actual native commit, current scene readiness and final ACK still require the normal runtime flow.
+
+Only the existing client/server models.lua copies change, based on frozen26; native DLLs, producer metadata, assets, texture fix, material lifetime/context hotpath, current runtime and previous frozen sources are untouched.

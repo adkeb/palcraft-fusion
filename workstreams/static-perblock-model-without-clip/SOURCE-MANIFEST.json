@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "applicable_base": "candidate.26-legacy-managed-textures",
+  "change": "Retain the exact original per-block model without registering animation when geometry has no clip.",
+  "bounded_source_cases_passed": 3,
+  "runtime_accepted": false,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "aeeb1e27fe0acb0db07becb3c38bbbff6af92983e5084e8f5a2142759739b666",
+      "bytes": 1924
+    },
+    {
+      "path": "base/client/models.lua",
+      "sha256": "9a4352c28b767bf6c395d662f00cf04361be1df444610f4aab14e75eafd172c1",
+      "bytes": 22124
+    },
+    {
+      "path": "base/server/models.lua",
+      "sha256": "9c8afe2e9c713195313f9132f6e5a083cbb91e00c4ffd7d95825a6b155798c15",
+      "bytes": 21329
+    },
+    {
+      "path": "checks/check_perblock.lua",
+      "sha256": "04b2cb119fbfe4e1b2a1500609cd5627ac085a97fb577f242b85dd0780097cd0",
+      "bytes": 3048
+    },
+    {
+      "path": "source/client/models.lua",
+      "sha256": "338ba1fb445038bd9844fdd7b9ec09f1c9404c4aea41080b98e22d2fcdff4f19",
+      "bytes": 22263
+    },
+    {
+      "path": "source/server/models.lua",
+      "sha256": "c8944b20274a7e1ed9d0661358fa8e9346011c451d21885c05326e8998b47600",
+      "bytes": 21468
+    },
+    {
+      "path": "source.patch",
+      "sha256": "d5441ec5f233c821bed68bbf72801fbe0d2fc7eeebb263521f8483f020527532",
+      "bytes": 2026
+    }
+  ]
+}
