@@ -1,0 +1,94 @@
+--- base/client/palcraft-collisions.lua
++++ source/client/palcraft-collisions.lua
+@@ -62,10 +62,18 @@
+  if not client then return 0 end
+  local texture_name=(id or 'minecraft:oak_planks'):gsub('^minecraft:',''):gsub('_stairs$',''):gsub('_slab$','')
+  if texture_name=='oak'then texture_name='oak_planks'end
+- if materials[texture_name]then return materials[texture_name]:GetAddress()end
++ local cached=materials[texture_name]
++ if cached and cached.material:IsValid()and cached.texture:IsValid()then return cached.material:GetAddress()end
++ materials[texture_name]=nil
+  local texture_path=SHARED..'textures/'..texture_name..'.png';local f=io.open(texture_path,'rb')
+  if f then f:close()else texture_path=SHARED..'textures/stone.png'end
+  local ctx=context()
++ -- Lua userdata caches are not engine GC roots. Reacquire the original asset
++ -- immediately before creation; native SetMaterial keeps the original MID /
++ -- texture reference chain on the existing component.
++ normal=LoadAsset('/Engine/EngineMaterials/DefaultNormal.DefaultNormal')
++ parent=LoadAsset('/Game/Pal/Model/Prop/Architecture/Architecture_Wood/Material/MI_PalProp_Wall_Wood.MI_PalProp_Wall_Wood')
++ assert(parent and parent:IsValid(),'Wood material unavailable before creation')
+  local material=StaticFindObject('/Script/Engine.Default__KismetMaterialLibrary'):CreateDynamicMaterialInstance(ctx,parent,FName('PalCraft_'..texture_name),0)
+  assert(material:IsValid(),'Dynamic material')
+  local texture=StaticFindObject('/Script/Engine.Default__KismetRenderingLibrary'):ImportFileAsTexture2D(ctx,texture_path)
+@@ -73,7 +81,7 @@
+  material:SetTextureParameterValue(FName('Base Texture'),texture)
+  if normal and normal:IsValid()then material:SetTextureParameterValue(FName('Normal Map'),normal)end
+  material:SetScalarParameterValue(FName('Roughness Add'),0.6)
+- materials[texture_name]=material;return material:GetAddress()
++ materials[texture_name]={material=material,texture=texture};return material:GetAddress()
+ end
+ local function invoke(action,actor,x,y,z,bounds,id)
+  prepare();local ctx=context():GetAddress()
+@@ -288,6 +296,7 @@
+   assert(retired.ok,'Legacy stop cleanup failed: '..J.encode(retired.errors))
+  end
+  if M.chunk_consumer then M.chunk_consumer.stop(true);M.chunk_consumer=nil end
++ materials={};parent=nil;normal=nil
+  return M.status()
+ end
+ function M.abandon()
+@@ -295,6 +304,7 @@
+  if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end
+  if models and models.abandon_models then models.abandon_models()end
+  M.running=false;M.actors={};M.items={};M.queue={};M.queued={};M.queue_head=1;M.pending=''
++ materials={};parent=nil;normal=nil
+  M.ingesting_row=nil;M.pending_view=nil;M.world_observer=nil;M.abandoned=true
+  clear_accepted_views()
+  world_observers={};world_observer_order={}
+--- base/server/palcraft-server.lua
++++ source/server/palcraft-server.lua
+@@ -42,10 +42,18 @@
+  if not client then return 0 end
+  local texture_name=(id or 'minecraft:oak_planks'):gsub('^minecraft:',''):gsub('_stairs$',''):gsub('_slab$','')
+  if texture_name=='oak'then texture_name='oak_planks'end
+- if materials[texture_name]then return materials[texture_name]:GetAddress()end
++ local cached=materials[texture_name]
++ if cached and cached.material:IsValid()and cached.texture:IsValid()then return cached.material:GetAddress()end
++ materials[texture_name]=nil
+  local texture_path=SHARED..'textures/'..texture_name..'.png';local f=io.open(texture_path,'rb')
+  if f then f:close()else texture_path=SHARED..'textures/stone.png'end
+  local ctx=context()
++ -- Lua userdata caches are not engine GC roots. Reacquire the original asset
++ -- immediately before creation; native SetMaterial keeps the original MID /
++ -- texture reference chain on the existing component.
++ normal=LoadAsset('/Engine/EngineMaterials/DefaultNormal.DefaultNormal')
++ parent=LoadAsset('/Game/Pal/Model/Prop/Architecture/Architecture_Wood/Material/MI_PalProp_Wall_Wood.MI_PalProp_Wall_Wood')
++ assert(parent and parent:IsValid(),'Wood material unavailable before creation')
+  local material=StaticFindObject('/Script/Engine.Default__KismetMaterialLibrary'):CreateDynamicMaterialInstance(ctx,parent,FName('PalCraft_'..texture_name),0)
+  assert(material:IsValid(),'Dynamic material')
+  local texture=StaticFindObject('/Script/Engine.Default__KismetRenderingLibrary'):ImportFileAsTexture2D(ctx,texture_path)
+@@ -53,7 +61,7 @@
+  material:SetTextureParameterValue(FName('Base Texture'),texture)
+  if normal and normal:IsValid()then material:SetTextureParameterValue(FName('Normal Map'),normal)end
+  material:SetScalarParameterValue(FName('Roughness Add'),0.6)
+- materials[texture_name]=material;return material:GetAddress()
++ materials[texture_name]={material=material,texture=texture};return material:GetAddress()
+ end
+ local function invoke(action,actor,x,y,z,bounds,id)
+  prepare();local ctx=context():GetAddress()
+@@ -250,6 +258,7 @@
+   assert(retired.ok,'Legacy stop cleanup failed: '..J.encode(retired.errors))
+  end
+  if M.chunk_consumer then M.chunk_consumer.stop(true);M.chunk_consumer=nil end
++ materials={};parent=nil;normal=nil
+  return M.status()
+ end
+ function M.abandon()
+@@ -257,6 +266,7 @@
+  if M.chunk_consumer then M.chunk_consumer.stop(false);M.chunk_consumer=nil end
+  if models and models.abandon_models then models.abandon_models()end
+  M.running=false;M.actors={};M.items={};M.queue={};M.queued={};M.queue_head=1;M.pending=''
++ materials={};parent=nil;normal=nil
+  M.ingesting_row=nil;M.pending_view=nil;M.world_observer=nil;M.abandoned=true
+  bound_context=nil;bound_context_address=nil;bound_world_address=nil
+ end

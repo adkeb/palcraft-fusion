@@ -52,3 +52,5 @@ MC 10.9 目标区域同步已提供 [组件实验包](https://github.com/adkeb/p
 作者扩展沿用 MIT 许可，第三方代码与接口保留原许可和说明。Minecraft、Palworld、CrossOver 及 Unreal 的商用文件不在该许可授予范围内。见 [LICENSE](LICENSE) 和 [THIRD_PARTY.md](THIRD_PARTY.md)。
 
 新候选 22 已合入 [持续变身选择](workstreams/native-camera-stall-form-intent)、[有限快照准备进度](workstreams/initial-target-snapshot-progress-lease) 和 [单机上下文扫描复用](workstreams/standalone-global-context-scan-reuse)。当前尚未安装：候选 21 在正常采掘一根火把后发生真实原生访问异常，MC 权威记录确认方块移除，但原生清理、掉落拾取和保存结果未验收；正在定位并保留异常退出事实。
+
+[材质资源生命周期修复](workstreams/material-resource-lifetime) 与 [未保存崩溃收尾](workstreams/unsaved-owned-crash-off-recovery) 已公开。实际收尾明确未完成保存并保留原失败记录；原更新保留 Saved，随后发现并修复崩溃 XML 编码与启动收据分支问题。新候选 25 已完成源包审核，游戏内重新采掘拾取和性能效果仍待验证。

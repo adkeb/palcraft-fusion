@@ -1,0 +1,15 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -876,7 +876,11 @@
+         if report.stat().st_size > 1048576:
+             fail('JOURNAL_CRASH_REPORT', 'CrashContext 超出原只读诊断边界。')
+         try:
+-            document = ET.fromstring(report.read_bytes())
++            raw = report.read_bytes()
++            text = raw.decode('utf-16') if raw.startswith((bytes.fromhex('fffe'), bytes.fromhex('feff'))) else raw.decode('utf-8-sig')
++            # Decode the physical BOM first; only Unicode content reaches ET.
++            text = re.sub(r'^\s*<\?xml\b.*?\?>', '', text, count=1, flags=re.IGNORECASE)
++            document = ET.fromstring(text)
+             pid = int(document.findtext('.//ProcessId') or '0')
+         except (ValueError, ET.ParseError):
+             continue

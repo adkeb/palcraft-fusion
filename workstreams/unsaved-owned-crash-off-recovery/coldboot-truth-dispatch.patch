@@ -1,0 +1,12 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -136,7 +136,8 @@
+                 or any(not v.get('actual_wait_completed') for v in receipt['actor_exits'].values())
+                 or any(any(receipt['actor_exits'][key].get(field) != actor.get(field)
+                            for field in ('pid', 'identity', 'role')) for key, actor in scope['actors'].items())
+-                or (not _saved_crash_receipt_matches(root, scope, previous, receipt) if saved_crash
++                or (not _unsaved_crash_receipt_matches(root, scope, previous, receipt) if unsaved_crash
++                     else not _saved_crash_receipt_matches(root, scope, previous, receipt) if saved_crash
+                     else not receipt.get('normal_title_Quit_and_native_exit0'))
+                 or not receipt.get('Saved_and_WAL_stable_after_all_actors_off')):
+             fail('JOURNAL_STALE_RECEIPT', '停机见证不属于这一 boot、这一事件卷或真实等待结束的进程。')

@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "component": "material-resource-lifetime",
+  "public_safe": true,
+  "source_checks_passed": 4,
+  "actualGame_crash_retest_pending": true,
+  "private_records_published": false,
+  "files": [
+    {
+      "path": "API-SOURCES.md",
+      "bytes": 916,
+      "sha256": "10137b0975b330ffc25b89d2c0142e4e15138f9c563c12b9c3e2c9b706e8764a"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2009,
+      "sha256": "eb8b9627640eb51ea6fa08e3c5b92c2b771a57ab4a4ba421ed37c5a1225e3d86"
+    },
+    {
+      "path": "base/client/palcraft-collisions.lua",
+      "bytes": 23007,
+      "sha256": "caebbc5a01225229e3f7ecee7f91113384c00f605d2b7c09721584c6f34be874"
+    },
+    {
+      "path": "base/server/palcraft-server.lua",
+      "bytes": 20465,
+      "sha256": "8ef1f73bd6acff91ab2ca901d13f6aa93c535a4ec32ee4fa86c075f8cff0c759"
+    },
+    {
+      "path": "checks/check_material.lua",
+      "bytes": 6262,
+      "sha256": "0c7118ac88dc642bf12284cbcc9c073f5eb36d6c13e274b4a341352d9415fcac"
+    },
+    {
+      "path": "source/client/palcraft-collisions.lua",
+      "bytes": 23694,
+      "sha256": "47f22756e7e76ac458caa29d5ae1c1974df3043c8a5cb9552164815cca318968"
+    },
+    {
+      "path": "source/server/palcraft-server.lua",
+      "bytes": 21152,
+      "sha256": "6e58824cf0f2a0d0dab2c29c38d43f89f72c94e100f8617e4390ee2b75109356"
+    },
+    {
+      "path": "source.patch",
+      "bytes": 5619,
+      "sha256": "b73860c28fb4bc3d5a6c7bb12436d64bcf7aec46997686eca1e6db5e5d89d609"
+    }
+  ]
+}

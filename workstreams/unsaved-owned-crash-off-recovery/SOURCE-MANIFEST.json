@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "component": "unsaved-owned-crash-off-recovery",
+  "public_safe": true,
+  "source_slots": 4,
+  "synthetic_cases": 4,
+  "encoding_fixture": 1,
+  "normal_Save_completed_claimed": false,
+  "actual_private_receipts_or_codec_data_included": false,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2439,
+      "sha256": "76b10bf549bd817e4a8efb12dabf8effd22a0adbf380ee04d75749decf7d069e"
+    },
+    {
+      "path": "XML-BOM-decode.patch",
+      "bytes": 820,
+      "sha256": "c320ecf4ebab8bc966d7b47247c0e36e8a725ddea1c05d31db2f3ce1c8aca426"
+    },
+    {
+      "path": "base/installer/cli.py",
+      "bytes": 13198,
+      "sha256": "0ce1116ec34d8706131b1e6f36084631ed1c8309b42028d25a09112fd2f95acf"
+    },
+    {
+      "path": "base/installer/core.py",
+      "bytes": 66476,
+      "sha256": "f2cfa4048da10ad3b2b5813bc7b2bf37b40b866a0dc3b8a5355726dec46a34fb"
+    },
+    {
+      "path": "base/installer/standalone.py",
+      "bytes": 18989,
+      "sha256": "63a020738189c0b9560336fff25bafde4bef9915fa54d60a522698669f09275e"
+    },
+    {
+      "path": "base/launcher/journal_lifecycle.py",
+      "bytes": 51646,
+      "sha256": "5626207fbdc5472c50d2d2814c1d59f655f480b89231ad5cb4e3a188912a30b6"
+    },
+    {
+      "path": "checks/check_bom.py",
+      "bytes": 2522,
+      "sha256": "52bb1a27285f203b9650010d9d6d11c4979cb51da777ae470d1d1ccc69d82278"
+    },
+    {
+      "path": "checks/check_unsaved.py",
+      "bytes": 10154,
+      "sha256": "6da4fd4c3df77d6a9b799ecc7b671ddb9c56aac2bc6bbcefe9f8b49cd6237dd7"
+    },
+    {
+      "path": "checks/coldboot/check_dispatch.py",
+      "bytes": 2409,
+      "sha256": "be3412ada6329986e4cbcc9575b8fa83decc16ea275a722222e21eaf5d0fa167"
+    },
+    {
+      "path": "coldboot-truth-dispatch.patch",
+      "bytes": 1000,
+      "sha256": "40c07be2dc3ee304642d3f991779f4733657c1935a699fceafa4e01a6719e33d"
+    },
+    {
+      "path": "source/installer/cli.py",
+      "bytes": 13603,
+      "sha256": "e67e9668e4f7e734bf37a0505b72165e96a36c263c1853843b64d3f0b26b4e65"
+    },
+    {
+      "path": "source/installer/core.py",
+      "bytes": 67594,
+      "sha256": "4ced94420166cd253d24b8f84709834fd1bbf666d5aca742e04f593514de652c"
+    },
+    {
+      "path": "source/installer/standalone.py",
+      "bytes": 20193,
+      "sha256": "ef4e4acd2bb7086c456eb7d0aa39667b08b83835268bdf77de99706e429e0959"
+    },
+    {
+      "path": "source/launcher/journal_lifecycle.py",
+      "bytes": 71921,
+      "sha256": "ec90f26ed5232e7bf23dafa5df0c438ccefa50d1c47fe4d4683ac42f59e4f176"
+    },
+    {
+      "path": "unsaved-recovery.patch",
+      "bytes": 33899,
+      "sha256": "d8ca9385b9bfca9cf67f4e88ef174ca2a7a8d770acc00793ef51cd7236fba431"
+    }
+  ],
+  "coldboot_truth_fixture_passed": true,
+  "final_journal_source_sha256": "ec90f26ed5232e7bf23dafa5df0c438ccefa50d1c47fe4d4683ac42f59e4f176"
+}

@@ -1,0 +1,454 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -15,6 +15,8 @@
+ LIFECYCLE = '.palcraft/standalone/journal-lifecycle'
+ SAVED_CRASH_KIND = 'palcraft-owned-saved-crash-off-v1'
+ SAVED_CRASH_RECEIPT = 'saved-crash-off-receipt.json'
++UNSAVED_CRASH_KIND = 'palcraft-owned-unsaved-crash-off-v1'
++UNSAVED_CRASH_RECEIPT = 'unsaved-crash-off-receipt.json'
+ 
+ 
+ def enabled(profile):
+@@ -100,11 +102,17 @@
+     path = (_scope_path(root, scope['token'], 'normal-stop-receipt.json') if automatic and scope
+             else Path(normal_stop_receipt) if not automatic else None)
+     saved_crash = False
++    unsaved_crash = False
+     if automatic and scope:
+         previous = read_json(owned_path(root, '.palcraft/session.json'), {})
+         crash_path = _scope_path(root, scope['token'], SAVED_CRASH_RECEIPT)
+-        if previous.get('phase') == 'failed' and crash_path.is_file():
++        unsaved_path = _scope_path(root, scope['token'], UNSAVED_CRASH_RECEIPT)
++        if previous.get('phase') == 'failed' and unsaved_path.is_file():
++            path, unsaved_crash = unsaved_path, True
++        elif previous.get('phase') == 'failed' and crash_path.is_file():
+             path, saved_crash = crash_path, True
++        elif previous.get('phase') == 'failed':
++            fail('JOURNAL_CRASH_OFF_REQUIRED', '上一失败 boot 尚无真实 off 回执，先运行适用的 finalize-crash-off 或 finalize-saved-crash。')
+     if automatic and scope and path is not None and not path.is_file():
+         # start calls this before allocating a new token and outside its lock.
+         # Reuse the original completed stop; never request a second shutdown.
+@@ -119,7 +127,7 @@
+     receipt = read_json(path)
+     if automatic:
+         previous = read_json(owned_path(root, '.palcraft/session.json'), {})
+-        if (receipt.get('kind') != (SAVED_CRASH_KIND if saved_crash else 'palcraft-owned-normal-stop-v1')
++        if (receipt.get('kind') != (UNSAVED_CRASH_KIND if unsaved_crash else SAVED_CRASH_KIND if saved_crash else 'palcraft-owned-normal-stop-v1')
+                 or receipt.get('token') != scope.get('token') or previous.get('token') != scope.get('token')
+                 or receipt.get('root_id') != marker(root)['id'] or receipt.get('root') != str(root)
+                 or receipt.get('stream_identity') != file_identity(source)
+@@ -132,7 +140,8 @@
+                     else not receipt.get('normal_title_Quit_and_native_exit0'))
+                 or not receipt.get('Saved_and_WAL_stable_after_all_actors_off')):
+             fail('JOURNAL_STALE_RECEIPT', '停机见证不属于这一 boot、这一事件卷或真实等待结束的进程。')
+-        if _persistent_inventory(root) != receipt['persistent_stat_inventory']:
++        inventory = _crash_persistent_inventory if unsaved_crash else _persistent_inventory
++        if inventory(root) != receipt['persistent_stat_inventory']:
+             fail('JOURNAL_SAVE_CHANGED', '正常停机后 Saved/WAL 已更改，未使用旧见证。')
+     else:
+         # Existing sole-runtime receipts remain an explicit transition path.
+@@ -144,6 +153,10 @@
+                 or witness.get('stable') is not True or observed * 1e9 < source.stat().st_mtime_ns):
+             fail('JOURNAL_STALE_RECEIPT', '明确转交的原停机回执必须包含本卷之后的真实 save ID 和文件见证。')
+     result = rotate_events(root, path, dry_run=dry_run)
++    if unsaved_crash:
++        result.update(normal_save_completed=False, mutations_may_be_unpersisted=True,
++                      original_business_recovery=receipt['original_business_recovery'],
++                      events_archive_only_no_replay_or_exactly_once_persistence_claim=True)
+     if not dry_run and scope:
+         atomic_json(_scope_path(root, scope['token'], 'rotation-consumed.json'), result)
+     return result
+@@ -776,3 +789,254 @@
+         # Same issuer as normal finish. No fake owner/Popen and no phase/state edit.
+         return _issue_off_receipt(root, token, scope, exits, witness, session['phase'], quiet_seconds, dry_run,
+                                   saved_crash=saved_crash, session=session, late_level_witness=late_level_witness)
++
++
++def _crash_persistent_inventory(root):
++    rows = _persistent_inventory(root)
++    directory = root / 'BridgeLab/rpc/entities'
++    if directory.exists():
++        for path in directory.rglob('*'):
++            if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
++                fail('JOURNAL_SAVE_LINK', '未保存 crash-off 不读取外部链接 WAL。')
++            if path.is_file():
++                rows[path.relative_to(root).as_posix()] = file_identity(path)
++    return dict(sorted(rows.items()))
++
++
++def _crash_off_facts(root):
++    """Original persisted Popen waits only; no signals, PID adoption or phase repair."""
++    from launcher.runtime import process_identity, _port_free
++    session = read_json(owned_path(root, '.palcraft/session.json'))
++    token = session.get('token', '')
++    scope = read_json(_scope_path(root, token, 'scope.json'))
++    pointer = read_json(owned_path(root, LIFECYCLE + '/current.json'))
++    profile = get_state(root)['profile']; native = scope.get('native_scope', {})
++    owner = marker(root)
++    if (not enabled(profile) or session.get('phase') != 'failed' or session.get('code') != 'CLIENT_EXIT'
++            or pointer.get('token') != token or scope.get('token') != token
++            or scope.get('root') != str(root) or scope.get('root_id') != owner['id']
++            or scope.get('active_events_path') != str(root / EVENTS)
++            or native.get('world_id') != profile['connection']['identity']['world_id']
++            or native.get('pal_uid') != profile['connection']['identity']['pal_uid']
++            or bool(scope.get('normal_title_observed'))):
++        fail('JOURNAL_CRASH_SCOPE', '只接受本安装同一次未保存、未进入 Title 的真实 CLIENT_EXIT。')
++    if (any(_scope_path(root, token, name).exists() for name in
++            ('save-request.json', 'normal-save-file-witness.json', 'normal-stop-receipt.json', SAVED_CRASH_RECEIPT))
++            or scope.get('normal_save_completed') is True):
++        fail('JOURNAL_CRASH_SAVE', '已有原保存请求或见证，必须使用原 saved/normal 收尾入口。')
++    binding = read_json(owned_path(root, DEV + '/bridge/exchange/escrow-client-process-binding.json'))
++    permission = read_json(owned_path(root, '.palcraft/standalone/owned-loaded-save-permission.json'))
++    filetime = binding.get('process_created_filetime', '')
++    if (type(native.get('pid')) is not int or native['pid'] < 1
++            or not isinstance(filetime, str) or not filetime.isdecimal()
++            or binding.get('pid') != native['pid'] or binding.get('boot_id') != native.get('save_boot_id')
++            or native.get('process_epoch') != str(native['pid']) + ':' + filetime
++            or permission.get('process_epoch') != native.get('process_epoch')
++            or binding.get('world_directory') != native.get('world_id') or binding.get('pal_uid') != native.get('pal_uid')):
++        fail('JOURNAL_CRASH_SCOPE', '原 PID/FILETIME/boot binding 与 loaded-save observation 不一致。')
++    pending = read_json(_scope_path(root, token, 'incomplete-stop.json'))
++    exits = session.get('journal_lifecycle', {}).get('actor_exits', {})
++    actors = scope.get('actors', {})
++    if (pending.get('token') != token or pending.get('code') != 'JOURNAL_WITNESS_PENDING'
++            or pending.get('normal_save_witness') not in (None, {})
++            or pending.get('actor_exits') != exits or not actors or set(exits) != set(actors)):
++        fail('JOURNAL_WITNESS_PENDING', '原监督器同 boot 的 actual-wait 集合不完整，未重造退出记录。')
++    for key, actor in actors.items():
++        result = exits[key]
++        if (type(actor.get('pid')) is not int or not actor.get('identity')
++                or result.get('actual_wait_completed') is not True
++                or type(result.get('exit_code')) is not int
++                or any(result.get(field) != actor.get(field) for field in ('pid', 'identity', 'role'))
++                or process_identity(actor['pid']) is not None):
++            fail('JOURNAL_ACTOR_ALIVE', '原 actor 身份/actual-wait 缺失或 PID 仍存在。')
++        if actor['role'] in ('proxy', 'hud', 'udp', 'ssh'):
++            worker = read_json(owned_path(root, '.palcraft/control/' + token + '.' + actor['role'] + '.' + str(actor['pid']) + '-exit.json'))
++            child = worker.get('child', {})
++            if (worker != result.get('owned_child_exit') or worker.get('token') != token
++                    or worker.get('component') != actor['role'] or worker.get('actual_wait_completed') is not True
++                    or type(child.get('pid')) is not int or not child.get('identity')
++                    or process_identity(child['pid']) is not None):
++                fail('JOURNAL_WITNESS_PENDING', '原 worker 子进程 wait/absence 证据不完整。')
++    supervisor = session.get('supervisor', {})
++    if (type(supervisor.get('pid')) is not int or not supervisor.get('identity')
++            or process_identity(supervisor['pid']) is not None):
++        fail('JOURNAL_ACTOR_ALIVE', '原监督器尚未实际退出。')
++    clients = [value for value in exits.values() if value.get('role') == 'client']
++    host_path = owned_path(root, '.palcraft/control/' + token + '.host.json')
++    host = read_json(host_path)
++    if (len(clients) != 1 or clients[0]['exit_code'] == 0 or host.get('exit_code') != clients[0]['exit_code']
++            or host.get('phase') != 'failed' or host.get('primary_pid') != native.get('pid')
++            or host.get('primary_alive') is not False or host.get('job_active_processes') != 0):
++        fail('JOURNAL_CRASH_HOST', '需要同 native PID 的实际非零 host/client 退出及 empty job。')
++    import xml.etree.ElementTree as ET
++    reports = []
++    crash_dir = owned_path(root, USER + '/Saved/Crashes')
++    for report in crash_dir.glob('*/CrashContext.runtime-xml'):
++        report = owned_path(root, report.relative_to(root).as_posix())
++        if report.stat().st_size > 1048576:
++            fail('JOURNAL_CRASH_REPORT', 'CrashContext 超出原只读诊断边界。')
++        try:
++            document = ET.fromstring(report.read_bytes())
++            pid = int(document.findtext('.//ProcessId') or '0')
++        except (ValueError, ET.ParseError):
++            continue
++        identity = file_identity(report)
++        if (pid == native.get('pid') and document.findtext('.//CrashType') == 'Crash'
++                and identity['mtime_ns'] / 1e9 >= scope.get('started_unix', float('inf'))
++                and identity['mtime_ns'] <= host_path.stat().st_mtime_ns):
++            reports.append({'relative_path': report.relative_to(root).as_posix(),
++                'identity': identity, 'sha256': digest(report), 'file_creation_not_exact_fault_time': True})
++    if len(reports) != 1:
++        fail('JOURNAL_CRASH_REPORT', '需要本 boot 同 native PID 的唯一当前 CrashContext。')
++    ports = {str(port): _port_free(port) for port in (25567, 25599, 25603)}
++    if not all(ports.values()):
++        fail('JOURNAL_WITNESS_PENDING', '原后端端口尚未全部释放。')
++    return {'session': session, 'scope': scope, 'profile': profile, 'exits': exits,
++            'host': host, 'crash': reports[0], 'ports': ports}
++
++
++def _existing_level_codec(root, facts, codec_python=None):
++    """Read the existing Level/UID only; never attest this failed boot was saved."""
++    import sys
++    profile, scope = facts['profile'], facts['scope']; native = scope['native_scope']
++    level = owned_path(root, USER + '/Saved/SaveGames/' + profile['standalone']['save_account_directory'] + '/' + native['world_id'] + '/Level.sav')
++    selected = read_json(owned_path(root, '.palcraft/standalone/scope.json'))
++    if Path(selected['installed_level_path_host']) != level or selected.get('world_directory') != native['world_id'] or selected.get('pal_uid') != native['pal_uid']:
++        fail('JOURNAL_CRASH_CODEC', '既有 Level 不属于当前选定的同一世界和原 native UID。')
++    player = owned_path(root, level.parent.relative_to(root).as_posix() + '/Players/' + native['pal_uid'].replace('-', '').upper() + '.sav')
++    before = {str(path.relative_to(root)): {'identity': file_identity(path), 'sha256': digest(path)} for path in (level, player)}
++    python = Path(codec_python or sys.executable)
++    if not python.is_absolute() or not python.is_file():
++        fail('JOURNAL_CRASH_CODEC', '原标准 codec 的 Python 可执行文件不可用。')
++    code = '''import json,sys,io
++from contextlib import redirect_stdout
++from palworld_save_tools.palsav import decompress_sav_to_gvas
++from palworld_save_tools.gvas import GvasFile
++from palworld_save_tools.paltypes import PALWORLD_TYPE_HINTS
++def parse(path):
++    data=decompress_sav_to_gvas(open(path,"rb").read())[0]
++    return GvasFile.read(data,PALWORLD_TYPE_HINTS,{},allow_nan=True)
++with redirect_stdout(io.StringIO()):
++    level=parse(sys.argv[1]);player=parse(sys.argv[2])
++rows=level.properties["worldSaveData"]["value"]["CharacterSaveParameterMap"]["value"]
++rows=rows.get("values",[]) if isinstance(rows,dict) else rows
++found=any(str(row["key"]["PlayerUId"]["value"]).lower()==sys.argv[3].lower() for row in rows)
++print(json.dumps({"level_parsed":True,"owned_uid_present":found,"player_parsed":True}))
++'''
++    environment = os.environ.copy(); environment['PYTHONPATH'] = str(root / DEV / 'mcp/vendor')
++    result = subprocess.run([str(python), '-B', '-c', code, str(level), str(player), native['pal_uid']],
++        capture_output=True, text=True, timeout=30, env=environment, cwd=root / DEV / 'mcp/vendor')
++    try:
++        parsed = json.loads(result.stdout)
++    except ValueError:
++        parsed = None
++    if result.returncode != 0 or parsed != {'level_parsed': True, 'owned_uid_present': True, 'player_parsed': True}:
++        fail('JOURNAL_CRASH_CODEC', '标准 codec 未确认当前既有 Level/Player 和原 native UID。')
++    if any(value != {'identity': file_identity(root / name), 'sha256': digest(root / name)} for name, value in before.items()):
++        fail('JOURNAL_SAVE_PENDING', '只读 codec 期间既有保存发生变化。')
++    return {'kind': 'existing-owned-Level-codec-observation-v1', 'world_id': native['world_id'],
++        'pal_uid': native['pal_uid'], 'files': before, 'standard_codec': 'palworld_save_tools decompress_sav_to_gvas + GvasFile.read PALWORLD_TYPE_HINTS',
++        'codec_python_executable': str(python), 'standard_codec_reparsed': True, 'level_and_player_parsed': True,
++        'owned_UID_in_Level': True, 'normal_save_completed': False, 'this_boot_mutation_persistence_verified': False}
++
++
++def _crash_business_recovery_report(root, inventory, hashes):
++    """Preserve every observed business file; no invented terminal/commit verdict."""
++    names = [name for name in inventory if '/Saved/' not in name and
++        any(term in Path(name).name.lower() for term in ('escrow', 'food', 'credit', 'ledger', 'lease', 'pal-client-save'))]
++    return {'original_business_recovery_required': bool(names), 'original_recovery_or_counterpart_witness_verified': False,
++        'money_food_WAL_files': {name: {'identity': inventory[name], 'sha256': hashes[name]} for name in names},
++        'no_WAL_counterparty_transaction_or_reader_offset_changed': True,
++        'new_boot_replay_or_exactly_once_durability_claimed': False,
++        'ledger_commit_resolution_not_asserted': True,
++        'action': 'Keep every original Money/Food WAL for original replay/reconcile; no auto-ACK. This receipt archives only ordinary events.'}
++
++
++def _unsaved_crash_receipt_matches(root, scope, session, receipt):
++    try:
++        facts = _crash_off_facts(root)
++        codec = receipt.get('existing_level_codec_observation', {})
++        if (receipt.get('schema') != 1 or receipt.get('root') != str(root)
++                or receipt.get('root_id') != scope.get('root_id') or receipt.get('token') != session.get('token')
++                or receipt.get('active_events_path') != str(root / EVENTS)
++                or receipt.get('stream_identity') != (file_identity(root / EVENTS) if (root / EVENTS).exists() else None)
++                or receipt.get('kind') != UNSAVED_CRASH_KIND or receipt.get('unsaved_crash_off_completed') is not True
++                or receipt.get('normal_save_completed') is not False or receipt.get('mutations_may_be_unpersisted') is not True
++                or receipt.get('normal_title_Quit_and_native_exit0') is not False
++                or receipt.get('normal_title_observed') is not False
++                or receipt.get('original_session_phase') != 'failed' or receipt.get('original_session_code') != 'CLIENT_EXIT'
++                or facts['session'].get('token') != session.get('token') or facts['scope'] != scope
++                or receipt.get('actor_exits') != facts['exits'] or receipt.get('host_observation') != facts['host']
++                or receipt.get('game_crash_report') != facts['crash'] or receipt.get('native_scope') != scope.get('native_scope')
++                or receipt.get('normal_save_witness') not in (None, {}) or receipt.get('normal_save_id') is not None
++                or codec.get('kind') != 'existing-owned-Level-codec-observation-v1'
++                or codec.get('standard_codec') != 'palworld_save_tools decompress_sav_to_gvas + GvasFile.read PALWORLD_TYPE_HINTS'
++                or codec.get('this_boot_mutation_persistence_verified') is not False
++                or codec.get('standard_codec_reparsed') is not True or codec.get('level_and_player_parsed') is not True
++                or codec.get('owned_UID_in_Level') is not True or codec.get('normal_save_completed') is not False
++                or codec.get('world_id') != scope['native_scope']['world_id'] or codec.get('pal_uid') != scope['native_scope']['pal_uid']
++                or _crash_persistent_inventory(root) != receipt.get('persistent_stat_inventory')):
++            return False
++        profile = facts['profile']; native = scope['native_scope']
++        level = owned_path(root, USER + '/Saved/SaveGames/' + profile['standalone']['save_account_directory'] + '/' + native['world_id'] + '/Level.sav')
++        player = owned_path(root, level.parent.relative_to(root).as_posix() + '/Players/' + native['pal_uid'].replace('-', '').upper() + '.sav')
++        if set(codec.get('files', {})) != {level.relative_to(root).as_posix(), player.relative_to(root).as_posix()}:
++            return False
++        hashes = receipt.get('persistent_sha256', {})
++        if set(hashes) != set(receipt['persistent_stat_inventory']) or any(digest(root / name) != value for name, value in hashes.items()):
++            return False
++        if any(value != {'identity': file_identity(root / name), 'sha256': digest(root / name)} for name, value in codec.get('files', {}).items()) or len(codec.get('files', {})) != 2:
++            return False
++        report = _crash_business_recovery_report(root, receipt['persistent_stat_inventory'], hashes)
++        return receipt.get('original_business_recovery') == report
++    except (PlayerError, OSError, KeyError, ValueError, TypeError):
++        return False
++
++
++def finalize_crash_off(root, dry_run=False, quiet_seconds=2, codec_python=None):
++    """A distinct unsaved failed/off receipt; never Save/Title/stop or repair state."""
++    import contextlib
++    from installer.core import operation_lock
++    root = Path(root).absolute()
++    with (contextlib.nullcontext() if dry_run else operation_lock(root)):
++        facts = _crash_off_facts(root); scope, session = facts['scope'], facts['session']; token = session['token']
++        existing = _scope_path(root, token, UNSAVED_CRASH_RECEIPT)
++        if existing.is_file():
++            receipt = read_json(existing)
++            if not _unsaved_crash_receipt_matches(root, scope, session, receipt):
++                fail('JOURNAL_STALE_RECEIPT', '原 unsaved crash-off 回执与当前静止文件或失败事实不一致。')
++            return {'ok': True, 'dry_run': dry_run, 'unsaved_crash_off_receipt': str(existing),
++                    'normal_save_completed': False, 'mutations_may_be_unpersisted': True,
++                    'original_business_recovery': receipt['original_business_recovery'], 'already_issued': True}
++        if dry_run:
++            return {'ok': True, 'dry_run': True, 'receipt_created': False, 'normal_save_completed': False,
++                    'mutations_may_be_unpersisted': True, 'actor_exits': facts['exits'],
++                    'would_check_quiet_Saved_WAL_and_standard_codec_before_issuance': True}
++        source = owned_path(root, EVENTS); stream = file_identity(source) if source.exists() else None
++        before = _crash_persistent_inventory(root); time.sleep(quiet_seconds)
++        if before != _crash_persistent_inventory(root):
++            fail('JOURNAL_SAVE_PENDING', '全部原 actor off 后 Saved/WAL 仍在变化。')
++        codec = _existing_level_codec(root, facts, codec_python)
++        hashes = {name: digest(root / name) for name in before}
++        if (before != _crash_persistent_inventory(root) or _crash_off_facts(root) != facts
++                or (file_identity(source) if source.exists() else None) != stream):
++            fail('JOURNAL_SAVE_PENDING', '解析/散列期间原保存、WAL、事件卷或退出事实发生变化。')
++        recovery = _crash_business_recovery_report(root, before, hashes)
++        receipt = {'schema': 1, 'kind': UNSAVED_CRASH_KIND, 'root': str(root), 'root_id': scope['root_id'],
++            'token': token, 'native_scope': scope['native_scope'], 'active_events_path': str(source),
++            'stream_identity': stream, 'actor_exits': facts['exits'], 'host_observation': facts['host'],
++            'game_crash_report': facts['crash'], 'port_checks': facts['ports'], 'unsaved_crash_off_completed': True,
++            'original_session_phase': session['phase'], 'original_session_code': session['code'],
++            'normal_save_completed': False, 'mutations_may_be_unpersisted': True,
++            'normal_title_observed': False, 'normal_title_Quit_and_native_exit0': False,
++            'existing_level_codec_observation': codec, 'original_business_recovery': recovery,
++            'all_owned_producers_and_consumers_stopped': True,
++            'all_this_stream_producers_and_consumers_off_before_rotation': True,
++            'Saved_and_WAL_stable_after_all_actors_off': True, 'persistent_stat_inventory': before,
++            'persistent_sha256': hashes, 'observed_unix': time.time(),
++            'SaveID_SID_UID_phase_generatedHashes_or_transaction_WAL_fabricated_or_rewritten': False,
++            'events_archive_only_no_replay_or_exactly_once_persistence_claim': True}
++        atomic_json(existing, receipt)
++        return {'ok': True, 'unsaved_crash_off_receipt': str(existing), 'normal_save_completed': False,
++                'mutations_may_be_unpersisted': True, 'original_business_recovery': recovery,
++                'next_cold_boot_uses_original_archive_only_rotator': True}
+--- a/installer/core.py
++++ b/installer/core.py
+@@ -738,7 +738,8 @@
+ def _same_boot_generated_stop(root, before, after):
+     """Read the original complete off witness; never save, stop, rotate, or mint one."""
+     from launcher.journal_lifecycle import (EVENTS, LIFECYCLE, _check_previous_actors,
+-        _persistent_inventory, file_identity)
++        _persistent_inventory, file_identity, UNSAVED_CRASH_KIND, UNSAVED_CRASH_RECEIPT,
++        _crash_persistent_inventory, _unsaved_crash_receipt_matches)
+     owner = marker(root)
+     session = read_json(owned_path(root, '.palcraft/session.json'))
+     pointer = read_json(owned_path(root, LIFECYCLE + '/current.json'))
+@@ -750,12 +751,18 @@
+     prefix = LIFECYCLE + '/' + token + '/'
+     scope = read_json(owned_path(root, prefix + 'scope.json'))
+     receipt_path = owned_path(root, prefix + ('saved-crash-off-receipt.json' if saved_crash else 'normal-stop-receipt.json'))
++    unsaved_path = owned_path(root, prefix + UNSAVED_CRASH_RECEIPT)
++    unsaved_crash = saved_crash and unsaved_path.is_file()
++    if unsaved_crash:
++        receipt_path = unsaved_path
+     if not receipt_path.is_file():
+         fail('GENERATED_OWNER_STOP', '尚无当前同 boot 的完整正常停机回执，未采纳生成数据。', '用原 finalize-stop 签收已有真实正常关闭记录后，再运行普通 update。')
+     receipt = read_json(receipt_path)
+     native = scope.get('native_scope', {})
+     title = scope.get('normal_title_observed', {})
+-    if saved_crash:
++    if unsaved_crash:
++        stop_truth = _unsaved_crash_receipt_matches(root, scope, session, receipt)
++    elif saved_crash:
+         from launcher.journal_lifecycle import _saved_crash_receipt_matches
+         stop_truth = _saved_crash_receipt_matches(root, scope, session, receipt)
+     else:
+@@ -770,7 +777,7 @@
+     next_connection = after['profile']['connection']
+     required = ('server_session_id', 'process_epoch', 'world_id', 'pal_uid', 'save_boot_id')
+     if (scope.get('root') != str(root) or scope.get('root_id') != owner['id'] or scope.get('token') != token
+-            or receipt.get('schema') != 1 or receipt.get('kind') != ('palcraft-owned-saved-crash-off-v1' if saved_crash else 'palcraft-owned-normal-stop-v1')
++            or receipt.get('schema') != 1 or receipt.get('kind') != (UNSAVED_CRASH_KIND if unsaved_crash else 'palcraft-owned-saved-crash-off-v1' if saved_crash else 'palcraft-owned-normal-stop-v1')
+             or receipt.get('root') != str(root) or receipt.get('root_id') != owner['id'] or receipt.get('token') != token
+             or receipt.get('native_scope') != native or not stop_truth
+             or any(not isinstance(native.get(key), str) or not native[key] for key in required)
+@@ -784,13 +791,16 @@
+             or any(exits[name].get('actual_wait_completed') is not True
+                    or any(exits[name].get(key) != actor.get(key) for key in ('pid', 'identity', 'role'))
+                    for name, actor in actors.items())
+-            or any(receipt.get(key) is not True for key in ('normal_save_completed',
++            or any(receipt.get(key) is not True for key in ((() if unsaved_crash else ('normal_save_completed',)) + (
+                    'all_owned_producers_and_consumers_stopped', 'all_this_stream_producers_and_consumers_off_before_rotation',
+-                   'Saved_and_WAL_stable_after_all_actors_off'))
+-            or witness.get('native_scope') != native or witness.get('after_submission') is not True or witness.get('stable') is not True
+-            or not witness.get('normal_save_id')):
++                   'Saved_and_WAL_stable_after_all_actors_off')))
++            or (not unsaved_crash and (witness.get('native_scope') != native or witness.get('after_submission') is not True
++                or witness.get('stable') is not True or not witness.get('normal_save_id')))
++            or (unsaved_crash and (receipt.get('normal_save_completed') is not False
++                or receipt.get('mutations_may_be_unpersisted') is not True))):
+         fail('GENERATED_OWNER_SCOPE', '完整正常停机见证、当前进程世界身份或事件卷不一致，未采纳生成数据。')
+-    if _persistent_inventory(root) != receipt.get('persistent_stat_inventory'):
++    inventory = _crash_persistent_inventory if unsaved_crash else _persistent_inventory
++    if inventory(root) != receipt.get('persistent_stat_inventory'):
+         fail('GENERATED_OWNER_SAVE', '正常停机后 Saved/WAL 已更改，未采纳旧见证。')
+     _check_previous_actors(root, scope)
+     return native, scope, receipt, digest(receipt_path)
+@@ -846,9 +856,13 @@
+             # Keep the actual current SID/process epoch, never an old release's identity placeholder.
+             extra_files[target] = raw
+         adopted[target] = hashlib.sha256(raw).hexdigest()
+-    receipt_key = ('saved_crash_off_receipt_sha256' if receipt.get('kind') == 'palcraft-owned-saved-crash-off-v1'
++    receipt_key = ('unsaved_crash_off_receipt_sha256' if receipt.get('kind') == 'palcraft-owned-unsaved-crash-off-v1'
++                   else 'saved_crash_off_receipt_sha256' if receipt.get('kind') == 'palcraft-owned-saved-crash-off-v1'
+                    else 'normal_stop_receipt_sha256')
+-    return adopted, {receipt_key: receipt_sha, 'targets': sorted(adopted)}
++    return adopted, {receipt_key: receipt_sha, 'targets': sorted(adopted),
++        **({'normal_save_completed': False, 'mutations_may_be_unpersisted': True,
++            'original_business_recovery': receipt['original_business_recovery']}
++           if receipt.get('kind') == 'palcraft-owned-unsaved-crash-off-v1' else {})}
+ 
+ 
+ def _apply(root, release, state_after, extra_files=None, fault=None, configuration_only=False):
+--- a/installer/cli.py
++++ b/installer/cli.py
+@@ -93,7 +93,7 @@
+     parser = argparse.ArgumentParser(description='PalCraft 玩家安装、个人客户端启动和排错工具。')
+     commands = parser.add_subparsers(dest='command', required=True)
+     for name in ('install', 'configure', 'update', 'rollback', 'uninstall', 'bottle-create', 'form',
+-                 'resources', 'credential-import', 'performance', 'doctor', 'start', 'promote', 'stop', 'finalize-stop', 'finalize-saved-crash', 'status', 'recover', 'recover-session', 'diagnostics', '_session', '_worker', '_proxy'):
++                 'resources', 'credential-import', 'performance', 'doctor', 'start', 'promote', 'stop', 'finalize-stop', 'finalize-saved-crash', 'finalize-crash-off', 'status', 'recover', 'recover-session', 'diagnostics', '_session', '_worker', '_proxy'):
+         sub = commands.add_parser(name)
+         sub.add_argument('--root', required=True, help='自己选择的独立安装目录')
+         if name not in ('status', 'diagnostics', '_session', '_worker', '_proxy', 'doctor'):
+@@ -128,6 +128,8 @@
+                              help='仅以 bootstrap 阶段启动本地单机 Host/Game，观察真实 UID/authority；MC/HUD/AI 和动作授权仍待完整启动')
+             sub.add_argument('--normal-stop-receipt', help='首次迁移显式使用本卷的原完整正常停机回执；后续自动读取本 boot 见证')
+             sub.add_argument('--sync-receipt', help='已有单机 bootstrap 接入完整服务时转交原保存同步回执')
++        if name == 'finalize-crash-off':
++            sub.add_argument('--codec-python', help='现有标准只读保存 codec 的 Python 可执行文件；默认使用当前解释器')
+         if name == 'stop':
+             sub.add_argument('--force', action='store_true', help='仅强制结束本次个人客户端；可能丢失未保存进度')
+         if name == 'uninstall':
+@@ -176,6 +178,9 @@
+         elif command == 'finalize-saved-crash':
+             from launcher.journal_lifecycle import finalize_saved_crash
+             result = finalize_saved_crash(root, dry)
++        elif command == 'finalize-crash-off':
++            from launcher.journal_lifecycle import finalize_crash_off
++            result = finalize_crash_off(root, dry, codec_python=args.codec_python)
+         elif command == 'rollback':
+             result = rollback(root, dry)
+         elif command == 'uninstall':
+--- a/installer/standalone.py
++++ b/installer/standalone.py
+@@ -264,12 +264,26 @@
+         receipt.get('all_this_stream_producers_and_consumers_off_before_rotation') is True)
+     named_receipt = (receipt.get('root') == str(root) and receipt.get('root_id') == marker(root)['id'] and
+         receipt.get('normal_save_completed') is True and receipt.get('all_owned_producers_and_consumers_stopped') is True)
+-    if not (original_receipt or named_receipt):
++    unsaved_named_receipt = False
++    if receipt.get('kind') == 'palcraft-owned-unsaved-crash-off-v1':
++        from launcher.journal_lifecycle import (LIFECYCLE, _scope_path, _unsaved_crash_receipt_matches)
++        session = read_json(owned_path(root, '.palcraft/session.json'))
++        scope = read_json(_scope_path(root, session.get('token', ''), 'scope.json'))
++        unsaved_named_receipt = (_unsaved_crash_receipt_matches(root, scope, session, receipt)
++            and receipt.get('normal_save_completed') is False and receipt.get('mutations_may_be_unpersisted') is True
++            and receipt.get('root') == str(root) and receipt.get('root_id') == marker(root)['id']
++            and all(receipt.get(key) is True for key in ('all_owned_producers_and_consumers_stopped',
++                'all_this_stream_producers_and_consumers_off_before_rotation', 'Saved_and_WAL_stable_after_all_actors_off')))
++    if not (original_receipt or named_receipt or unsaved_named_receipt):
+         fail('JOURNAL_STOP', '需要原正常保存退出流程对本 root 的唯一停机回执；不能旋转运行实例或其他玩家。')
+     source = owned_path(root, 'BridgeLab/rpc/palcraft-events.ndjson')
+     archive = owned_path(root, 'BridgeLab/rpc/journal-archives/' + str(time.time_ns()) + '/palcraft-events.ndjson')
+     result = {'ok': True, 'dry_run': dry_run, 'same_writer_path': str(source), 'archive': str(archive),
+               'Saved_world_playerdata_food_escrow_WAL_touched': False, 'fake_rows_ACK_or_reader_offsets': False}
++    if unsaved_named_receipt:
++        result.update(normal_save_completed=False, mutations_may_be_unpersisted=True,
++            original_business_recovery=receipt['original_business_recovery'],
++            events_archive_only_no_replay_or_exactly_once_persistence_claim=True)
+     if dry_run:return result
+     with operation_lock(root):
+         ensure_no_session(root)
