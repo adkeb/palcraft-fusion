@@ -1,0 +1,86 @@
+--- a/client/runtime/local_realm.lua
++++ b/client/runtime/local_realm.lua
+@@ -4,7 +4,7 @@
+ local function live(o)return o and o:IsValid()and not o:GetFullName():find('Default__',1,true)end
+ local function text(v)return type(v)=='string'and v or v:ToString()end
+ local function address(o)assert(live(o),'Live native object required');return o:GetAddress()end
+-local function same(a,b)return live(a)and live(b)and address(a)==address(b)end
++local function same(a,b)return live(a)and live(b)and a:GetAddress()==b:GetAddress()end
+ local function root(p)
+  assert(type(p)=='string'and#p>0,'Actual owned world save root required')
+  p=p:gsub('\\','/'):gsub('/+$','')
+@@ -124,7 +124,7 @@
+  -- A proof is shared only inside the one existing game-thread callback. These
+  -- native relations are checked on every operation; changes require discovery
+  -- and the original loaded-save permission verifier again, even in this frame.
+- local function still_current(p)
++ local function verify_context(p)
+   assert(type(thread)=='function'and thread()==true,'Standalone context requires game thread')
+   local pc,pawn,world,gs=p.pc,p.pawn,p.world,p.game_state
+   assert(live(pc)and pc:IsLocalController()==true and pc:HasAuthority()==true
+@@ -161,12 +161,55 @@
+   assert(live(gi)and text(gi:GetSelectedWorldSaveDirectoryName())==p.world_id,'Native selected world changed')
+   return true
+  end
++ -- Full native mode/account/save/root validation occurs once per callback.
++ -- Operations still verify their live possessed authority and native ownership;
++ -- any change immediately goes through complete discovery/verification again.
++ local function still_current(p)
++  assert(type(thread)=='function'and thread()==true,'Standalone context requires game thread')
++  local pc,pawn,world,gs=p.pc,p.pawn,p.world,p.game_state
++  assert(live(pc)and pc:IsLocalController()==true and pc:HasAuthority()==true
++   and live(world)and same(pc:GetWorld(),world),'Actual local authority world changed')
++  assert(same(pc.Pawn,pawn)and live(pawn)and pawn:HasAuthority()==true and pawn:IsInitialized()==true
++   and same(pawn:GetController(),pc)and same(pawn:GetWorld(),world)
++   and same(pc:GetDefaultPlayerCharacter(),pawn),'Actual possession changed')
++  assert(live(gs)and gs:HasAuthority()==true and same(gameplay:GetGameState(pc),gs)
++   and guid(pc:GetPlayerUId())==p.host_uid and text(gs:GetWorldSaveDirectoryName())==p.world_id,
++   'Actual saved host/game state changed')
++  if p.native_controller_single then
++   assert(gameplay:GetNumPlayerControllers(pc)==1 and gameplay:GetNumLocalPlayerControllers(pc)==1,'Actual controller population changed')
++  else
++   for _,candidate in ipairs(p.controllers)do
++    assert(not(live(candidate)and not same(candidate,pc)and same(candidate:GetWorld(),world)
++     and live(candidate.NetConnection)),'Remote controller connected')
++   end
++  end
++  local options=p.option_subsystem
++  assert(live(options)and options.OptionWorldSettings.bIsMultiplay==false and system:IsDedicatedServer(pc)==false,'Native world mode changed')
++  local tx=pc.Transmitter;local component=live(tx)and tx:GetPlayer()
++  assert(same(tx,p.owned_transmitter)and same(tx:GetOwner(),pc)
++   and same(component,p.player_component)and same(component:GetOwner(),tx),'Native player ownership changed')
++  local manager=p.save_manager
++  assert(live(manager)and same(utility:GetSaveGameManager(pc),manager)and manager:IsLoadedWorldData()==true
++   and text(manager.WorldSaveDataLoadFailedDirectoryName)=='','Native loaded manager changed')
++  local gi=gameplay:GetGameInstance(pc)
++  assert(live(gi)and text(gi:GetSelectedWorldSaveDirectoryName())==p.world_id,'Native selected world changed')
++  return true
++ end
+  local function referenced_context()
+   local observed={};for k,v in pairs(current)do observed[k]=v end
+   -- Keep the controller uniqueness/remote-peer gate fresh each frame. The
+   -- engine-selected state/account/manager need no repeated global enumeration
+   -- while their validated native references and actual relationships still match.
+-  observed.controllers=objects('PalPlayerController')
++  -- These exact reflected native getters were observed on the actual SP host.
++  -- A sole initialized local controller needs no global UObject scan. Other
++  -- populations or unavailable bindings retain the original enumeration gate.
++  local ok,total,locals,first,pal=pcall(function()
++   return gameplay:GetNumPlayerControllers(observed.pc),gameplay:GetNumLocalPlayerControllers(observed.pc),
++    gameplay:GetPlayerController(observed.pc,0),utility:GetLocalPlayerController(observed.pc)
++  end)
++  observed.native_controller_single=ok and total==1 and locals==1 and same(first,observed.pc)and same(pal,observed.pc)or false
++  if observed.native_controller_single then observed.controllers={observed.pc}
++  else observed.controllers=objects('PalPlayerController')end
+   local local_pc
+   for _,candidate in ipairs(observed.controllers)do
+    if candidate:IsLocalController()==true and live(candidate.Player)and candidate.Player:GetFullName():match('^PalLocalPlayer ')then
+@@ -174,7 +217,7 @@
+    end
+   end
+   assert(same(local_pc,observed.pc),'Actual local controller changed')
+-  still_current(observed)
++  verify_context(observed)
+   return observed
+  end
+  function api:begin_frame()

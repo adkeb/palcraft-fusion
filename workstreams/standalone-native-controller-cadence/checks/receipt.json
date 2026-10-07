@@ -1,0 +1,32 @@
+{
+  "actual_FPS_camera_or_control_improvement_proven": false,
+  "actual_root_game_run": false,
+  "candidate14_stable_work": {
+    "FindAllOf": 0,
+    "GetOptionSubsystem": 1,
+    "permission_calls": 1
+  },
+  "cases": [
+    {
+      "name": "actual_single_controller_native_path_avoids_globals_and_full_rechecks_sameframe",
+      "passed": true
+    },
+    {
+      "name": "sameframe_possession_change_and_nextframe_permission_failure_reject_then_revalidate",
+      "passed": true
+    },
+    {
+      "name": "unsupported_getter_and_remote_population_keep_original_global_and_scope_rejection",
+      "passed": true
+    }
+  ],
+  "inherited13_stable_work": {
+    "FindAllOf": 1,
+    "GetOptionSubsystem": 80,
+    "permission_calls": 1
+  },
+  "new_probes_or_credentials": false,
+  "ok": true,
+  "original_object_fixture_reused": true,
+  "targeted_cases": 3
+}

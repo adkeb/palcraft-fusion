@@ -1,0 +1,66 @@
+--- a/server/actor.lua
++++ b/server/actor.lua
+@@ -50,6 +50,20 @@
+    if authority then m:StopMovementImmediately();m:DisableMovement();lock.disabled=true end
+   end)
+   if not ok then api.release(lock);error(err)end;return lock
++ end
++ -- Keep only the movement disable owned by this travel hold. Native teleport
++ -- or character setup may restore a movement mode before the final ACK.
++ function api.maintain_hold(lock)
++  thread();if not lock or not lock.disabled then return true end
++  if not live(lock.pc)or not live(lock.pawn)or not live(lock.movement)
++   or not lock.pc:HasAuthority()or not lock.pawn:HasAuthority()
++   or not same(lock.pc.Pawn,lock.pawn)or not same(lock.pawn.CharacterMovement,lock.movement)then
++   return false,'owned_travel_hold_possession_changed'
++  end
++  if lock.movement.MovementMode~=0 then
++   lock.movement:StopMovementImmediately();lock.movement:DisableMovement()
++  end
++  return true
+  end
+  function api.release(lock)
+   thread();if not lock then return end
+--- a/client/actor.lua
++++ b/client/actor.lua
+@@ -50,6 +50,20 @@
+    if authority then m:StopMovementImmediately();m:DisableMovement();lock.disabled=true end
+   end)
+   if not ok then api.release(lock);error(err)end;return lock
++ end
++ -- Keep only the movement disable owned by this travel hold. Native teleport
++ -- or character setup may restore a movement mode before the final ACK.
++ function api.maintain_hold(lock)
++  thread();if not lock or not lock.disabled then return true end
++  if not live(lock.pc)or not live(lock.pawn)or not live(lock.movement)
++   or not lock.pc:HasAuthority()or not lock.pawn:HasAuthority()
++   or not same(lock.pc.Pawn,lock.pawn)or not same(lock.pawn.CharacterMovement,lock.movement)then
++   return false,'owned_travel_hold_possession_changed'
++  end
++  if lock.movement.MovementMode~=0 then
++   lock.movement:StopMovementImmediately();lock.movement:DisableMovement()
++  end
++  return true
+  end
+  function api.release(lock)
+   thread();if not lock then return end
+--- a/server/travel.lua
++++ b/server/travel.lua
+@@ -277,6 +277,8 @@
+   end
+   self.stats.moved=self.stats.moved+1
+  end
++ local held,hold_error=self.actor.maintain_hold(tx._lock)
++ if not held then return self:_recovery(tx,hold_error)end
+  local at=self.actor.position(b.pc)
+  if P.distance(at,tx.target_pawn)>self.config.position_tolerance_cm then return self:_recovery(tx,'server_landing_position_mismatch')end
+  tx.server_position=at;tx.phase='committed';tx.committed_at=self.now;tx.deadline=self.now+self.config.replication_timeout_ms
+@@ -323,6 +325,8 @@
+   if tx.phase~='complete'and tx.phase~='recovery_required'then return self:_recovery(tx,why)end;return
+  end
+  if tx._needs_recover or not self.P.same_binding(tx.binding,b)then return self:_resume(tx,b)end
++ local held,hold_error=self.actor.maintain_hold(tx._lock)
++ if not held then return self:_recovery(tx,hold_error)end
+  if tx.phase=='recovery_required'then return end
+  if tx.phase=='complete'then return end
+  if tx.phase=='preparing'then

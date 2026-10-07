@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "kind": "normal-travel-owned-movement-hold-maintenance",
+  "source_only": true,
+  "files": [
+    {
+      "path": "server/actor.lua",
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel/actor.lua",
+      "base_sha256": "5ad9b95391ddd990954583b82737ae7ccba773546f44b2c84784d89afad3b60d",
+      "new_sha256": "dc8c3d36e88581df3f08c1bd99be14a08d43f2e13599b30c6fc3898b1ce50fa7",
+      "bytes": 7115
+    },
+    {
+      "path": "client/actor.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/travel/actor.lua",
+      "base_sha256": "5ad9b95391ddd990954583b82737ae7ccba773546f44b2c84784d89afad3b60d",
+      "new_sha256": "dc8c3d36e88581df3f08c1bd99be14a08d43f2e13599b30c6fc3898b1ce50fa7",
+      "bytes": 7115
+    },
+    {
+      "path": "server/travel.lua",
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel.lua",
+      "base_sha256": "b5d3e19875cc2e23550db863fdc6000b37f890ac89ddf8a8618f9d02328c7d91",
+      "new_sha256": "e2c512444faf0e5462c4b8fed06bf90212699b8c4a946f2f5c8e52e776030538",
+      "bytes": 29648
+    }
+  ],
+  "patch_sha256": "664d66efb8e874cdcec063b4304f92ad82cf7b20b47bc134c4002dc9512ca2dd",
+  "checks_receipt_sha256": "b8484fb060c1f5481085c71ef907a2638a9afca6a769bf80377f53ae5196a80d",
+  "targeted_checks_passed": true,
+  "native_reset_cause_proven": false,
+  "actual_lock_disabled_true_and_movement_walking_observed": true,
+  "normal_tolerance_timeout_destination_and_camera_ACK_rules_changed": false,
+  "current_game_pose_state_SID_inventory_or_data_modified": false,
+  "actual_next14_game_transition_verified": false
+}

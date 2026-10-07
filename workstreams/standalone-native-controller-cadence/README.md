@@ -1,0 +1,17 @@
+# Native single-controller path and callback validation reuse
+
+The actual13 initial bootstrap callback is much faster than11, but it is not the full gameplay cap. Existing full6role observations while the world view is held show callbacks around293–306ms, discovery around163–168ms and features around44–46ms. These are pre-steady-ACK observations, not evidence of final gameplay FPS. In source13, each repeated current/validate call still rechecks the full native context getter chain, and each stable callback performs a global PalPlayerController scan.
+
+The one actual SDK query from the sole runtime owner confirmed total/local controller counts1 and both native player-controller getters matching the current real local controller. The exact reflected methods/signatures are in the existing object dump. [Epic controller-count documentation](https://dev.epicgames.com/documentation/unreal-engine/BlueprintAPI/Game/GetNumPlayerControllers), [local-controller count documentation](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/UGameplayStatics/GetNumLocalPlayerControllers?lang=en-US), and [controller selection documentation](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/UGameplayStatics/GetPlayerController?lang=en-US) describe the interface semantics; the actual existing dump and successful native query anchor this candidate to this installed game.
+
+Only local_realm.lua changes. The existing callback's first proof still performs complete native context validation and the original process/owned-save/root permission verifier. A stable, sole total/local controller with both native getters equal to that real PC avoids global enumeration. Different populations, unavailable bindings or mismatched getters retain source13's enumeration and original rejection/recovery paths.
+
+Within that same callback, each operation checks the current live possessed authority, world/game-state/UID, native transmitter/component ownership, loaded manager, selected world, mode bit and current controller population. Changes invalidate reuse and immediately run the original complete sampler/verifier. This does not cache failed authority or use a time TTL. Native technology/material/resource checks in their original operations remain unchanged. The simple same-object helper stops redundantly repeating its own live checks.
+
+Three representative checks reuse the existing synthetic object fixture: stable same-PC work, changed possession/permission rejection and revalidation, and unavailable getters/remote populations falling back to original gates. For20 identical rounds of current/validate/same_world/status, source13 uses1 global scan and80 option-subsystem getters; this candidate uses0/1, with the original permission verifier1 per callback in both. These are contract counts, not native timings.
+
+```sh
+nice -n 19 LUA54 checks/check_native_controller.lua EXISTING_MINECRAFT_FUSION_SOURCE source base
+```
+
+The already installed main.lua frame boundary is unchanged. This source task neither modifies13 nor deploys/restarts a game. Compose this one managed slot as a later ordinary candidate; the sole runtime owner performs the normal workflow and existing full performance/control observations. Native750ms freshness, camera/header/flags, focus, clocks, ready, life, world, technology and resources are unchanged. Actual near60FPS and physical gameplay improvement remain unverified.

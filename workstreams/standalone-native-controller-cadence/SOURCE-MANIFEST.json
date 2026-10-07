@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "kind": "normal-local-realm-native-controller-next14-source-delta",
+  "source_only": true,
+  "files": [
+    {
+      "path": "client/runtime/local_realm.lua",
+      "managed_target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/local_realm.lua",
+      "base_sha256": "ce3287f882c42a5bd26c7ef68070ffd5f6e1b0aa0d265ffa762c78443d19600a",
+      "new_sha256": "dc0f2d1fafdc6e07ff6a1400c30879ad37dc802f15a8bf788d0c99df5cac1446",
+      "bytes": 19563
+    }
+  ],
+  "inherited_main_unchanged_sha256": "daa598cabb14b300eb24d247b25c22abed17302baac7cc350d9c8821d162c9a9",
+  "patch": {
+    "path": "native-controller.patch",
+    "sha256": "f3149f84c7b3024be07b2fdf7c98c6ae509b40dffb09ebe10b18d92e69123e6b"
+  },
+  "actual_getter_evidence": {
+    "private_reference": "current13-Mac-normal-gameplay/one-actual-local-controller-getters-result.json",
+    "sha256": "37a70b7893749e398fc1e64914a3c2fcf6db146c405b0db4be0fa645724df687",
+    "actual_single_world_PC_and_LocalPC_counts": 1,
+    "both_native_PC_getters_match_actual_current": true,
+    "current_call_count": 1,
+    "each_native_getter_call_count": 1,
+    "new_child_probe_requested_or_run": false
+  },
+  "SDK_declared_methods": {
+    "GameplayStatics.GetNumPlayerControllers": [
+      "WorldContextObject UObject",
+      "ReturnValue int32",
+      "dump80792-80794"
+    ],
+    "GameplayStatics.GetNumLocalPlayerControllers": [
+      "WorldContextObject UObject",
+      "ReturnValue int32",
+      "dump80795-80797"
+    ],
+    "GameplayStatics.GetPlayerController": [
+      "WorldContextObject UObject",
+      "PlayerIndex int32",
+      "ReturnValue APlayerController",
+      "dump80772-80775"
+    ],
+    "PalUtility.GetLocalPlayerController": [
+      "WorldContextObject UObject",
+      "ReturnValue APlayerController",
+      "dump65291-65293"
+    ]
+  },
+  "primary_docs": [
+    "https://dev.epicgames.com/documentation/unreal-engine/BlueprintAPI/Game/GetNumPlayerControllers",
+    "https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/UGameplayStatics/GetNumLocalPlayerControllers?lang=en-US",
+    "https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Engine/UGameplayStatics/GetPlayerController?lang=en-US"
+  ],
+  "changes": [
+    "stable single native controller context avoids global FindAllOf scan",
+    "one complete context and original owned permission verification per existing callback",
+    "sameframe operations check possessed/live native relationships and ownership without repeating every static/account/process getter",
+    "same(a,b) performs each live check once instead of repeating via address(live) assertions",
+    "unavailable native getters or multiple/different controllers retain original enumeration/failure path"
+  ],
+  "checks": {
+    "receipt": "checks/receipt.json",
+    "sha256": "df98be64abdd555f420149c84315cf57de823ad5c42bfd11a57be624e68a1d6d",
+    "representative_cases": 3,
+    "synthetic_same_work13": {
+      "FindAllOf": 1,
+      "GetOptionSubsystem": 80,
+      "original_permission": 1
+    },
+    "synthetic_same_work14": {
+      "FindAllOf": 0,
+      "GetOptionSubsystem": 1,
+      "original_permission": 1
+    }
+  },
+  "native_deadline750_clock_focus_ready_life_resources_or_install_changed": false,
+  "actual_candidate14_FPS_or_control_verified": false
+}

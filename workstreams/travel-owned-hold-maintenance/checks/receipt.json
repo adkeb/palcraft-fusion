@@ -1,0 +1,1 @@
+{"schema":1,"passed":true,"cases":["original_native_reset_reproduced_and_normal_move_reasserts_owned_hold","pending_recovery_maintains_disable_without_extra_input_stack_and_release_restores","client_hold_does_not_disable_and_replacement_pawn_not_modified"],"native_teleport_reset_simulated":true,"current_game_or_state_modified":false,"actual_next14_travel_complete_verified":false}
