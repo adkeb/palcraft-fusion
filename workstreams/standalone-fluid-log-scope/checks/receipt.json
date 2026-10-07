@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "passed": true,
+  "original_scope_generator_before_after_only_client_log_windows_changed": true,
+  "Unicode_space_owned_root_windows_mapping_targets_private_client_UE4SS_log": true,
+  "all_other_generated_files_and_scope_fields_unchanged": true,
+  "original_enrollment_entry_backfills_old_scope_and_preserves_existing_fields": true,
+  "original_issuer_boundary_mocked_no_credential_content_read": true,
+  "original_permission_world_mismatch_still_refused_before_writes": true,
+  "native_DLL_authority_UID_world_Saved_WAL_unchanged": true,
+  "current_Lua_VM_reloaded_or_re_read_proven": false,
+  "games_GUI_RPC_ports_Git_live_sources_or_actual_credentials_operated_on": false
+}

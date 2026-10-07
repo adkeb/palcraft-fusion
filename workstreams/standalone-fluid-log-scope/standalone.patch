@@ -1,0 +1,18 @@
+--- a/installer/standalone.py
++++ b/installer/standalone.py
+@@ -86,6 +86,7 @@
+         'credit_dll': scripts + '/PalCraftEscrowCredit-client-v1.dll'}.items():
+         scope[name + '_host'] = str(root / relative); scope[name + '_windows'] = win + '/' + relative
+     scope['fluid_dll_windows'] = win + '/' + BIN + 'PalCraftFluidPhysics-v1.dll'
++    scope['client_log_windows'] = win + '/' + BIN + 'ue4ss/UE4SS.log'
+     mcp = {'schema': 1, 'transport': 'localStandalone', 'owned_root': str(root), 'windows_root': win,
+            'rpc_directory': 'BridgeLab/rpc', 'lab_rpc_directory': 'BridgeLab/rpc',
+            'mc_bridge_directory': DEV + '/bridge', 'timeout_seconds': 40}
+@@ -193,6 +194,7 @@
+     if permission.get('native_context', {}).get('world_id') != profile['connection']['identity']['world_id']:
+         fail('ENROLLMENT_OBSERVATION', '先完成原正常 loaded-save/process 观察授权，再准备本轮配置。')
+     scope = read_json(scope_path); scope['configured_for_runtime'] = True
++    scope['client_log_windows'] = profile['windows_root'] + '/' + BIN + 'ue4ss/UE4SS.log'
+     atomic_json(scope_path, scope)
+     cfg_path = root / TOOLS / 'standalone/mac-runtime-config.json'
+     cfg = read_json(cfg_path); cfg['configured_for_actual_boot'] = True

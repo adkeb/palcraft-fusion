@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "kind": "normal-standalone-fluid-client-log-scope-source-delta",
+  "source_only": true,
+  "files": [
+    {
+      "path": "installer/standalone.py",
+      "base_sha256": "411ac4431d409371cf34bff462d5bc78a370eea1237d65d63d66eb63b6042a96",
+      "base_bytes": 16606,
+      "new_sha256": "d24fd399d18b2b10d90ecc3df3489e551e7b931f72f648e887f57f45bf4f9ae3",
+      "new_bytes": 16766
+    }
+  ],
+  "baseline": "candidate11 installer; readonly verified identical to installed standalone source",
+  "diff_scope": "exactly two assignments of the same one client_log_windows field; generated_files and original enrollment_profile writer",
+  "patch": {
+    "path": "standalone.patch",
+    "sha256": "ca60cd8f5136cdd342cefb1757cd51eba1479c48a3b2bcec9b8f0fddfa361322"
+  },
+  "field": "client_log_windows",
+  "value_source": "profile.windows_root + / + original BIN + ue4ss/UE4SS.log",
+  "relative_target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/UE4SS.log",
+  "consumer": {
+    "path": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/runtime/server_options.lua",
+    "sha256": "95abf9b8b734cd74df9a9857f337c268e49631d4731017482fbd9ef1cbdba278",
+    "lines": [
+      49,
+      50
+    ],
+    "strict_assertion_changed": false
+  },
+  "fluid_log_use": "fluid/fluid_physics_core.lua113-114 uses io.lines(options.log_path) for current ProcessEvent address",
+  "checks": [
+    {
+      "path": "checks/check_scope_and_enrollment.py",
+      "sha256": "17dcb6ad89082e44553f392d5ac90c1a011502873341c3ac62090228db63c3e7"
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "97bff034bbfbefa64916be4a4340e355e613b38c31d0caa06583331f85495c27"
+    }
+  ],
+  "new_framework_probe_reader_service_or_protocol": false,
+  "authority_scope_and_Lua_asserts_unchanged": true,
+  "current_VM_file_refresh_proven": false,
+  "live_install_or_enrollment_applied": false
+}

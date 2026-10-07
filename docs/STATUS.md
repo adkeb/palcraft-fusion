@@ -6,7 +6,7 @@
 
 2026-10-07 更新：上一轮隔离运行已完成完整目标模型与碰撞提交、本次世界 ACK 和 MC HUD 像素链路。导出的新图像包含变身提示；前台显示和物理输入仍未通过验收。实体身份与 MCP 观察修正已经进入新的安装候选，源码检查不等于实际游戏通过。
 
-单机候选已推进到 `0.4.0-mac-standalone-candidate.9-generated-config-health`。Windows ShellLink 的中文路径创建问题和生成配置的健康检查已修正；实际原监督器、原生 Menu Helper 和新的游戏进程均已启动。CrossOver 移动后的配置路径与运行库缓存也已恢复。当前实际游戏却使用 builtin dwmapi，没有本次启动的新 UE4SS/AI Mod 循环。原因已缩到官方菜单不读取额外的 Command 字段，原 DLL override 参数未传入。新的 [菜单环境修正](../workstreams/cua-native-menu-environment) 通过官方 CX_ENV 传递原启动选项，源码与 16 项针对性检查已公开；实际更新后的 DLL 加载和完整游戏流程仍待验收。本地 MC 后端尚未接入当前这次冷启动。
+单机候选已推进到 `0.4.0-mac-standalone-candidate.11-normal-mac-startup`。原安装器更新已恢复既有后端启动模板，监督器自动向自己原生 Helper 发送一次正常 App open，实际游戏已映射本安装的 dwmapi、UE4SS、UTF8 路径桥接和 Durable/Credit 组件。原 World 通过正常 API 加载，真实单机角色、进程身份及权限已观察，并导出一张真实 Palworld 引擎场景图。没有手动第二次启动或伪造 ready。MC 后端尚未接入；身份登记当前需补齐流体组件的一个客户端日志路径配置。[永久生成修复](../workstreams/standalone-fluid-log-scope) 保留原权限和断言，并由现有游戏运行时采用同一真实路径。
 
 10.7 复活同步候选包含六份 Java 增量，已通过 Java 25 编译并在之前的隔离环境加载。完整公开构建入口已在 Mac 从 100 个生产源生成新 168 class，明确混合 debug 与三类行号元数据规范化后重建基础包，再衔接六源 11 个新 class 准确得到 F35；未使用旧项目 class 字节。全项目 Gradle 构建、其他用户全新环境、完整复活同步、库存持久与正常游玩仍待验证。公开实验包和独立源码备选均保留对应的验证范围。
 
