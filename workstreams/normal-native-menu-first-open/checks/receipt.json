@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "passed": true,
+  "checks": [
+    "original_loop_pending_finished_and_exact_app_gates_once_open_then_original_stop",
+    "own_birth_host_seen_and_original_stop_refuse_open",
+    "actual_own_kernel_mismatch_blocks_AppKit_and_unknown_request_never_replays"
+  ],
+  "original_bootstrap_fixture_and_Session_loop_reused": true,
+  "actual_owned_temporary_Python_Popen_children": 3,
+  "AppKit_lifecycle_boundary_mocked": true,
+  "usr_bin_open_event_mocked": true,
+  "actual_own_child_kernel_path_read_only": true,
+  "native_AppKit_adapter_or_vendor_open_engine_verified": false,
+  "current_game_or_GUI_RPC_Git_installed_sources_or_worlds_operated_on": false,
+  "new_session_identity_or_game_ready_claimed": false
+}

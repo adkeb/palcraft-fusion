@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "kind": "isolated-normal-native-menu-first-open-source-delta",
+  "source_only": true,
+  "files": [
+    {
+      "path": "launcher/runtime.py",
+      "base_sha256": "32cd93680cbefd200376e4e7b91b2b6335e08d78da466c8ea956b8c6a5a7ad94",
+      "base_bytes": 59187,
+      "new_sha256": "5bbfefec5387d596101a869a44c2e2407eeedf5326d062faae12d490a1f3684e",
+      "new_bytes": 66685
+    }
+  ],
+  "baseline": "candidate10 original runtime32cd, no core988 or other source increments mixed",
+  "patch": {
+    "path": "runtime.patch",
+    "sha256": "b77ffc6c2d51fbc563882d604ab36f4b3e5d4835d4ad79efb9b2e168e185f2ac"
+  },
+  "entry": "Session.run original while beat/journal/close loop calls native_menu_open_tick",
+  "new_runtime_files": 0,
+  "new_workers_readers_services_timers_or_external_dependencies": 0,
+  "request_command": [
+    "/usr/bin/open",
+    "-a",
+    "<this owned installation>/.palcraft/native-menu/PalCraft Game.app"
+  ],
+  "once_marker": "session.json.native_menu_open.attempted persisted before request and same Supervisor in-memory bool",
+  "requirements": "manifest crossover_native_menu=windows-menu-helper-v1; original helper.plan supplies expected private App and identifier",
+  "primary_sources": [
+    "https://developer.apple.com/documentation/appkit/nsrunningapplication?language=objc",
+    "https://developer.apple.com/documentation/appkit/nsrunningapplication/isfinishedlaunching?language=objc",
+    "https://developer.apple.com/documentation/appkit/nsrunningapplication/executableurl",
+    "https://developer.apple.com/documentation/corefoundation/cfrunloopruninmode%28_%3A_%3A_%3A%29"
+  ],
+  "local_OS_API_declarations": [
+    "libproc.h proc_pidpath(int,void*,uint32_t)",
+    "proc_info.h PROC_PIDPATHINFO_MAXSIZE",
+    "NSRunningApplication.h lifecycle getters",
+    "CFRunLoop.h zero-duration current runloop pass",
+    "Apple open(1) -a and -n semantics"
+  ],
+  "checks": [
+    {
+      "path": "checks/check_owned_first_open.py",
+      "sha256": "350c69ff4f21c284efe69ee729cea1a8281edc2feab7cd2cb5e6a00cef13d91d"
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "15f55711f7114156eb2248cd8c1fdb780d2f0ae37d7ddb812851d2ed590d4cf1"
+    }
+  ],
+  "native_AppKit_or_vendor_open_verified": false,
+  "live_boot_or_installed_source_changed": false
+}

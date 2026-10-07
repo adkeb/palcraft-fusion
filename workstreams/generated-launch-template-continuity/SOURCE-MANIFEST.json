@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "kind": "isolated-normal-generated-template-continuity-source-delta",
+  "source_only": true,
+  "baseline": "candidate10 original installer; readonly verified byte-identical to installed core",
+  "files": [
+    {
+      "path": "installer/core.py",
+      "base_sha256": "72a281e60ef38bbe93f18d24a4f206e8af4dc71ac5b41763069920401e5896b9",
+      "base_bytes": 51075,
+      "new_sha256": "9880d8dd8d4e672cf13836e4ca10e4d553a5fdf5886a73b40bd5418ce81fbcee",
+      "new_bytes": 55648
+    }
+  ],
+  "patch": {
+    "path": "installer-core.patch",
+    "sha256": "49bc85223e23a57f2dafac7192c00c1b75d262c7e0eb291839a415e1f7d1501f"
+  },
+  "generated_data_target": "PalCraft-Dev/player-tools/standalone/previous-launch-plan.json",
+  "changes": {
+    "runtime_sources": 1,
+    "transaction_entry": "original _apply, before its transaction directory creation",
+    "normal_paths": [
+      "install of existing owned profile",
+      "update",
+      "rollback",
+      "configure"
+    ],
+    "configuration_only_transition_unchanged": true,
+    "new_protocol_or_reader_or_process_or_service": false
+  },
+  "checks": [
+    {
+      "path": "checks/check_template_continuity.py",
+      "sha256": "0a7afc4995959c7099fae6e34cb55bb0a95bd6659c3541a26fca87ea7dec8549"
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "85d8b355b45cb810eedaf42a614a738ed6b4d032ffc2c0695f3ec5b394e05e74"
+    },
+    {
+      "path": "checks/readonly-original-archive-resolution.json",
+      "sha256": "44f1ec43f26b9a63a8f435b89f53399d4fe9295ea2b8ccd357cf75d52e1864f9"
+    }
+  ],
+  "public_source_contains_author_identity_or_absolute_user_defaults": false,
+  "live_installer_applied": false,
+  "native_game_runtime_verified": false
+}

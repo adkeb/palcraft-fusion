@@ -1,0 +1,148 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -307,6 +307,60 @@
+     return bool(record.get('identity')) and process_identity(record.get('pid')) == record['identity']
+ 
+ 
++def _native_menu_application(pid, expected_executable):
++    """Read one owned app's kernel/AppKit lifecycle; no launch or activation calls."""
++    import ctypes
++    if sys.platform != 'darwin':
++        return None
++    libproc = ctypes.CDLL('/usr/lib/libproc.dylib')
++    libproc.proc_pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
++    libproc.proc_pidpath.restype = ctypes.c_int
++    path = ctypes.create_string_buffer(4096)  # PROC_PIDPATHINFO_MAXSIZE
++    if libproc.proc_pidpath(pid, path, len(path)) <= 0:
++        return None
++    kernel_executable = os.fsdecode(path.value)
++    if kernel_executable != expected_executable:
++        return None
++    ctypes.CDLL('/System/Library/Frameworks/AppKit.framework/AppKit')
++    objc = ctypes.CDLL('/usr/lib/libobjc.A.dylib')
++    objc.objc_getClass.argtypes = [ctypes.c_char_p]
++    objc.objc_getClass.restype = ctypes.c_void_p
++    objc.sel_registerName.argtypes = [ctypes.c_char_p]
++    objc.sel_registerName.restype = ctypes.c_void_p
++    sel = lambda name: objc.sel_registerName(name.encode('ascii'))
++    address = ctypes.cast(objc.objc_msgSend, ctypes.c_void_p).value
++    object_call = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)(address)
++    pid_call = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int)(address)
++    integer_call = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p)(address)
++    bool_call = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)(address)
++    string_call = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p)(address)
++    pool = object_call(object_call(objc.objc_getClass(b'NSAutoreleasePool'), sel('alloc')), sel('init'))
++    try:
++        # NSRunningApplication dynamic properties refresh at the next main-loop
++        # turn. Zero seconds makes one pass; no new timer, reader or worker.
++        cf = ctypes.CDLL('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
++        cf.CFRunLoopRunInMode.argtypes = [ctypes.c_void_p, ctypes.c_double, ctypes.c_bool]
++        cf.CFRunLoopRunInMode.restype = ctypes.c_int32
++        mode = ctypes.c_void_p.in_dll(cf, 'kCFRunLoopDefaultMode').value
++        cf.CFRunLoopRunInMode(mode, 0.0, True)
++        app = pid_call(objc.objc_getClass(b'NSRunningApplication'), sel('runningApplicationWithProcessIdentifier:'), pid)
++        if not app:
++            return None
++        def text(obj):
++            value = string_call(obj, sel('UTF8String')) if obj else None
++            return value.decode('utf-8') if value else None
++        def url_path(name):
++            url = object_call(app, sel(name))
++            return text(object_call(url, sel('path'))) if url else None
++        return {'pid': integer_call(app, sel('processIdentifier')),
++                'kernel_executable': kernel_executable, 'executable': url_path('executableURL'),
++                'bundle': url_path('bundleURL'), 'bundle_identifier': text(object_call(app, sel('bundleIdentifier'))),
++                'finished_launching': bool_call(app, sel('isFinishedLaunching')),
++                'terminated': bool_call(app, sel('isTerminated'))}
++    finally:
++        object_call(pool, sel('drain'))
++
++
+ def status(root):
+     root = Path(root).absolute()
+     state = get_state(root)
+@@ -632,6 +686,8 @@
+         self.heartbeat = self.control / (token + '.heartbeat')
+         self.failure = None
+         self.closing = False
++        self.native_menu_host_seen = False
++        self.native_menu_open_attempted = self.session.get('native_menu_open', {}).get('attempted') is True
+         from launcher.journal_lifecycle import NormalLifecycle, enabled
+         self.journal = NormalLifecycle(self) if enabled(self.state['profile']) else None
+ 
+@@ -678,6 +734,67 @@
+     def should_close(self):
+         normal_request = self.root / '.palcraft/standalone/journal-lifecycle' / self.token / 'stop-request.json'
+         return (self.control / (self.token + '.stop')).exists() or (self.journal is not None and normal_request.exists())
++
++    def native_menu_open_tick(self):
++        """One standard open event to this Session's already launched native Helper."""
++        if (sys.platform != 'darwin' or self.state['profile']['platform'] != 'crossover'
++                or self.state['manifest'].get('requirements', {}).get('crossover_native_menu') != 'windows-menu-helper-v1'
++                or self.native_menu_open_attempted or self.closing or self.should_close()):
++            return
++        host = owned_path(self.root, '.palcraft/control/' + self.token + '.host.json')
++        self.native_menu_host_seen |= host.exists() or bool(self.journal and self.journal.scope.get('native_scope'))
++        if self.native_menu_host_seen:
++            return
++        client = self.children.get('client')
++        if client is None or client.poll() is not None:
++            return
++        current = read_json(self.root / '.palcraft/session.json')
++        record = self.session.get('components', {}).get('client', {})
++        if (current.get('token') != self.token or current.get('phase') not in ('starting', 'bootstrap', 'running')
++                or current.get('components', {}).get('client') != record
++                or record.get('pid') != client.pid or not process_matches(record)):
++            return
++        command = self.commands['client']
++        prefix = [sys.executable, str(owned_path(self.root, TOOLS + '/launcher/crossover_menu_helper.py')),
++                  '--root', str(self.root), 'run', '--']
++        if command[:len(prefix)] != prefix:
++            return
++        from launcher.crossover_menu_helper import MenuError, plan
++        try:
++            hosts = [entry for entry in self.state['manifest']['files'] if entry.get('role') == 'client_host']
++            if len(hosts) != 1:
++                return
++            spec = plan(self.root, validate_profile(self.state['profile'], self.root),
++                        command[len(prefix):], hosts[0]['target'])
++            bundle = owned_path(self.root, '.palcraft/native-menu/PalCraft Game.app')
++            executable = owned_path(self.root, '.palcraft/native-menu/PalCraft Game.app/Contents/MacOS/Menu Helper')
++            app = _native_menu_application(client.pid, str(executable))
++        except (MenuError, OSError, ValueError, AttributeError):
++            return
++        if (not app or app.get('pid') != client.pid or app.get('kernel_executable') != str(executable)
++                or app.get('executable') != str(executable) or app.get('bundle') != str(bundle)
++                or app.get('bundle_identifier') != spec['bundle_id']
++                or app.get('finished_launching') is not True or app.get('terminated') is not False
++                or self.should_close() or host.exists() or client.poll() is not None or not process_matches(record)):
++            return
++        self.native_menu_open_attempted = True  # Unknown outcomes must never cause another open.
++        receipt = {'schema': 1, 'attempted': True, 'token': self.token, 'client': dict(record),
++                   'bundle': str(bundle), 'bundle_identifier': spec['bundle_id'],
++                   'finished_launching_observed': True, 'requested_unix': time.time(),
++                   'command': ['/usr/bin/open', '-a', str(bundle)], 'state': 'requested',
++                   'game_ready_claimed': False, 'client_exit_code_before': client.poll()}
++        self.session['native_menu_open'] = receipt
++        self.save(self.session['phase'])
++        try:
++            result = subprocess.run(receipt['command'], stdin=subprocess.DEVNULL, capture_output=True,
++                                    text=True, timeout=5)
++            receipt.update(state='returned', returncode=result.returncode,
++                           stdout=result.stdout[-2500:], stderr=result.stderr[-2500:])
++        except (OSError, subprocess.SubprocessError) as error:
++            receipt.update(state='outcome_unknown', error=str(error))
++        receipt.update(observed_unix=time.time(), client_exit_code_after=client.poll(),
++                       same_owned_client_identity_after=process_matches(record))
++        self.save(self.session['phase'])
+ 
+     def journal_tick(self):
+         if self.journal is not None:
+@@ -811,6 +928,7 @@
+                 if self.should_close():
+                     self.closing = True
+                     self.save('closing', message='正在等待个人游戏保存并退出。')
++                self.native_menu_open_tick()
+                 client = self.children['client']
+                 if client.poll() is not None:
+                     code = client.returncode

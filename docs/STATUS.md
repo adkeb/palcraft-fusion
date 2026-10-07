@@ -10,7 +10,7 @@
 
 10.7 复活同步候选包含六份 Java 增量，已通过 Java 25 编译并在之前的隔离环境加载。完整公开构建入口已在 Mac 从 100 个生产源生成新 168 class，明确混合 debug 与三类行号元数据规范化后重建基础包，再衔接六源 11 个新 class 准确得到 F35；未使用旧项目 class 字节。全项目 Gradle 构建、其他用户全新环境、完整复活同步、库存持久与正常游玩仍待验证。公开实验包和独立源码备选均保留对应的验证范围。
 
-原生菜单 v2 的唯一 COM 创建器已修复实机中文路径损失，通过 API 获取的现有文件 ASCII 别名并核对真实同文件身份。实际保存与 fresh Load 读回的四字段均通过，链接为 1968 字节，没有执行目标或改动会话。修正源码与自写文件工具已公开；后续正常更新、真正应用启动、窗口和物理 F5 仍待验证。
+原生菜单 v2 的唯一 COM 创建器已修复实机中文路径损失，通过 API 获取的现有文件 ASCII 别名并核对真实同文件身份。实际保存与 fresh Load 读回的四字段均通过，链接为 1968 字节，没有执行目标或改动会话。修正源码与自写文件工具已公开；后续正常更新、真正应用启动、窗口和物理 F5 仍待验证。 后续实机测试已确认 Helper 获得环境但 Wine task 使用主应用环境，因此当前候选改用官方 raw Command 显式传参。配套 [首次 App open](../workstreams/normal-native-menu-first-open)、[生成启动模板保留](../workstreams/generated-launch-template-continuity) 和 [Mac 本地 guest 清单](../workstreams/mac-local-guest-manifest) 已完成各自源码检查；正在组合下一普通启动候选，实际 Mod 加载、世界、角色、登录与完整玩法仍待验证。
 
 最新 Windows ShellLink 标准库备选公开格式编码、解析器、合成输入和针对性检查；没有执行 Wine、目标程序或 vendor parser。真实卷属性和 ANSI code page 必须来自调用者观察，不能借用合成 fixture 的值。
 

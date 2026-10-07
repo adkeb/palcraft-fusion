@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 12,
+  "failures": 0,
+  "errors": 0,
+  "changed_source_sha256": "2089c971a2cf4c72ef350ef4ede4f065702de33981139de44b7d9ed4e828cce2",
+  "installed_consumer_source_sha256": "5fef4e9ae5e8825d5d7c20025f24fde21939954dfe3aafeaf1a7ac8107d87eab",
+  "fixed_existing_synthetic_credential_only": true,
+  "new_credential_key_or_grant_generated": false,
+  "actual_credential_or_current_runtime_files_read": false,
+  "actual_installed_consumer_inspect_and_prepare_schema_function_exercised": true,
+  "full_profile_validate_or_installed_state_function_exercised": false,
+  "windows_entire_default_manifest_and_allocations_equal_original": true,
+  "network_ports_processes_or_GUI_used": false,
+  "current_ready_or_gameplay_claimed": false
+}

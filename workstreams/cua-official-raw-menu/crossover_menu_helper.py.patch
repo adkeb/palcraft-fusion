@@ -1,0 +1,88 @@
+--- base/launcher/crossover_menu_helper.py
++++ source/launcher/crossover_menu_helper.py
+@@ -124,13 +124,20 @@
+     # The observed winewrapper ignores --enable-alt-loader. Start the genuine
+     # native Menu Helper, whose vendor Wine controller supplies its loader.
+     launch = [str(bundle / 'Contents/MacOS/Menu Helper')]
+-    # The vendor helper resolves MenuPath through the official menu registry.
+-    # Its generated Windows menu command does not carry extra Wine options.
++    # Raw is an official menu type: its stored Command keeps the normal Wine
++    # options even when the native task uses the CrossOver app's environment.
++    link_windows = 'C:\\windows\\Start Menu\\PalCraft\\' + owner + '\\PalCraft Game.lnk'
++    menu_command = shlex.join([str(wine), '--bottle', profile['bottle_name'],
++        '--enable-alt-loader', 'macdrv', '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
++        '--env', 'SteamAppId=1623730', '--workdir', prefix[-1],
++        '--wait-children', '--start', link_windows])
++    menu_registry = bottle / 'desktopdata/cxmenu/cxmenu_macosx.plist'
+     return dict(root=root, vendor=vendor, bottle=bottle, home=home, bundle=bundle,
+                 wine=wine, cxmenu=cxmenu, menu=menu, owner=owner, description=description,
+                 link=bottle / 'drive_c/windows/Start Menu/PalCraft' / owner / 'PalCraft Game.lnk',
+-                link_windows='C:\\windows\\Start Menu\\PalCraft\\' + owner + '\\PalCraft Game.lnk',
+-                menu_script=menu_script, target=target, arguments=arguments, token=token,
++                link_windows=link_windows,
++                menu_script=menu_script, menu_command=menu_command, menu_registry=menu_registry,
++                target=target, arguments=arguments, token=token,
+                 workdir=prefix[-1], launch=launch,
+                 bundle_id='com.codeweavers.CrossOverHelper.' +
+                     hashlib.md5(profile['bottle_name'].encode('utf-8')).hexdigest().upper() + '.' +
+@@ -156,6 +163,36 @@
+     result['CX_ENV'] = shlex.join(assignments)
+     result['CX_DEBUGMSG'] = '-all'
+     return result
++
++
++def raw_menu_create_command(spec, profile):
++    return [str(spec['cxmenu']), '--bottle', profile['bottle_name'], '--utf8',
++        '--create', spec['menu'], '--type', 'raw', '--description', spec['description'],
++        '--command', spec['menu_command'], '--mode', 'install',
++        '--install']
++
++
++def registered_menu_command(spec):
++    """Read back only the owned menu's official native Command before launch."""
++    path = checked_path(spec['menu_registry'], spec['bottle'])
++    try:
++        data = plistlib.loads(path.read_bytes())
++    except (OSError, ValueError, plistlib.InvalidFileException) as exc:
++        raise MenuError('The vendor native menu registry is unavailable') from exc
++    matches = []
++    def visit(value):
++        if isinstance(value, dict):
++            if value.get('RawPath') == spec['menu']:
++                matches.append(value)
++            for child in value.values():
++                visit(child)
++        elif isinstance(value, list):
++            for child in value:
++                visit(child)
++    visit(data)
++    if len(matches) != 1 or matches[0].get('Command') != spec['menu_command']:
++        raise MenuError('The owned native menu Command was not installed exactly')
++    return matches[0]['Command']
+ 
+ 
+ def native_shortcut_request(spec):
+@@ -317,11 +354,11 @@
+         request.unlink(missing_ok=True)
+     spec['link'].chmod(0o600)
+     guard(spec)
+-    create = [str(spec['cxmenu']), '--bottle', profile['bottle_name'], '--create', spec['menu'],
+-              '--type', 'windows', '--description', spec['description'], '--mode', 'install', '--install']
++    create = raw_menu_create_command(spec, profile)
+     completed = runner(create, env=env, timeout=30, capture_output=True)
+-    if completed.returncode != 0 or not spec['menu_script'].is_file():
+-        raise MenuError('The vendor did not install the owned Windows menu: ' + step_receipt(spec, 'cxmenu_create_install', completed))
++    if completed.returncode != 0:
++        raise MenuError('The vendor did not install the owned raw menu: ' + step_receipt(spec, 'cxmenu_create_install', completed))
++    registered_menu_command(spec)
+     if sha((spec['bottle'] / 'cxbottle.conf').read_bytes()) != before:
+         raise MenuError('Vendor changed bottle configuration; refuse to launch')
+     write_bundle(spec, profile, bottle_id)
+@@ -336,6 +373,7 @@
+                    shelllink_producer='native_IShellLinkW_IPersistFile', writer_sha256=WRITER_SHA256,
+                    shelllink_fields_read_back=True,
+                    launch_route='genuine_vendor_Menu_Helper_executable',
++                   native_menu_type='raw', native_menu_command_read_back=True,
+                    actual_game_app_registered=None, actual_window_owner_proven=False,
+                    physical_f5_proven=False)
+     receipt_path = spec['home'] / 'prepared.json'

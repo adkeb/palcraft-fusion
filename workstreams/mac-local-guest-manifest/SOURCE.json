@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "source": "source/multiplayer/prepare_guest.py",
+  "source_sha256": "2089c971a2cf4c72ef350ef4ede4f065702de33981139de44b7d9ed4e828cce2",
+  "base_sha256": "0d500220d7849f4f2f461f024eb42353f6d7f404f70030d76face54d4b6268bf",
+  "patch_sha256": "bd3c71630b7c273efe761929259de740a7baaf15789944c7e22ce8142cd841b9",
+  "unchanged_dependency_sha256": "66e4115da91db8983b028b55ec7a9e990ab1b76131c00af9fb1954b87329d7af",
+  "source_only": true,
+  "actual_enrollment_sync_or_full_gameplay_verified": false
+}

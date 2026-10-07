@@ -1,0 +1,87 @@
+--- a/installer/core.py
++++ b/installer/core.py
+@@ -632,9 +632,83 @@
+     return recovered
+ 
+ 
++def _retained_launch_template(root, profile, before):
++    """Retain the transition's one owned argv template in ordinary release transactions."""
++    spec = profile.get('standalone') or {}
++    pointer = (spec.get('backend_configuration') or {}).get('preserve_launch_template')
++    if not pointer:
++        return {}
++    target = TOOLS + '/standalone/previous-launch-plan.json'
++    path = owned_path(root, target)
++    if pointer != str(path):
++        fail('GENERATED_CONFIG_SCOPE', '原启动模板必须属于本安装的固定生成路径。')
++    expected = before.get('files', {}).get(target)
++    if path.is_file():
++        if expected is None:
++            fail('GENERATED_CONFIG_UNMANAGED', '原启动模板未登记在本安装的文件归属中，拒绝接管。')
++        if digest(path) != expected:
++            fail('UPDATE_CONFLICT', '已安装文件被修改，不能覆盖：' + target)
++        content = path.read_bytes()
++    else:
++        # An older ordinary update omitted this generated dependency. Recover only
++        # an actual committed deletion with its own managed-SHA and before backup.
++        candidates = {}
++        directory = owned_path(root, '.palcraft/transactions')
++        for receipt in sorted(directory.glob('*/journal.json')):
++            receipt = owned_path(root, receipt.relative_to(root).as_posix())
++            journal = read_json(receipt)
++            previous = journal.get('before_state', {})
++            old = previous.get('profile', {})
++            old_spec = old.get('standalone') or {}
++            if (journal.get('phase') != 'committed' or journal.get('id') != receipt.parent.name
++                    or old.get('root') != profile.get('root')
++                    or old.get('platform') != profile.get('platform')
++                    or old.get('pal_entry_mode') != profile.get('pal_entry_mode')
++                    or old.get('connection', {}).get('identity') != profile['connection']['identity']
++                    or old_spec.get('backend_root') != spec.get('backend_root')
++                    or (old_spec.get('backend_configuration') or {}).get('preserve_launch_template') != pointer):
++                continue
++            for change in journal.get('changes', []):
++                sha = change.get('old_sha256')
++                if (change.get('target') != target or change.get('new_sha256') is not None
++                        or not isinstance(sha, str) or not re.fullmatch(r'[a-f0-9]{64}', sha)
++                        or previous.get('files', {}).get(target) != sha
++                        or (expected is not None and expected != sha)):
++                    continue
++                backup = owned_path(root, (receipt.parent / 'before' / target).relative_to(root).as_posix())
++                if not backup.is_file() or digest(backup) != sha:
++                    fail('RECOVERY_BACKUP', '原启动模板的事务备份缺失或损坏，未恢复。')
++                candidates[sha] = backup.read_bytes()
++        if len(candidates) != 1:
++            fail('GENERATED_CONFIG_MISSING', '缺少唯一且校验通过的原受管理启动模板，未重造角色参数。')
++        content = next(iter(candidates.values()))
++    try:
++        value = json.loads(content)
++        identity = profile['connection']['identity']
++        bridge = str(root / DEV / 'bridge')
++        roles = value['roles']
++        cwds = {'server': str(Path(spec['backend_root']) / 'server'),
++                'guest': str(Path(spec['backend_root']) / 'players' / identity['mc_uuid'] / 'minecraft'),
++                'hud': bridge}
++        if (value.get('schema') != 1 or value.get('role_arguments_preserved') is not True
++                or set(roles) != set(cwds)
++                or any(row.get('role') != role or row.get('cwd') != cwds[role]
++                       or row.get('same_original_uuid') != identity['mc_uuid']
++                       or row.get('frame_file') != str(root / DEV / 'bridge/mcpt-hud.bin')
++                       or not isinstance(row.get('arguments'), list)
++                       or not all(isinstance(arg, str) for arg in row['arguments'])
++                       for role, row in roles.items())):
++            fail('GENERATED_CONFIG_SCOPE', '原启动模板不属于当前后端、玩家或帧路径。')
++    except (ValueError, TypeError, KeyError, AttributeError):
++        fail('GENERATED_CONFIG_SCOPE', '原启动模板结构不完整，未重造角色参数。')
++    return {target: content}
++
++
+ def _apply(root, release, state_after, extra_files=None, fault=None, configuration_only=False):
+     before = get_state(root)
+-    extra_files = extra_files or {}
++    extra_files = dict(extra_files or {})
++    if not configuration_only:
++        extra_files.update(_retained_launch_template(root, state_after['profile'], before))
+     directory = root / '.palcraft/transactions' / uuid.uuid4().hex
+     directory.mkdir(parents=True)
+     if configuration_only and (state_after.get('manifest') != before.get('manifest') or

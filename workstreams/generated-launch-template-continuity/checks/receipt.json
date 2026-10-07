@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "passed": true,
+  "original_player_installer_fixture_reused": true,
+  "baseline_ordinary_update_deletion_reproduced": true,
+  "original_config_only_transition_created_owned_template": true,
+  "ordinary_Bundle_update_restored_only_verified_committed_deletion": true,
+  "corrupt_archive_and_modified_current_file_rejected": true,
+  "subsequent_update_rollback_and_fault_undo_retained_template": true,
+  "original_prepare_launch_retained_three_role_argv_and_UUID": true,
+  "active_session_mutation_rejected": true,
+  "Saved_world_inventory_WAL_bytes_and_mtime_unchanged": true,
+  "template_sha256_before_after": "e5f3941ef3c6e151f129a1fb9eed1d89ef1a031b935a101b6d4e9d8f5759dd0e",
+  "all_fixtures_temporary": true,
+  "processes_games_GUI_RPC_ports_and_Git": false,
+  "live_repair_applied": false
+}

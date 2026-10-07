@@ -1,0 +1,84 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "passed": true,
+  "checks": [
+    {
+      "name": "current_installed_source_unchanged",
+      "passed": true
+    },
+    {
+      "name": "staged_source_compiles",
+      "passed": true
+    },
+    {
+      "name": "same_original_ShellLink_fields_and_host_arguments",
+      "passed": true
+    },
+    {
+      "name": "same_owned_menu_native_helper_and_bundle_identity",
+      "passed": true
+    },
+    {
+      "name": "native_bundle_Info_unchanged",
+      "passed": true
+    },
+    {
+      "name": "raw_command_contains_no_session_token",
+      "passed": true
+    },
+    {
+      "name": "official_wine_parser_accepts_all_explicit_options",
+      "passed": true
+    },
+    {
+      "name": "official_wine_parser_observes_original_override_environment_and_workdir",
+      "passed": true
+    },
+    {
+      "name": "official_native_loader_and_original_Windows_LNK_route_preserved",
+      "passed": true
+    },
+    {
+      "name": "Unicode_spaced_Windows_workdir_round_trips_through_official_parser",
+      "passed": true
+    },
+    {
+      "name": "official_cxmenu_parser_accepts_raw_creation",
+      "passed": true
+    },
+    {
+      "name": "official_create_installs_only_its_owned_menu_with_no_incompatible_filter",
+      "passed": true
+    },
+    {
+      "name": "official_native_registry_own_Command_exact_readback",
+      "passed": true
+    },
+    {
+      "name": "registry_readback_is_read_only",
+      "passed": true
+    },
+    {
+      "name": "incorrect_duplicate_or_absent_owned_Command_rejected",
+      "passed": true
+    },
+    {
+      "name": "missing_registry_rejected_without_Windowsscript_health_shortcut",
+      "passed": true
+    },
+    {
+      "name": "original_session_guard_unmodified",
+      "passed": true
+    },
+    {
+      "name": "original_final_native_exec_and_normal_host_gate_unmodified",
+      "passed": true
+    }
+  ],
+  "source_sha256": "99578dc07bf9ceb7fdd5585a93db38985062d291662e637604bfe20d94687983",
+  "actual_Wine_cxmenu_MenuHelper_or_game_started": false,
+  "actual_native_registry_or_bottle_or_installed_source_modified": false,
+  "actual_game_dwmapi_UE4SS_SDK_or_physical_F5_pass_claimed": false,
+  "remaining_normal_boot_gap": "Supervisor currently execs its owned helper but first Game creation required one normal owned App open event; separate root-owned normal launch initialization remains."
+}

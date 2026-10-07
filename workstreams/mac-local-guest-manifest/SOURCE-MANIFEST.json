@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "public_safe": true,
+  "kind": "portable-mac-local-guest-manifest-source-checks",
+  "production_source_sha256": "2089c971a2cf4c72ef350ef4ede4f065702de33981139de44b7d9ed4e828cce2",
+  "changed_production_files": 1,
+  "files": {
+    "README.md": {
+      "sha256": "f398aeb8a5cd366cb4ef265f29fc632ece05b72978050d517a38af232a61d179",
+      "bytes": 1940
+    },
+    "base/multiplayer/prepare_guest.py": {
+      "sha256": "0d500220d7849f4f2f461f024eb42353f6d7f404f70030d76face54d4b6268bf",
+      "bytes": 7017
+    },
+    "checks/fixtures/public-vector.json": {
+      "sha256": "cb30ae6a271aedefec9b70fed9ec5930e4325713d38d2225d643e3f4498ab2c6",
+      "bytes": 1209
+    },
+    "checks/fixtures/synthetic-credential.json": {
+      "sha256": "2079e5e3984c62e8b75b9ae93b997815cd5b51ee982339a3f1bba0c3df68146d",
+      "bytes": 1090
+    },
+    "checks/verify_mac_guest.py": {
+      "sha256": "fd92194afcca6a36760dc680e3175424a5efda26e58959594e0140dfa380f2b2",
+      "bytes": 15057
+    },
+    "consumer/credentials.py": {
+      "sha256": "5fef4e9ae5e8825d5d7c20025f24fde21939954dfe3aafeaf1a7ac8107d87eab",
+      "bytes": 7830
+    },
+    "prepare_guest.py.patch": {
+      "sha256": "bd3c71630b7c273efe761929259de740a7baaf15789944c7e22ce8142cd841b9",
+      "bytes": 15221
+    },
+    "source/multiplayer/prepare_guest.py": {
+      "sha256": "2089c971a2cf4c72ef350ef4ede4f065702de33981139de44b7d9ed4e828cce2",
+      "bytes": 15349
+    },
+    "source/multiplayer/session_client.py": {
+      "sha256": "66e4115da91db8983b028b55ec7a9e990ab1b76131c00af9fb1954b87329d7af",
+      "bytes": 5802
+    },
+    "verification.json": {
+      "sha256": "68229414a909f5aee161c66e221e54675da1d20de173abdb03885c58c6a3148a",
+      "bytes": 769
+    }
+  },
+  "check_script_same_bytes_as_passed_source_checks": true,
+  "original_bounded_source_tests_passed": 12,
+  "portable_copy_tests_rerun": false,
+  "fixtures_are_fixed_existing_synthetic_test_data": true,
+  "actual_credential_keys_grants_role_JSON_INPUTS_or_private_HANDOFF_included": false,
+  "author_or_actual_installation_paths_included": false,
+  "process_service_network_or_gameplay_claimed": false
+}

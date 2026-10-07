@@ -1,0 +1,17 @@
+# First normal open event for the owned native Menu Helper
+
+The original native-menu component registers its private App and replaces its own process with the vendor Menu Helper. The original Supervisor then monitors that same Popen, but has no first ordinary App open event. This delta sends that event once from the existing Session loop after observing that the same owned Helper has finished launching.
+
+`Session.native_menu_open_tick` requires the enabled native-menu manifest, the original client Popen still alive with the recorded PID/birth, the same current session/component envelope, no stop, and no current-token Host or journal native scope ever observed. It reuses the existing helper's pure `plan` to derive the App identity. The kernel executable and NSRunningApplication PID, executable URL, bundle URL, bundle identifier, finished-launching and terminated properties must all match. The final guard checks stop, Host and original Popen/birth again before dispatch.
+
+Only `/usr/bin/open -a OWNED_APP` is invoked. No new-instance flag, Host/game command, PID adoption, vendor change, global environment change, simulated window input or AppleScript is added. The marker and request receipt are persisted in the original session before dispatch. Any return or timeout is the sole attempt, including an unknown outcome; the loop never replays it. The receipt reports original Popen observations and command outcome. It never claims game readiness or native-world acceptance. Original world save, force control, role arguments, identities and game APIs remain unchanged. No preHost cancellation repair is included.
+
+The standard-library ctypes adapter uses system libproc, Objective-C, AppKit and CoreFoundation only. Kernel path mismatch returns before loading AppKit. A normal autorelease pool bounds each snapshot. NSRunningApplication dynamic properties update at a main-runloop turn; one zero-second CFRunLoop pass permits this refresh without adding a timer or worker. [Apple lifecycle documentation](https://developer.apple.com/documentation/appkit/nsrunningapplication?language=objc) and [the zero-duration runloop contract](https://developer.apple.com/documentation/corefoundation/cfrunloopruninmode%28_%3A_%3A_%3A%29) describe these semantics. The adapter makes no activation, termination or application-open call.
+
+The directed check reuses the original temporary bootstrap fixture and runs the real Session loop. AppKit lifecycle and `/usr/bin/open` are mocked; three explicitly created temporary Python Popen children provide actual PID/birth/poll/wait facts. It covers pending launch and wrong App scope, exactly one eligible request, original normal stop, mismatched birth, Host seen, stop requested, and unknown-outcome no replay. A real kernel-path read of a test child verifies the mismatch branch before AppKit. The adapter's AppKit path and the real vendor open event have not been executed or verified by this source task.
+
+```sh
+nice -n 19 python3 -B checks/check_owned_first_open.py --base PLAYER_TOOLS_SOURCE --player-overlay CANDIDATE10_PLAYER_SOURCE --menu-overlay CANDIDATE10_MENU_SOURCE --fixture ORIGINAL_SINGLEPLAYER_BOOTSTRAP_FIXTURE
+```
+
+Compose this same file into the new release's outer tools and managed launcher payload. Apply only through ordinary save/off/update/reload; the sole runtime owner performs any real native launch verification. This source task changes no installed files, current boot, GUI, RPC, game, worlds or Git state.

@@ -10,7 +10,7 @@
 
 上一轮隔离运行已完成真实世界快照、完整目标模型与碰撞提交和本次世界 ACK，MC HUD 像素也已实际导出、编码和解码。这些记录只证明各自的数据链路；前台 HUD、物理输入、变身和完整生存玩法仍待验收。
 
-最新单机候选已修复 Windows 快捷方式的中文路径创建和生成配置检查，实际原生 Menu Helper 与游戏进程已启动。当前冷启动的 Mod 参数传递仍有缺口，新的 [原生菜单环境修正](workstreams/cua-native-menu-environment) 已完成源码检查，正在通过原安装器更新验证。当前 MC 后端尚未接入，完整玩法仍待验收，见 [开发状态](docs/STATUS.md)。
+最新单机候选已修复 Windows 快捷方式的中文路径创建和生成配置检查，实际原生 Menu Helper 与游戏进程已启动。当前冷启动的 Mod 参数传递仍有缺口，新的 [原生菜单环境修正](workstreams/cua-native-menu-environment) 已完成源码检查，正在通过原安装器更新验证。新增官方 raw 菜单传参、自动首次 App open、生成启动模板保留及 Mac 本地 guest 清单工具；正在普通安装流程验证。当前 MC 后端尚未接入，完整玩法仍待验收，见 [开发状态](docs/STATUS.md)。
 
 最新修正源码分别保存在 [玩家保存与重启流程](workstreams/normal-journal-owned-player-flow-v2)、[原生实体身份绑定](workstreams/native-entity-binding-next)、[MCP 身份观察](workstreams/MC-local-scope-observation-next) 和 [Windows 快捷方式生成备选](workstreams/windows-shelllink-stdlib-alternative)。备选只有格式与源码检查，尚未证明实际 vendor 解析成功。
 
