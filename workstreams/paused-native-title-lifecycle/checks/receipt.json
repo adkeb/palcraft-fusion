@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "passed": true,
+  "targeted_cases": 3,
+  "root_test_completion_chunk": "d3ca8c",
+  "exit_code": 0,
+  "fixture_test_invocations": 2,
+  "first_fixture_failure": "Extraction included trailing function end; fixture corrected, production sources unchanged",
+  "cases": [
+    "paused actual extracted branch consumes normal observe/quit operations without native object accesses",
+    "same-frame stop returns before dispatcher and explicit resume reaches original active branch",
+    "actual journal-generated return_title executes existing cleanup before native menu, false stop rejects title"
+  ],
+  "original_generated_Lua_used": true,
+  "IO_native_MC_Game_and_saved_world_simulated_or_not_run": true,
+  "actual_AV_or_exit0_proven": false
+}

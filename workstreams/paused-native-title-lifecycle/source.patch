@@ -1,0 +1,71 @@
+--- a/client/main.lua	2026-10-07 17:07:08
++++ b/client/main.lua	2026-10-07 17:12:01
+@@ -441,16 +441,9 @@
+  json('client-performance.json',{version=15,unix=os.time(),clock='os.clock (runtime CRT)',elapsed_ms=now-profile_start,total_ticks=stats.ticks,callback_interval=summary(intervals),world_frame=summary(world_frames),stages=stages,scans=stats.scans,file_opens=stats.file_opens,input_transport=input_file and'binary_persistent'or'json_legacy',input_unchanged_ms=math.max(0,now-input_seen),input_torn=stats.input_torn,input_duplicates=stats.input_duplicates,terrain_traces=stats.terrain_traces,terrain_pending=#queue,form=form.status()})
+  stats.stages={};intervals={};world_frames={};profile_start=now
+ end
+-local function run()
+- tick_count=tick_count+1;stats.ticks=stats.ticks+1
+- local now=time_ms(pc_cache)
+- local started=os.clock()
+- local pc=player(now)
+- if pc then now=time_ms(pc)end
+- if previous_time and now<previous_time then next_game=0;next_identity=0;next_ops=0;next_ui=0;next_status=0;next_profile=0;next_json=0;next_input_open=0;next_render_flag=0;input_seen=now;profile_start=now end
+- if previous_time and now>previous_time and live(pc)then intervals[#intervals+1]=now-previous_time end;previous_time=now
+- if now>=next_ops then
+-  next_ops=now+1000;local f=open('client-op.lua','rb')
++local paused_next_ops=0
++local function poll_client_operation()
++ local f=open('client-op.lua','rb')
+   if f then
+    local source=f:read('*a');f:close();os.remove(ROOT..'client-op.lua')
+    local ok,result=pcall(function()return assert(load(source,'PalCraft operation','t',_ENV))()end)
+@@ -461,7 +454,22 @@
+     if not reported then print('[PalCraft] client operation result write failed: '..tostring(detail)..'\n')end
+    end
+   end
++end
++local function run()
++ if operator_paused then
++  local now=os.time()*1000
++  if now>=paused_next_ops then paused_next_ops=now+1000;poll_client_operation()end
++  return
+  end
++ tick_count=tick_count+1;stats.ticks=stats.ticks+1
++ local now=time_ms(pc_cache)
++ local started=os.clock()
++ local pc=player(now)
++ if pc then now=time_ms(pc)end
++ if previous_time and now<previous_time then next_game=0;next_identity=0;next_ops=0;next_ui=0;next_status=0;next_profile=0;next_json=0;next_input_open=0;next_render_flag=0;input_seen=now;profile_start=now end
++ if previous_time and now>previous_time and live(pc)then intervals[#intervals+1]=now-previous_time end;previous_time=now
++ if now>=next_ops then next_ops=now+1000;poll_client_operation()end
++ if operator_paused then return end
+  if standalone then standalone:tick(now)end
+  if not pc then
+   connection('no_possessed_character')
+@@ -478,13 +486,6 @@
+   connection('other_session');stage('discovery',started);profile(now);return
+  end
+  connection('in_bridgelab')
+- if operator_paused then
+-  if now>=next_ui then next_ui=now+1000;widgets()end
+-  if now>=next_status then
+-   next_status=now+1000;json('client-status.json',{status='operator_stopped',unix=os.time(),version=15,features=features:status(),stop_ok=control_stop_ok})
+-  end
+-  stage('discovery',started);profile(now);return
+- end
+  if not collisions or session~=identity.server_session_id then
+   if collisions then
+    local alive=collisions.context_alive and collisions.context_alive()==true
+
+--- a/launcher/journal_lifecycle.py	2026-10-07 17:15:52
++++ b/launcher/journal_lifecycle.py	2026-10-07 17:16:43
+@@ -305,7 +305,7 @@
+         result = "return {request_id=" + q(request_id) + ",token=" + q(self.token) + ",process_epoch=epoch,action=" + q(action) + ",observed_unix=os.time()}\n"
+         if action == 'return_title':
+             prefix += "local r=assert(sp.local_realm:current())\nassert(r.server_session_id==" + q(native['server_session_id']) + " and r.world_id==" + q(native['world_id']) + " and r.host_uid==" + q(native['pal_uid']) + ",'Loaded world changed')\n"
+-            prefix += "assert(r.save_manager:IsWorldAutoSaving()==false,'Native world autosave still active')\nr.pc:ClientReturnToMainMenu('PalCraft normal saved singleplayer stop')\n"
++            prefix += "assert(r.save_manager:IsWorldAutoSaving()==false,'Native world autosave still active')\nlocal stopped=assert(sp.world).stop(assert(_G.PalCraftServerFeatures))\nassert(stopped.stop_ok==true,'Original owned world cleanup pending')\nr.pc:ClientReturnToMainMenu('PalCraft normal saved singleplayer stop')\n"
+         else:
+             prefix += "local found={}\nfor _,pc in ipairs(FindAllOf('PalPlayerController')or{})do if pc:IsValid() and not pc:GetFullName():find('Default__',1,true) and pc.Player:IsValid() and pc.Player:GetFullName():match('^PalLocalPlayer ') and pc:GetFullName():find('BP_PalPlayerController_Title_C',1,true) then found[#found+1]=pc end end\nassert(#found==1,'Actual Title local controller pending')\n"
+             if action == 'quit_title':

@@ -1,0 +1,11 @@
+assert(IsInGameThread(),'Owned game thread required')
+local sp=assert(_G.PalCraftStandaloneBootstrap)
+local p,epoch=assert(_G.PalCraftStandalonePermissions).process()
+assert(epoch=="fixture-epoch",'Native boot changed')
+local r=assert(sp.local_realm:current())
+assert(r.server_session_id=="fixture-SID" and r.world_id=="fixture-world" and r.host_uid=="fixture-uid",'Loaded world changed')
+assert(r.save_manager:IsWorldAutoSaving()==false,'Native world autosave still active')
+local stopped=assert(sp.world).stop(assert(_G.PalCraftServerFeatures))
+assert(stopped.stop_ok==true,'Original owned world cleanup pending')
+r.pc:ClientReturnToMainMenu('PalCraft normal saved singleplayer stop')
+return {request_id="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",token="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",process_epoch=epoch,action="return_title",observed_unix=os.time()}
