@@ -1,0 +1,47 @@
+--- a/installer/standalone.py
++++ b/installer/standalone.py
+@@ -159,12 +159,43 @@
+             'world_playerdata_Saved_changed': False, 'processes_started': []}
+     if dry_run: return plan
+     with operation_lock(root):
+-        ensure_no_session(root)
++        session = read_json(root / '.palcraft/session.json', {})
++        if session.get('launch_mode')=='singleplayer-bootstrap' and session.get('phase')=='bootstrap':
++            from launcher.runtime import process_matches, _port_free
++            if (set(session.get('components',{}))!={'client'}
++                    or not process_matches(session.get('supervisor',{}))
++                    or not process_matches(session['components']['client'])
++                    or not all(_port_free(port) for port in (25567,25599,25603))):
++                fail('BACKEND_ACTIVE', '后端准备只允许本安装的原 bootstrap、尚未启动任何 MC/HUD 后端。')
++        else:
++            ensure_no_session(root)
+         source_sha = digest(source)
+         if source_sha != cfg['mod_sha256']:
+             fail('BACKEND_MOD_HASH', '本安装的模组与当前发布包配置校验不一致。')
+         previous = read_json(root / '.palcraft/standalone/backend-files.json', {})
+         managed = {entry['path']: entry['sha256'] for entry in previous.get('files', [])} if previous.get('backend_root') == str(backend) else {}
++        if not managed:
++            # These first-generation backend copies predate backend-files.json.
++            # Adopt only the exact old mod of this installation's committed upgrade.
++            candidates=set()
++            for journal_path in (root / '.palcraft/transactions').glob('*/journal.json'):
++                journal=read_json(journal_path,{})
++                before=journal.get('before_state') or {}
++                if journal.get('phase')!='committed' or before.get('profile',{}).get('standalone',{}).get('backend_root')!=str(backend):
++                    continue
++                old_mods=[v for v in before.get('manifest',{}).get('files',[]) if v.get('role')=='minecraft_mod']
++                if len(old_mods)!=1 or Path(old_mods[0]['target']).name!=source.name:
++                    continue
++                old_mod=old_mods[0]
++                changes=[v for v in journal.get('changes',[]) if v.get('target')==old_mod['target']
++                    and v.get('old_sha256')==old_mod['sha256'] and v.get('new_sha256')==source_sha]
++                backup=journal_path.parent/'before'/old_mod['target']
++                if len(changes)==1 and backup.is_file() and digest(backup)==old_mod['sha256']:
++                    candidates.add(old_mod['sha256'])
++            if len(candidates)==1:
++                old_sha=next(iter(candidates))
++                if all(destination.is_file() and digest(destination)==old_sha for destination in destinations):
++                    managed={str(destination):old_sha for destination in destinations}
+         # Update only the existing owned copies that still have their recorded bytes.
+         # Complete this preflight before replacing any of the three normal targets.
+         for destination in destinations:

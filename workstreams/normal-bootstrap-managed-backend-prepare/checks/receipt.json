@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "passed": true,
+  "targeted_cases": 4,
+  "original_bootstrap_owned_copy_transaction_preserved": true,
+  "additional_actual_gap_case": "First-generation no backend-files.json requires exact old uniqueMCrole bytes from this committedoriginalupdate and backupSHA before adoption",
+  "othermode_or_unmanaged_foreign_copy_rejected": true,
+  "temporary_IO_nativeports_Popen_synthetic": true,
+  "actual_backend_changed": false,
+  "receipt_scope": "Archived targeted synthetic source checks; actual private runtime observations are described separately in README."
+}

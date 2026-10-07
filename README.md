@@ -8,15 +8,11 @@
 
 截至 2026-10-07，开发环境为 macOS、CrossOver、《幻兽帕鲁》Steam 离线单机和本地 Minecraft 后端。既有 AI 生存建造、基地管理和箱子整理代码，以及跨游戏原生桥接、安装器和 MCP 工具均已公开。
 
-候选 14 已在实际 Mac 上完成正常更新、冷启动、原世界加载、新身份登记验签和同一监督器下的六组件接入。初始世界 ACK 自然完成；通过原变身接口进入第一人称时，实际引擎画面中原角色与工具已隐藏。这些证据尚不覆盖物理 F5、前台 HUD 和完整生存玩法，见 [开发状态](docs/STATUS.md)。
+候选 19 已在真实 Mac 上完成正常升级、离线单机原世界加载、身份登记验签和同一监督器下的六组件接入。初始世界 ACK 已自然完成；MC 通过原可信姿态同步跟随 Pal 的真实存档出生位置，未移动原角色来绕过地形检查。既有物品记录保留，详见 [开发状态](docs/STATUS.md)。
 
-最新修正源码分别保存在 [玩家保存与重启流程](workstreams/normal-journal-owned-player-flow-v2)、[原生实体身份绑定](workstreams/native-entity-binding-next)、[MCP 身份观察](workstreams/MC-local-scope-observation-next) 和 [Windows 快捷方式生成备选](workstreams/windows-shelllink-stdlib-alternative)。备选只有格式与源码检查，尚未证明实际 vendor 解析成功。
+最新源码包括 [完整目标区域同步](workstreams/target-ring-centre)、[保留真实 Pal 出生位置](workstreams/initial-native-home-pal-spawn)、[帧内服务复用](workstreams/standalone-service-frame-reuse) 和 [返回标题时暂停旧世界回调](workstreams/paused-native-title-lifecycle)。前台物理 F5、HUD、完整生存操作、实际性能及正常退出仍在验收，项目没有宣称完整可玩。
 
-候选 14 的正常复活已恢复原 33 级角色，但后续世界 ACK 未完成，完整负载下仍约 6 FPS。随后的一次正常保存已完成，客户端在返回标题期间以退出码 3 崩溃。[已保存崩溃恢复](workstreams/saved-crash-off-recovery) 已在真实安装签发独立收据，保留异常退出事实；后续更新已实际保留存档。
-
-候选 16 还包含 [帧内检查优化](workstreams/standalone-callback-live-guard)、[HUD 启动阶段归属修复](workstreams/mac-hud-normal-starting-phase) 和 [单机复活生命周期修复](workstreams/standalone-respawn-lifecycle)。这些修正已通过各自针对性源码检查，完整实机效果仍待验证。
-
-候选 17 已在真实 Mac 上恢复离线 Steam 前置，完成正常世界加载、身份登记验签和六组件接入。HUD 的启动归属组已实际生成，正常切换游戏到前台后，输入焦点和 1280×720 视口也恢复；完整负载仍约 7 FPS，F5 事件发送尚未证明游戏变身。初始接入还在把原角色移向 MC 旧位置，目标与真实地形重叠。[保留真实 Pal 出生位置](workstreams/initial-native-home-pal-spawn) 与 [删除重复身份检查及写盘](workstreams/standalone-service-frame-reuse) 已合入候选 18，等待正常升级后的实机验收。
+今天另公开 [晚写存档的崩溃收尾](workstreams/late-saved-crash-final-observation) 和 [原启动阶段的受管后端准备](workstreams/normal-bootstrap-managed-backend-prepare)。两项已在独立测试安装执行，分别保留真实异常退出事实并完成后续正常升级，以及通过原生产入口更新三个后端副本；还未整合进普通安装包。
 
 已有 [正常退出收尾源码](workstreams/normal-stop-off-finalize)、[上下文发现性能修正](workstreams/standalone-realm-cadence) 和 [定时画质接口修正](workstreams/power-profile-observed-api)，每项均标明源码检查与实机验证范围。
 

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "component": "normal-bootstrap-managed-backend-prepare",
+  "public_safe": true,
+  "production_changes": 1,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1899,
+      "sha256": "a1a2259a80f8e146746aaa1e3a9ed3eeea5e0f424e650e71317cb94ce3d7854c"
+    },
+    {
+      "path": "base/installer/standalone.py",
+      "bytes": 16766,
+      "sha256": "d24fd399d18b2b10d90ecc3df3489e551e7b931f72f648e887f57f45bf4f9ae3"
+    },
+    {
+      "path": "checks/check_prepare.py",
+      "bytes": 3700,
+      "sha256": "2444de2ad81e8630190406bd96408bec316fc8d63fa776c47caeae6fb6526503"
+    },
+    {
+      "path": "checks/receipt.json",
+      "bytes": 578,
+      "sha256": "296e311d52e285bb9ad4161b24b26e7db1f8b43fa1918baa93215dc228daeea2"
+    },
+    {
+      "path": "run_frozen_backend.py",
+      "bytes": 915,
+      "sha256": "6f2f3a6442a9ca8495800a2246ca44de18fcb18bbd291311a06c6b9fac642f7c"
+    },
+    {
+      "path": "source/installer/standalone.py",
+      "bytes": 18989,
+      "sha256": "63a020738189c0b9560336fff25bafde4bef9915fa54d60a522698669f09275e"
+    },
+    {
+      "path": "source.patch",
+      "bytes": 3171,
+      "sha256": "bcd78aa59982e2dd090e54286e241c98d4007163166aec35c6c8d4b82e281e9a"
+    }
+  ],
+  "original_source_and_patch_bytes_preserved": true,
+  "actual_private_saves_receipts_paths_identities_or_credentials_included": false,
+  "actual_runtime_observation_summary": "README.md",
+  "ordinary_candidate19_package_contains_this_increment": false
+}

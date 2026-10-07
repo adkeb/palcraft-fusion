@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "passed": true,
+  "targeted_cases": 3,
+  "native_game_and_savedata_fixtures_synthetic": true,
+  "codec_subprocess_mocked_only_in_tests": true,
+  "normal_stop0_unchanged": true,
+  "early_witness_preserved": true,
+  "late_before_samePIDcrashReport_plus_standardcodec_UID_accepted": true,
+  "postCrashModifiedLevel_rejected": true,
+  "failedCodec_rejected": true,
+  "source_syntax_checked": true,
+  "actual_recovery_executed": false,
+  "test_repeats_due_small_source_and_fixture_dependency_corrections_explicit": true,
+  "receipt_scope": "Archived targeted synthetic source checks; actual private runtime observations are described separately in README."
+}
