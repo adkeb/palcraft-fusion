@@ -3,7 +3,7 @@
   "source_only": true,
   "applicable_base": "candidate.27-static-perblock-model",
   "bounded_temporary_source_cases_passed": 3,
-  "runtime_acceptance_pending": true,
+  "runtime_acceptance_pending": false,
   "source_files": [
     {
       "path": "README.md",
@@ -30,5 +30,6 @@
       "sha256": "865889ac9bab6f985e6fbd870f8bd98e6c31164ba92ffbd8b462f109c3700a04",
       "bytes": 9327
     }
-  ]
+  ],
+  "runtime_acceptance_scope": "One actual original normal finalizer completed with preserved early witness, standard final Level/Player codec and original six waits. All future shutdowns and portable dependency setup remain unproven."
 }
