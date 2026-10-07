@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "ok": true,
+  "cases_passed": 3,
+  "cases": [
+    "declared managed HUD relay entry overrides old template main",
+    "missing cfg.hud_relay_script keeps original full generator bytes",
+    "all other fields/files, executable/args/cwd/ports/frame/UUID and explicit FPS override preserved"
+  ],
+  "original_template_not_modified": true,
+  "all_config_template_libraries_and_identity_data_synthetic": true,
+  "credential_reference_only_no_contents": true,
+  "actual_relay_or_Game_started_updated_or_requested": false,
+  "actual_terminal_chunk": "91b38c",
+  "actual_exit_code": 0
+}

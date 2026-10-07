@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "base_candidate": 29,
+  "files": [
+    {
+      "source": "source/mac/scripts/prepare_launch.py",
+      "target": "PalCraft-Dev/player-tools/mac/scripts/prepare_launch.py",
+      "role": "standalone_component",
+      "base_sha256": "15448ae8b44abe135170ae75b2358181ff78f9e27f688dbd42cc68045380df59",
+      "source_sha256": "d5d8d380baa69afbaf0aa9566d8f38ab6860964cb35c59e41f0d406d3e8bb62c",
+      "bytes": 8453,
+      "outer_mirror": "PalCraft-Player/mac/scripts/prepare_launch.py"
+    }
+  ],
+  "runtime_journal_relay_performance_MC_HUD_native_and_original_role_args_unchanged": true
+}

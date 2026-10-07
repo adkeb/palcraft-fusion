@@ -82,3 +82,5 @@ MC 10.7 复活同步候选已通过 Java 25 编译并在隔离环境加载。公
 [同一运行会话内调整性能](../workstreams/live-owned-power-profile) 和 [实际读回关联修正](../workstreams/live-power-readback-correlation) 已公开源码：以后可由原监督器在线调整帕鲁、MC 与 HUD 帧率并读取实际值，避免仅修改下次启动配置。MC/Swift 编译通过，当前游戏尚未安装这项增量，实际实时效果仍待验证。
 
 Mac 候选 28 已实际完成首次自然场景 ACK 和物理 F5 第一人称变身，普通移动及快捷栏选择成功。鼠标转向和完整场景性能仍未达标；已公开 [CrossOver 鼠标消息兼容](../workstreams/mac-mouse-message-compat) 与 [碰撞回调内身份复用](../workstreams/collision-callback-realm-reuse) 源码候选，实际新版本效果待验证。
+
+候选 29 的物理 F5、普通鼠标转向、火把放置→挖掘→拾取（3→2→3）和背包内移煤已实测发生，原生火把模型像素仍未确认。在线性能读回少了 relay 一项，原因是旧启动模板仍选择外部旧脚本；[受管 relay 入口选择修复](../workstreams/managed-relay-entry-selection) 已公开源码，真实新版本效果待验证。

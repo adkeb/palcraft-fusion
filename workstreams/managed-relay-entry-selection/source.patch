@@ -1,0 +1,11 @@
+--- a/mac/scripts/prepare_launch.py
++++ b/mac/scripts/prepare_launch.py
+@@ -83,6 +83,8 @@
+                     or before['same_original_uuid'] != uuid or before['frame_file'] != cfg['frame_file']):
+                 raise ValueError('Existing launch template belongs to another world/player/frame root')
+             values, executable, main = before['arguments'], before['executable'], before['main']
++        if role == 'hud' and cfg.get('hud_relay_script'):
++            main = cfg['hud_relay_script']
+         if role in overrides:
+             values = overrides[role]
+         if any('fabric.dli' in value or 'devlaunchinjector' in value or '.gradle' in value for value in values):
