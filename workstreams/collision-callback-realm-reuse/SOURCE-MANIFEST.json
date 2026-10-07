@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "base_candidate": 28,
+  "source_sha256": "009af5bd35fe4ede6601a5ce02b536e46a509fb99765beea7ddda577f037bb63",
+  "unchanged_realm_sha256": "e1a30e407d32e6dca75826a080facaa1dac113398d339847194f29f037e7b3e2",
+  "bounded_source_cases_passed": 3,
+  "actual_performance_accepted": false
+}

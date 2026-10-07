@@ -1,0 +1,29 @@
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -352,7 +352,13 @@
+ local tick
+ tick=function()
+  if not M.running then return end
++ local realm
+  local ok,e=pcall(function()
++  local sp=client and rawget(_G,'PalCraftStandaloneBootstrap')
++  if sp then
++   local current=assert(sp.local_realm,'Actual standalone realm required')
++   current:begin_frame();realm=current -- Close only the frame this callback acquired.
++  end
+   if client and bound_context and not M.context_alive()then M.abandon();return end
+   if client and not bound_context then
+    bound_context=context();bound_context_address=bound_context:GetAddress()
+@@ -434,7 +440,11 @@
+   observe('tick',M)
+  end)
+  if not ok then M.error=tostring(e);M.running=false end
+- write('palcraft-collision-status.json',M.status())
++ if realm then
++  local written,why=pcall(function()write('palcraft-collision-status.json',M.status())end)
++  realm:end_frame()
++  if not written then error(why,0)end
++ else write('palcraft-collision-status.json',M.status())end
+  if M.running then ExecuteInGameThreadWithDelay(50,tick)end
+ end
+ ExecuteInGameThreadWithDelay(500,tick)

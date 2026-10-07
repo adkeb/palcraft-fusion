@@ -1,0 +1,173 @@
+--- a/render/controls.cpp
++++ b/render/controls.cpp
+@@ -1,7 +1,9 @@
+ #include "controls.h"
+ #include "input_transport.h"
+ #include "form_requests.h"
++#include "mouse_message_compat.h"
+ #include <windows.h>
++#include <windowsx.h>
+ #include "../launcher/windows_paths.hpp"
+ #include <atomic>
+ #include <mutex>
+@@ -17,6 +19,25 @@
+ void set_build_mode(bool on){palcraft_set_form_mode(build,menu,on);}
+ std::atomic<ULONGLONG> feedbackAt{0},mouseAfter{0};
+ std::atomic<long long> mouseX{0},mouseY{0};
++std::mutex mouseCompatLock;PalCraftMouseMessageCompat mouseCompat;
++bool macMouseMessages(){
++ static const bool enabled=[](){wchar_t value[32]{};const wchar_t expected[]=L"relative-v1";
++  if(GetEnvironmentVariableW(L"PALCRAFT_MAC_MOUSE_MESSAGES",value,32)!=11)return false;
++  for(size_t i=0;i<12;++i)if(value[i]!=expected[i])return false;return true;}();
++ return enabled;
++}
++void recenterMessageMouse(HWND h,const RECT&r){
++ PalCraftMouseMessageCompat::Warp warp;
++ {std::lock_guard<std::mutex> lock(mouseCompatLock);warp=mouseCompat.recenter(reinterpret_cast<uintptr_t>(h),r.right-r.left,r.bottom-r.top,GetTickCount64());}
++ if(!warp.requested)return;
++ POINT p{warp.x,warp.y};
++ // A tracked warp on our current foreground client permits unlimited normal
++ // FPS turns. The ensuing center message only acknowledges the new baseline.
++ if(!accepts.load()||!build.load()||menu.load()||actionsSuspended.load()||GetForegroundWindow()!=h
++    ||!ClientToScreen(h,&p)||!SetCursorPos(p.x,p.y)){
++  std::lock_guard<std::mutex> lock(mouseCompatLock);mouseCompat.cancel_warp(reinterpret_cast<uintptr_t>(h));
++ }
++}
+ HWND window=nullptr;WNDPROC original=nullptr;
+ std::mutex queueLock;std::vector<std::string> events;
+ uint64_t inputWrites=0,jsonWrites=0,focusReads=0,keyPolls=0,suppressed=0;
+@@ -52,10 +73,24 @@
+   if(ui&&m==WM_CHAR){
+    if(live&&w>=32&&w!=127){wchar_t c[2]={static_cast<wchar_t>(w),0};char u[8]{};int n=WideCharToMultiByte(CP_UTF8,0,c,1,u,8,nullptr,nullptr);std::string s="{\"t\":\"text\",\"text\":\"";for(int i=0;i<n;i++){if(u[i]=='"'||u[i]=='\\')s+='\\';s+=u[i];}s+="\"}";enqueue(s);}return 0;
+   }
+-  if(m==WM_KEYUP||m==WM_SYSKEYUP||m==WM_MOUSEMOVE||m==WM_KEYDOWN||m==WM_SYSKEYDOWN||m==WM_CHAR)return 0;
++  if(m==WM_MOUSEMOVE){
++   if(mode&&!ui&&live&&!actionsSuspended.load()&&GetTickCount64()>=mouseAfter){
++    RECT r{};if(GetClientRect(h,&r)){
++     {std::lock_guard<std::mutex> lock(mouseCompatLock);
++      auto d=mouseCompat.move(reinterpret_cast<uintptr_t>(h),GET_X_LPARAM(l),GET_Y_LPARAM(l),r.right-r.left,r.bottom-r.top);
++      mouseX+=d.x;mouseY+=d.y;}
++     recenterMessageMouse(h,r);
++    }
++   }
++   return 0;
++  }
++  if(m==WM_KEYUP||m==WM_SYSKEYUP||m==WM_KEYDOWN||m==WM_SYSKEYDOWN||m==WM_CHAR)return 0;
+   if(m==WM_LBUTTONDOWN||m==WM_LBUTTONUP||m==WM_RBUTTONDOWN||m==WM_RBUTTONUP||m==WM_MBUTTONDOWN||m==WM_MBUTTONUP)return 0;
+   if(m==WM_INPUT){
+-   if(mode&&!ui&&live&&GetTickCount64()>=mouseAfter){RAWINPUT raw{};UINT size=sizeof raw;if(GetRawInputData(reinterpret_cast<HRAWINPUT>(l),RID_INPUT,&raw,&size,sizeof(RAWINPUTHEADER))!=UINT(-1)&&raw.header.dwType==RIM_TYPEMOUSE&&!(raw.data.mouse.usFlags&MOUSE_MOVE_ABSOLUTE)){mouseX+=raw.data.mouse.lLastX;mouseY+=raw.data.mouse.lLastY;}}
++   if(mode&&!ui&&live&&GetTickCount64()>=mouseAfter){RAWINPUT raw{};UINT size=sizeof raw;if(GetRawInputData(reinterpret_cast<HRAWINPUT>(l),RID_INPUT,&raw,&size,sizeof(RAWINPUTHEADER))!=UINT(-1)&&raw.header.dwType==RIM_TYPEMOUSE&&!(raw.data.mouse.usFlags&MOUSE_MOVE_ABSOLUTE)){
++    std::lock_guard<std::mutex> lock(mouseCompatLock);
++    if(mouseCompat.raw()){mouseX+=raw.data.mouse.lLastX;mouseY+=raw.data.mouse.lLastY;}
++   }}
+    return DefWindowProcW(h,m,w,l);
+   }
+  }
+@@ -154,6 +189,15 @@
+   for(int n=0;n<9;n++)if(rising('1'+n)){char b[50];std::snprintf(b,sizeof b,"{\"t\":\"slot\",\"n\":%d}",n);ws.send(b);}
+  }
+  static ULONGLONG pointerAt=0;if(live&&menu&&tick-pointerAt>=16){pointerAt=tick;ClipCursor(nullptr);ws.send(pointer(window));}
++ bool watchMouseWarp=false;
++ {std::lock_guard<std::mutex> lock(mouseCompatLock);mouseCompat.scope(macMouseMessages(),live&&build&&!menu&&!newConnection,
++    reinterpret_cast<uintptr_t>(window),generation);watchMouseWarp=mouseCompat.warpPending;}
++ if(watchMouseWarp&&live&&build&&!menu&&!newConnection&&window){
++  POINT p{};RECT r{};if(GetCursorPos(&p)&&ScreenToClient(window,&p)&&GetClientRect(window,&r)){
++   std::lock_guard<std::mutex> lock(mouseCompatLock);
++   mouseCompat.observe_cursor(reinterpret_cast<uintptr_t>(window),p.x,p.y,r.right-r.left,r.bottom-r.top,tick);
++  }
++ }
+  writeSnapshot(live,now,generation);
+  std::vector<std::string> pending;{std::lock_guard<std::mutex> lock(queueLock);pending.swap(events);}for(auto&s:pending){if(live&&build)ws.send(s);else ++suppressed;}
+  for(int k:keys)was[k]=now[k];
+--- a/render/mouse_message_compat.h
++++ b/render/mouse_message_compat.h
+@@ -0,0 +1,56 @@
++#pragma once
++#include <cstdint>
++#include <cstdlib>
++
++// One current hook/connection/focus epoch. No second mouse source is added to
++// RAW. Ordinary coordinates seed/rebase a point, never a world/camera pose.
++struct PalCraftMouseMessageCompat {
++ struct Delta { int x=0,y=0; };
++ struct Warp { bool requested=false;int x=0,y=0; };
++ bool enabled=false,eligible=false,rawSeen=false,point=false,usedMessage=false;
++ bool warpPending=false;int warpX=0,warpY=0;uint64_t warpAt=0;
++ uintptr_t window=0;int generation=-1,lastX=0,lastY=0;
++ void scope(bool on,bool live,uintptr_t h,int gen) {
++  if(on!=enabled||live!=eligible||h!=window||gen!=generation) {
++   rawSeen=point=usedMessage=warpPending=false;
++  }
++  enabled=on;eligible=live;window=h;generation=gen;
++ }
++ bool raw() {
++  if(!enabled||!eligible)return true;
++  const bool overlap=!rawSeen&&usedMessage;
++  rawSeen=true;point=warpPending=false;
++  // Prefer no double turn at source transition: conservatively suppress at
++  // most the first RAW packet after ordinary motion, even if it was distinct.
++  return !overlap;
++ }
++ Delta move(uintptr_t h,int x,int y,int width,int height) {
++  if(!enabled||!eligible||rawSeen||h!=window)return {};
++  if(warpPending){
++   if(x==warpX&&y==warpY){warpPending=false;lastX=x;lastY=y;point=true;}
++   return {}; // The exact requested center is a baseline, never look motion.
++  }
++  if(x<0||y<0||x>=width||y>=height){point=false;return {};}
++  if(!point){lastX=x;lastY=y;point=true;return {};}
++  Delta d{x-lastX,y-lastY};lastX=x;lastY=y;
++  // Seed a new point after a warp/discontinuous jump instead of accumulating
++  // it. A normal small mouse stroke remains the original cumulative delta.
++  if(std::abs(d.x)>128||std::abs(d.y)>128)return {};
++  usedMessage|=d.x!=0||d.y!=0;
++  return d;
++ }
++ Warp recenter(uintptr_t h,int width,int height,uint64_t now) {
++  if(!enabled||!eligible||rawSeen||!point||warpPending||h!=window)return {};
++  const int x=width/2,y=height/2;
++  if(lastX==x&&lastY==y)return {};
++  warpPending=true;warpX=x;warpY=y;warpAt=now;
++  return {true,x,y};
++ }
++ void observe_cursor(uintptr_t h,int x,int y,int width,int height,uint64_t now) {
++  if(!eligible||h!=window||!warpPending)return;
++  if((x==warpX&&y==warpY)||now-warpAt>=100){
++   warpPending=false;lastX=x;lastY=y;point=x>=0&&y>=0&&x<width&&y<height;
++  }
++ }
++ void cancel_warp(uintptr_t h){if(h==window){warpPending=point=false;}}
++};
+--- a/launcher/crossover_menu_helper.py
++++ b/launcher/crossover_menu_helper.py
+@@ -85,6 +85,8 @@
+ 
+ TRACE_ENV = 'PALCRAFT_WINE_TRACE'
+ TRACE_DEBUGMSG = '-all,err+all,trace+loaddll,trace+module'
++MOUSE_COMPAT_ENV = 'PALCRAFT_MAC_MOUSE_MESSAGES'
++MOUSE_COMPAT_VALUE = 'relative-v1'
+ 
+ 
+ def resolve_trace_mode(environment):
+@@ -143,7 +145,7 @@
+     link_windows = 'C:\\windows\\Start Menu\\PalCraft\\' + owner + '\\PalCraft Game.lnk'
+     menu_arguments = [str(wine), '--bottle', profile['bottle_name'],
+         '--enable-alt-loader', 'macdrv', '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+-        '--env', 'SteamAppId=1623730', '--workdir', prefix[-1],
++        '--env', 'SteamAppId=1623730 ' + MOUSE_COMPAT_ENV + '=' + MOUSE_COMPAT_VALUE, '--workdir', prefix[-1],
+         '--wait-children', '--start', link_windows]
+     loader_log = root / '.palcraft/logs' / ('client-loader-' + token + '.log')
+     if trace_mode == 'loader':
+@@ -179,10 +181,10 @@
+         key, separator, _ = field.partition('=')
+         if not separator or not key or '\0' in field or '\r' in field or '\n' in field:
+             raise MenuError('The inherited CX_ENV contains an unsupported assignment')
+-        if key not in ('SteamAppId', 'WINEDLLOVERRIDES'):
++        if key not in ('SteamAppId', 'WINEDLLOVERRIDES', MOUSE_COMPAT_ENV):
+             assignments.append(field)
+     # bin/wine clears WINEDLLOVERRIDES before applying its CX_ENV assignments.
+-    assignments += ['SteamAppId=1623730', 'WINEDLLOVERRIDES=dwmapi=n,b']
++    assignments += ['SteamAppId=1623730', 'WINEDLLOVERRIDES=dwmapi=n,b', MOUSE_COMPAT_ENV + '=' + MOUSE_COMPAT_VALUE]
+     result['CX_ENV'] = shlex.join(assignments)
+     result['CX_DEBUGMSG'] = TRACE_DEBUGMSG if trace_mode == 'loader' else '-all'
+     return result

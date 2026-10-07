@@ -1,0 +1,4 @@
+ordinary small deltas and unlimited tracked center-warp cycles: PASS
+RAW-first/RAW-switch exclusive and Windows/default RAW unchanged: PASS
+focus/menu/window/generation reset, large jump and synthetic warp ignored: PASS
+no message ACK: real cursor center or bounded deadline rebases without stuck input: PASS
