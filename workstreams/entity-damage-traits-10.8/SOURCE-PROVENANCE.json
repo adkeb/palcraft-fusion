@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "artifact": "PalCraft MC damage traits experiment",
+  "fabric_version": "0.2.0-integration.10.8-damage-traits-experimental",
+  "base_fabric_version": "0.2.0-integration.10.7-respawn",
+  "base_jar_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "source_patch_sha256": "a0b8975a7274a519c97731e4d4a771b297757ccf56d0fbe3ca3eb5f4b193d8bd",
+  "source_heads": [
+    {
+      "path": "src/main/java/dev/rehan/passthrough/EntityCombatLedger.java",
+      "sha256": "3b34bcf1864d9fafb4686c32a90d6301018eb5f348f88ae3f3759da11ca61227",
+      "bytes": 4080
+    },
+    {
+      "path": "src/main/java/dev/rehan/passthrough/PalEntityBridge.java",
+      "sha256": "7d5c2188928ebb4e86a0d176308d0e272161c238232fc2412905646face6ddf7",
+      "bytes": 34051
+    },
+    {
+      "path": "src/main/resources/data/minecraft/tags/damage_type/is_explosion.json",
+      "sha256": "2fa5f3c8d4543105d245021e347fc42ac6d985450cf2e232349f38c5152309e1",
+      "bytes": 68
+    },
+    {
+      "path": "src/main/resources/data/minecraft/tags/damage_type/is_projectile.json",
+      "sha256": "2fa5f3c8d4543105d245021e347fc42ac6d985450cf2e232349f38c5152309e1",
+      "bytes": 68
+    },
+    {
+      "path": "src/main/resources/data/passthrough/damage_type/pal_explosive_projectile.json",
+      "sha256": "90a92ac7646fc98822bba12052402f2531a3d7bf258588f2507c4c75cc0a5bdc",
+      "bytes": 89
+    },
+    {
+      "path": "server/entities.lua",
+      "sha256": "483cf4fc025d3f9f0ab34ee96d36736b639ade597176fa93cf1d40c43dcf0fa0",
+      "bytes": 30946
+    },
+    {
+      "path": "server/entity_protocol.lua",
+      "sha256": "febd74a54939f2aaaadd4d349d2dc3f3d63a647efa08eec90da2ca3e76e040c2",
+      "bytes": 5808
+    }
+  ],
+  "new_classes": [
+    {
+      "path": "dev/rehan/passthrough/EntityCombatLedger$DamageTraits.class",
+      "sha256": "b3c35b3794860732609adef73d82fe35be27ee46c70af07c8c9c68bff7fa6cf3",
+      "bytes": 1474
+    },
+    {
+      "path": "dev/rehan/passthrough/EntityCombatLedger$Decision.class",
+      "sha256": "28764387b45b5349ce80c29243717a78bfb69dd22f478462af8f26cd23a2618c",
+      "bytes": 1445
+    },
+    {
+      "path": "dev/rehan/passthrough/EntityCombatLedger$Hit.class",
+      "sha256": "eb939397dae428f3e7a1805aa63ad581d6b0f257c303e8564bf56fdde868aec5",
+      "bytes": 3563
+    },
+    {
+      "path": "dev/rehan/passthrough/EntityCombatLedger.class",
+      "sha256": "33f6da4f228f72bb29849345b7635ea2b0fcd67b80a23bb2f9ae58ec2a41c3e5",
+      "bytes": 4633
+    },
+    {
+      "path": "dev/rehan/passthrough/PalEntityBridge$HostEntity.class",
+      "sha256": "f2526d4c9b1f99adab1a7bfd315cd7544b011b1c2192580210d5e21f739327d1",
+      "bytes": 3329
+    },
+    {
+      "path": "dev/rehan/passthrough/PalEntityBridge.class",
+      "sha256": "dfcbdf67749b74e4b7a66ec4311a35d053d29dcb817449dfe9d0ea0d68885ff0",
+      "bytes": 35576
+    }
+  ],
+  "compile": {
+    "actual_JVM_invocations": 1,
+    "production_java_sources": 2,
+    "jdk": "Oracle 25.0.4.1+1-LTS-5",
+    "class_major": 69,
+    "release": 25,
+    "heap_mib": 512,
+    "ActiveProcessorCount": 1,
+    "nice": 19,
+    "SerialGC": true,
+    "fixed_dependencies": 133,
+    "full_source_recompile": false,
+    "compile_only_overlay_or_helper_used": false
+  },
+  "unchanged_production_classes": "Retained from the exact legal F35 base; not rebuilt by this delta.",
+  "paired_server_Lua_required": [
+    {
+      "path": "server/entities.lua",
+      "sha256": "483cf4fc025d3f9f0ab34ee96d36736b639ade597176fa93cf1d40c43dcf0fa0"
+    },
+    {
+      "path": "server/entity_protocol.lua",
+      "sha256": "febd74a54939f2aaaadd4d349d2dc3f3d63a647efa08eec90da2ca3e76e040c2"
+    }
+  ],
+  "Lua_only": false,
+  "runtime_acceptance": false,
+  "limits": [
+    "Real Pal UFunction hook coverage is pending ordinary runtime gameplay.",
+    "Unowned TNT/crystal nullable native damage is not implemented or proven.",
+    "Full X05/X06 and the original 42-scope acceptance remain required."
+  ]
+}

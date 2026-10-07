@@ -1,0 +1,209 @@
+--- a/src/main/java/dev/rehan/passthrough/EntityCombatLedger.java
++++ b/src/main/java/dev/rehan/passthrough/EntityCombatLedger.java
+@@ -10,11 +10,16 @@
+ /** Engine-independent authority and replay checks. Never identifies an entity by a recyclable runtime handle. */
+ public final class EntityCombatLedger {
+     public enum Decision { ACCEPT, REPLAY, CONFLICT, STALE_SESSION, STALE_EPOCH, INVALID }
++    public record DamageTraits(boolean explosion, boolean projectile) {}
+     public record Hit(String id, String session, String targetEpoch, String sourceEpoch,
+-                      String target, String source, double amount, String kind) {
++                      String target, String source, double amount, String kind, DamageTraits damageTraits) {
++        public Hit(String id,String session,String targetEpoch,String sourceEpoch,String target,String source,double amount,String kind) {
++            this(id,session,targetEpoch,sourceEpoch,target,source,amount,kind,null);
++        }
+         public String fingerprint() {
+-            return digest(String.join("\n", session, targetEpoch, sourceEpoch, target, source,
+-                    Double.toHexString(amount), kind));
++            String value=String.join("\n", session, targetEpoch, sourceEpoch, target, source,Double.toHexString(amount),kind);
++            if(damageTraits!=null)value+="\ntraits1:"+damageTraits.explosion()+":"+damageTraits.projectile();
++            return digest(value);
+         }
+     }
+     private final int capacity;
+--- a/src/main/java/dev/rehan/passthrough/PalEntityBridge.java
++++ b/src/main/java/dev/rehan/passthrough/PalEntityBridge.java
+@@ -10,6 +10,12 @@
+ import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.server.level.ServerPlayer;
+ import net.minecraft.world.damagesource.DamageSource;
++import net.minecraft.world.damagesource.DamageType;
++import net.minecraft.world.damagesource.DamageTypes;
++import net.minecraft.core.registries.Registries;
++import net.minecraft.resources.Identifier;
++import net.minecraft.resources.ResourceKey;
++import net.minecraft.tags.DamageTypeTags;
+ import net.minecraft.world.entity.Entity;
+ import net.minecraft.world.entity.LivingEntity;
+ import net.minecraft.world.entity.Mob;
+@@ -42,6 +48,8 @@
+     private static long lastPalTick = Long.MIN_VALUE;
+     private static String error, phase = "waiting_for_pal_server";
+     private static int incoming, outgoing, rejected;
++    private static final ResourceKey<DamageType> PAL_EXPLOSIVE_PROJECTILE=ResourceKey.create(Registries.DAMAGE_TYPE,
++            Identifier.fromNamespaceAndPath("passthrough","pal_explosive_projectile"));
+     private PalEntityBridge() {}
+ 
+     /** Attach is idempotent; the existing MobWar tick can call it without a second tick registration. */
+@@ -169,7 +177,7 @@
+                     if (integer(q,"v") != 1 || !str(q,"authority").equals("pal_server") || !id.equals(str(q,"id")))
+                         throw new IllegalArgumentException("Invalid Pal event envelope");
+                     EntityCombatLedger.Hit hit = new EntityCombatLedger.Hit(id,str(q,"session"),str(q,"target_epoch"),
+-                            str(q,"source_epoch"),str(q,"target"),str(q,"source"),number(q,"amount"),str(q,"kind"));
++                            str(q,"source_epoch"),str(q,"target"),str(q,"source"),number(q,"amount"),str(q,"kind"),readDamageTraits(q));
+                     EntityCombatLedger.Decision decision = ledger.inspect(hit);
+                     result.addProperty("decision", decision.name());
+                     if (decision != EntityCombatLedger.Decision.ACCEPT || !hit.sourceEpoch().equals(palEpoch)) {
+@@ -183,8 +191,7 @@
+                         if (mob.level() != attacker.level() || mob.distanceToSqr(attacker) > 256*256)
+                             throw new IllegalArgumentException("Cross-world or out-of-range native hit");
+                         ServerLevel level = (ServerLevel)mob.level();
+-                        DamageSource source = level.damageSources().mobAttack(attacker);
+-                        if (player != null) source = level.damageSources().playerAttack(player);
++                        DamageSource source = nativeDamageSource(level,attacker,player,hit.damageTraits());
+                         result.addProperty("status", "in_flight");
+                         result.addProperty("fingerprint", hit.fingerprint());
+                         write(resultPath, result); // uncertain crash window is visible, not replayed
+@@ -214,6 +221,27 @@
+         HostEntity h=hostStates.get(palId);
+         return h!=null&&h.player()?boundPlayer(server,h.playerUid()):null;
+     }
++    private static EntityCombatLedger.DamageTraits readDamageTraits(JsonObject q) {
++        if(!q.has("damage_traits"))return null;
++        JsonObject t=q.getAsJsonObject("damage_traits");
++        if(integer(t,"v")!=1||!t.get("explosion").isJsonPrimitive()||!t.get("explosion").getAsJsonPrimitive().isBoolean()
++                ||!t.get("projectile").isJsonPrimitive()||!t.get("projectile").getAsJsonPrimitive().isBoolean())
++            throw new IllegalArgumentException("Invalid native damage traits");
++        return new EntityCombatLedger.DamageTraits(t.get("explosion").getAsBoolean(),t.get("projectile").getAsBoolean());
++    }
++    private static DamageSource nativeDamageSource(ServerLevel level,LivingEntity attacker,ServerPlayer player,EntityCombatLedger.DamageTraits t) {
++        if(t!=null&&(t.explosion()||t.projectile())) {
++            ResourceKey<DamageType> key=t.explosion()&&t.projectile()?PAL_EXPLOSIVE_PROJECTILE:
++                    t.explosion()?(player!=null?DamageTypes.PLAYER_EXPLOSION:DamageTypes.EXPLOSION):DamageTypes.MOB_PROJECTILE;
++            // Both references are the genuine imported living source, never a fabricated projectile actor.
++            return new DamageSource(level.registryAccess().lookupOrThrow(Registries.DAMAGE_TYPE).getOrThrow(key),attacker,attacker);
++        }
++        return player!=null?level.damageSources().playerAttack(player):level.damageSources().mobAttack(attacker);
++    }
++    private static JsonObject damageTraits(DamageSource source) {
++        JsonObject t=new JsonObject();t.addProperty("v",1);t.addProperty("explosion",source.is(DamageTypeTags.IS_EXPLOSION));
++        t.addProperty("projectile",source.is(DamageTypeTags.IS_PROJECTILE));return t;
++    }
+ 
+     /** Only the verified multiplayer owner may provide this connection-scoped binding. */
+     public static void bindPlayerUidResolver(Function<UUID,String> resolver){playerUid=Objects.requireNonNull(resolver);}
+@@ -294,6 +322,7 @@
+         ServerPlayer responsible=attacker instanceof ServerPlayer a?a:attacker==null?p:null;
+         if(responsible!=null){JsonObject binding=playerSession.apply(responsible);if(binding==null)return false;event.add("player_session",binding);}
+         event.addProperty("amount",amount);
++        event.add("damage_traits",damageTraits(source));
+         event.addProperty("kind",source.typeHolder().unwrapKey().map(k->k.identifier().toString()).orElse("minecraft:generic"));
+         event.addProperty("x",attacker!=null?attacker.getX():p.getX());event.addProperty("y",attacker!=null?attacker.getY():p.getY());event.addProperty("z",attacker!=null?attacker.getZ():p.getZ());
+         try{write(ROOT.resolve("mc-hit-"+id+".json"),event);pending.put(id,ticks);outgoing++;return true;}
+@@ -330,6 +359,7 @@
+         event.addProperty("source_player", attacker instanceof ServerPlayer);
+         if(attacker instanceof ServerPlayer p){JsonObject binding=playerSession.apply(p);if(binding==null)return false;event.add("player_session",binding);}
+         event.addProperty("amount", amount);
++        event.add("damage_traits",damageTraits(damage));
+         event.addProperty("kind",kind);
+         Entity from=environment?proxy:attacker;
+         event.addProperty("x", from.getX()); event.addProperty("y",from.getY()); event.addProperty("z",from.getZ());
+--- /dev/null
++++ b/src/main/resources/data/minecraft/tags/damage_type/is_explosion.json
+@@ -0,0 +1 @@
++{"replace":false,"values":["passthrough:pal_explosive_projectile"]}
+--- /dev/null
++++ b/src/main/resources/data/minecraft/tags/damage_type/is_projectile.json
+@@ -0,0 +1 @@
++{"replace":false,"values":["passthrough:pal_explosive_projectile"]}
+--- /dev/null
++++ b/src/main/resources/data/passthrough/damage_type/pal_explosive_projectile.json
+@@ -0,0 +1 @@
++{"message_id":"explosion","scaling":"when_caused_by_living_non_player","exhaustion":0.1}
+--- a/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/entities.lua
++++ b/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/entities.lua
+@@ -189,7 +189,8 @@
+     HitLocation=target.actor:K2_GetActorLocation(),IsLeanBack=false,IsBlow=false,SneakAttackRate=1,DamageRatePerCollision=1,
+     PvPBuildingDamageRate=1,PvPPlayerToGuildPalDamageRate=1,CollectionObjectDamageRate=1,WeaponDamageRatePvP=1,
+     bAttackableToFriend=false,NoDamage=false,IgnoreShield=false,IgnorePlayerEquipItemDamage=false,bCannotKill=false,
+-    bIsExplosionDamage=q.kind:find('explosion',1,true)~=nil}
++    bIsExplosionDamage=q.damage_traits and P.damage_traits(q.damage_traits).explosion or(q.damage_traits==nil and q.kind:find('explosion',1,true)~=nil)}
++   if q.damage_traits then make.Category=q.damage_traits.projectile and 1 or 0 end -- EPalWazaCategory Shot/Melee, from actual SDK.
+    local info=utility:MakeDamageInfo(make)
+    -- The native calculator, friendly-fire checks, shield/armor, AI retaliation and death pipeline remain enabled.
+    info.AttackerGroupID=plain_guid(ip:GetGroupId())
+@@ -262,6 +263,9 @@
+      local from=id_for(attacker);local id=guid(ids:NewGuid())
+      local q={v=1,t='entity_damage',authority='pal_server',session=session,id=id,source_epoch=epoch,
+       target_epoch=protocol.source_epoch,target=body.id,source=from,amount=amount/scale,kind='pal:native',unix=now()}
++     local stack=M.damage_trait_stack and M.damage_trait_stack[owner:GetAddress()]
++     local observed=stack and stack[#stack]
++     if observed and observed.attacker==attacker:GetAddress()then q.damage_traits=observed.traits end
+      assert(P.finite(q.amount)and q.amount<=10000,'Native damage conversion limit')
+      write('pal-hit-'..id..'.json',q);M.confirmed.native_damage_observations=M.confirmed.native_damage_observations+1
+     end
+@@ -278,6 +282,31 @@
+   local a,b=RegisterHook(path,pre,post);assert(a and b,'Native hook registration did not return both IDs')
+   return {path=path,pre=a,post=b}
+  end
++ -- Metadata only: capture the real typed info during the normal native call.
++ -- OnDamage remains the sole producer, and no queued/timed trait is reused.
++ M.damage_trait_stack={};local trait_calls={}
++ local function trait_begin(_,attacker_param,defender_param,info_param)
++  local frame={};trait_calls[#trait_calls+1]=frame
++  local attacker,defender,info=unwrap(attacker_param),unwrap(defender_param),unwrap(info_param)
++  if not live(attacker)or not live(defender)or not M.by_actor[defender:GetAddress()]then return end
++  current_authority(defender)
++  if not info or type(info.bIsExplosionDamage)~='boolean'or not math.tointeger(info.Category)or info.Category<0 or info.Category>2 then return end
++  local key=defender:GetAddress();local stack=M.damage_trait_stack[key]or{};M.damage_trait_stack[key]=stack
++  frame.key=key;frame.attacker=attacker:GetAddress();frame.traits={v=1,explosion=info.bIsExplosionDamage,projectile=info.Category==1}
++  stack[#stack+1]=frame
++ end
++ local function trait_end()
++  local frame=table.remove(trait_calls);if not frame or not frame.key then return end
++  local stack=M.damage_trait_stack[frame.key]
++  if stack and stack[#stack]==frame then
++   table.remove(stack);if #stack==0 then M.damage_trait_stack[frame.key]=nil end
++  end
++ end
++ local function observe_traits(...)
++  local ok,why=pcall(trait_begin,...);if not ok then M.errors.damage_traits=tostring(why)end
++ end
++ M.hooks.damage_traits=hook('/Script/Pal.PalUtility:ProcessDamageAndPlayEffectsByDamageInfo',observe_traits,trait_end)
++ M.hooks.make_damage_traits=hook('/Script/Pal.PalUtility:ProcessDamageAndPlayEffects',observe_traits,trait_end)
+  M.hooks.damage=hook('/Script/Pal.PalCharacterParameterComponent:OnDamage',function(c,d)
+   local ok,why=pcall(native_damage,c,d)
+   if not ok then M.phase='native_hook_error';M.errors.damage=tostring(why);M.running=false
+--- a/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/entity_protocol.lua
++++ b/BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/entity_protocol.lua
+@@ -9,6 +9,10 @@
+  return false
+ end
+ function P.finite(n)return type(n)=='number'and n==n and n~=math.huge and n~=-math.huge end
++function P.damage_traits(t)
++ assert(type(t)=='table'and t.v==1 and type(t.explosion)=='boolean'and type(t.projectile)=='boolean','Invalid damage traits')
++ return t
++end
+ local function safe(q,k)assert(P.token(q[k]),'Invalid '..k);return q[k]end
+ function P.validate_hit(q,session,epoch,source_epoch,authority)
+  assert(type(q)=='table'and q.v==1 and q.t=='entity_damage'and q.authority==authority,'Invalid authority envelope')
+@@ -20,13 +24,19 @@
+  assert(authority~='mc_server'or(q.source:sub(1,3)=='mc:'and q.target:sub(1,4)=='pal:'),'Wrong authority direction')
+  assert(P.finite(q.amount)and q.amount>0 and q.amount<=P.MAX_DAMAGE,'Invalid damage')
+  assert(type(q.kind)=='string'and #q.kind<=96 and #q.kind>0 and not q.kind:find('[^%w_:./%-]'),'Invalid damage kind')
++ if q.damage_traits~=nil then P.damage_traits(q.damage_traits)end
+  return true
+ end
+ -- Include all combat semantics; reusing an ID for a different attacker/amount is a conflict, not another hit.
+ function P.fingerprint(q)
+- return table.concat({tostring(q.session),tostring(q.target_epoch),tostring(q.source_epoch),tostring(q.target),tostring(q.source),P.finite(q.amount)and('%.17g'):format(q.amount)or tostring(q.amount),tostring(q.kind),
++ local base=table.concat({tostring(q.session),tostring(q.target_epoch),tostring(q.source_epoch),tostring(q.target),tostring(q.source),P.finite(q.amount)and('%.17g'):format(q.amount)or tostring(q.amount),tostring(q.kind),
+   tostring(q.environment==true),tostring(q.source_player==true),tostring(q.source_proxy==true),q.player_session and tostring(q.player_session.session_id)or'',
+   q.player_session and tostring(q.player_session.generation)or''},'|')
++ if q.damage_traits~=nil then
++  local t=q.damage_traits
++  base=base..'|traits:'..(type(t)=='table'and(tostring(t.v)..':'..tostring(t.explosion)..':'..tostring(t.projectile))or type(t))
++ end
++ return base
+ end
+ function P.validate_snapshot(q,session,now)
+  assert(type(q)=='table'and q.v==1 and q.t=='entity_snapshot'and q.authority=='mc_server','Invalid MC authority snapshot')

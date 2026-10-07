@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "version": "0.2.0-integration.10.8-damage-traits-experimental",
+  "jar_sha256": "479224a9e75dab52ed56eade2ff50b8b16c64fd4bdf23515e4f260f0827500ff",
+  "jar_bytes": 556765,
+  "fresh_changed_java_sources": 2,
+  "fresh_classes": 6,
+  "compile_exit": 0,
+  "jar_entries": 178,
+  "jar_classes": 169,
+  "unchanged_F35_entries": 167,
+  "game_runtime_accepted": false,
+  "paired_Lua_required": [
+    {
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/entities.lua",
+      "sha256": "483cf4fc025d3f9f0ab34ee96d36736b639ade597176fa93cf1d40c43dcf0fa0"
+    },
+    {
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/entity_protocol.lua",
+      "sha256": "febd74a54939f2aaaadd4d349d2dc3f3d63a647efa08eec90da2ca3e76e040c2"
+    }
+  ],
+  "nullable_TNT_crystal_implemented_or_accepted": false,
+  "full_original42_accepted": false,
+  "no_old_live_jar_changed": true
+}
