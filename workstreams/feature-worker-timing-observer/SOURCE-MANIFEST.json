@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "public_safe": true,
+  "developer_observation_only": true,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 738,
+      "sha256": "5334c6a3629053ca38eb2d083ba130c1019f7b5086b20d73560a974d9962db03"
+    },
+    {
+      "path": "observe_workers_once.lua",
+      "bytes": 7206,
+      "sha256": "68378b59ba6de408ea708d9ed998f10235206d43d799523cf4df9bcabd52a397"
+    }
+  ],
+  "private_runtime_records_or_identity_included": false
+}

@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "controls_profiler": "existing controls-performance.json at original1000ms cadence",
+  "additional_top_level_fields": [
+    "last_build_off_reason",
+    "last_build_off_tick_ms",
+    "last_build_off_generation",
+    "last_build_off_active",
+    "last_build_off_connected",
+    "last_build_off_suspended",
+    "last_build_off_f5",
+    "last_build_off_esc",
+    "last_build_off_requested"
+  ],
+  "generation_object": {
+    "before": "connection generation at actual original off setter edge",
+    "after": "connection generation after original update in that same controls tick"
+  },
+  "key_values": "original same-tick polled F5 and ESC down values; cause string identifies actual branch, with no new key polling",
+  "requested": "original formRequests.take return: -1 absent/rejected,0 off,1 on",
+  "record_updated_only_when": "build was true immediately before original set_build_mode and false immediately afterward",
+  "last_event_persists": "none/tick0/generation-1 before first actual off edge; remains until next edge even across profiler windows",
+  "causes": [
+    "camera_inactive",
+    "websocket_disconnected",
+    "connection_generation_changed",
+    "explicit_form_off_request",
+    "f5_toggle_off",
+    "escape_without_guest_menu"
+  ],
+  "combined_guard_reason_order": "Original !active OR !connected OR newConnection branch is unchanged; reason follows that condition order and accompanying booleans/generations preserve simultaneous failures.",
+  "extra_render_fields": [
+    "camera_flags",
+    "camera_commit_age_ms"
+  ],
+  "render_outputs": [
+    "existing render-performance.json",
+    "existing render-status.json"
+  ],
+  "render_age_source": "exact original sampled committedAt/tick age used by unchanged750 expression; -1 in legacy/no-commit branch",
+  "render_sampling_limit": "These are current original one-second sample fields, not a stored camera snapshot from the earlier off edge; a short inactive interval may end before publication.",
+  "no_native_game_state_inputs_ABI_WAL_or_750_changes": true,
+  "actual_cause_not_proven": true
+}

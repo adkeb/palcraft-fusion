@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "target": "x86_64-windows-gnu",
+  "language": "C++17",
+  "compiler": "existing original Zig0.15.2 clang driver",
+  "flags": [
+    "-std=c++17",
+    "-O2",
+    "-DNOMINMAX",
+    "-Wall",
+    "-Wextra",
+    "-Wno-unknown-attributes",
+    "-fno-lto"
+  ],
+  "compile_only": [
+    "source/render/controls.cpp",
+    "source/render/palcraft.cpp"
+  ],
+  "reused_exact72d_objects": {
+    "ws": {
+      "base_object_sha256": "523d4accc335d4157fe6f30b8fbb2c68e0d6f6f121372ba6dbc46092c58e46d0",
+      "source_sha256": "5498383e2ffc76798957a27b468be45371a8c3b37a3ecb017be3a1831902c2f7"
+    },
+    "compositor": {
+      "base_object_sha256": "6007169693b39e5abb832dcc69af1ea5e518015ad0c485514f920d5c4b4ed816",
+      "source_sha256": "2c7b33dc51136f218bb99f5e5548d90ba7d24664c7f872d99f718822fe742fb1"
+    }
+  },
+  "link_order": [
+    "palcraft.obj",
+    "controls.obj",
+    "ws.obj",
+    "compositor.obj"
+  ],
+  "link_flags": [
+    "-shared",
+    "-fno-lto",
+    "-lws2_32",
+    "-luser32",
+    "-ld3d11",
+    "-ldxgi"
+  ],
+  "owned_output": "PalCraftRender-v16-portable-operator-mode-off-observer.dll",
+  "priority_nice": 19,
+  "sequential_compiler_processes": true,
+  "no_Game_execution": true,
+  "builder": "build_native_observer.py",
+  "base_reference": "base-build-manifest.json",
+  "actual_commands_and_timing": "build-manifest.json",
+  "headers_and_reused_sources": "source/ exact pinned mirror; no vendor binary copied",
+  "parameterization": "Compiler/input-object locations are passed by the original private base manifest; public path cleanliness is not asserted for that evidence.",
+  "public_rebuild": "build_from_source.py --zig <Zig0.15.2 executable> --output <fresh output directory>; compiles all four published translation units without old objects.",
+  "public_fresh_build_verified": true,
+  "public_fresh_whole_file_hash_matches_historical": false
+}

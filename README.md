@@ -14,6 +14,10 @@
 
 今天另公开 [晚写存档的崩溃收尾](workstreams/late-saved-crash-final-observation) 和 [原启动阶段的受管后端准备](workstreams/normal-bootstrap-managed-backend-prepare)。两项已在独立测试安装执行，分别保留真实异常退出事实并完成后续正常升级，以及通过原生产入口更新三个后端副本；已整合成源码审核通过的候选 20，实际普通更新尚待执行。
 
+候选 21 已正常升级并加载原离线世界；一次目标准备超时经原恢复入口完成。真实 F5、背包内整栈移动、2×2 火把合成已获得本机输入和库存证据；持续形态仍受临时相机失活影响，当前完整负载的性能尚未达标。候选 19 的新世界清理与暂停逻辑已实际完成正常保存、标题退出和六组件结束。
+
+[原生模式退出诊断](workstreams/native-mode-off-diagnostics) 已公开18个源/头文件和从源码构建入口。新鲜编译四个单元得到同样的导入、导出和代码段，构建标识段与原编译产物不同；不宣称整文件同哈希。两个[回调计时工具](workstreams/callback-timing-observer)和[功能计时工具](workstreams/feature-worker-timing-observer)已完成短实测并还原；当前主要热点是全局对象扫描。
+
 已有 [正常退出收尾源码](workstreams/normal-stop-off-finalize)、[上下文发现性能修正](workstreams/standalone-realm-cadence) 和 [定时画质接口修正](workstreams/power-profile-observed-api)，每项均标明源码检查与实机验证范围。
 
 MC 10.9 目标区域同步已提供 [组件实验包](https://github.com/adkeb/palcraft-fusion/releases/tag/v0.2.0-integration.10.9-center-source)；MC 10.7 复活同步与 macOS 13 ARM64 HUD 已提供 [实验发布包](https://github.com/adkeb/palcraft-fusion/releases)。MC 完整 100 生产源已通过 [整合源码构建入口](player-standalone/full-mc-source/BUILD.zh-CN.md) 重建基础包，再衔接六源增量得到相同的 10.7 产物；历史混合 debug 策略公开记录，未使用旧项目 class。其他用户的全新环境与完整游戏验收仍待验证。

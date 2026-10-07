@@ -1,0 +1,82 @@
+--- a/render/controls.cpp
++++ b/render/controls.cpp
+@@ -111,18 +111,31 @@
+  }
+  static ULONGLONG viewportAt=0;if(window&&tick-viewportAt>=100){viewportAt=tick;RECT r{};if(GetClientRect(window,&r)){viewportWidth=static_cast<uint32_t>(r.right-r.left);viewportHeight=static_cast<uint32_t>(r.bottom-r.top);}}
+  static int generation=-1;bool newConnection=ws.connected()&&ws.generation()!=generation;
+- if(!active||!ws.connected()||newConnection)set_build_mode(false);
++ // Diagnostic state only; no new log, transport, timer or mode writer.
++ struct BuildOffObservation{const char*reason="none";ULONGLONG tick=0;int generationBefore=-1,generationAfter=-1;
++  bool active=false,connected=false,suspended=false,f5=false,esc=false;int requested=-1;};
++ static BuildOffObservation lastBuildOff;bool observedBuildOff=false;
++ auto observeBuildMode=[&](bool on,const char*reason){
++  const bool before=build.load();set_build_mode(on);
++  if(before&&!build.load()){
++   lastBuildOff.reason=reason;lastBuildOff.tick=tick;lastBuildOff.generationBefore=generation;
++   lastBuildOff.active=active;lastBuildOff.connected=ws.connected();lastBuildOff.suspended=actionsSuspended.load();
++   observedBuildOff=true;
++  }
++ };
++ if(!active||!ws.connected()||newConnection)observeBuildMode(false,!active?"camera_inactive":(!ws.connected()?"websocket_disconnected":"connection_generation_changed"));
+  if(newConnection)generation=ws.generation();
+  formRequests.observed_generation(generation);
+  const int requested=formRequests.take(generation,active&&ws.connected(),newConnection,actionsSuspended.load());
+- if(requested>=0)set_build_mode(requested==1);
++ if(requested>=0)observeBuildMode(requested==1,"explicit_form_off_request");
+  static bool was[256]{};bool now[256]{};
+  const int keys[]={'W','A','S','D','E','1','2','3','4','5','6','7','8','9',VK_SPACE,VK_SHIFT,VK_CONTROL,VK_ESCAPE,VK_F5,VK_F6,VK_F7,VK_F8,VK_F9,VK_F10,VK_LBUTTON,VK_RBUTTON};
+  for(int k:keys){now[k]=(GetAsyncKeyState(k)&0x8000)!=0;++keyPolls;}
+  auto rising=[&](int k){return live&&!newConnection&&now[k]&&!was[k];};
+- if(rising(VK_F5))set_build_mode(!build.load());
++ if(rising(VK_F5))observeBuildMode(!build.load(),"f5_toggle_off");
+  if(build&&(rising(VK_F8)||(!menu&&rising('E'))))ws.send("{\"t\":\"inventory_toggle\"}");
+- if(build&&!menu&&rising(VK_ESCAPE))set_build_mode(false);
++ if(build&&!menu&&rising(VK_ESCAPE))observeBuildMode(false,"escape_without_guest_menu");
++ if(observedBuildOff){lastBuildOff.generationAfter=generation;lastBuildOff.f5=now[VK_F5];lastBuildOff.esc=now[VK_ESCAPE];lastBuildOff.requested=requested;}
+  if(!build)menu=false;
+  static bool oldBuild=false;static bool oldLive=false;
+  if(newConnection||oldBuild!=build){ws.send(build?"{\"t\":\"mode\",\"on\":true}":"{\"t\":\"mode\",\"on\":false}");if(window)PostMessageW(window,WM_APP+0x32,0,0);oldBuild=build;}
+@@ -143,5 +156,5 @@
+  writeSnapshot(live,now,generation);
+  std::vector<std::string> pending;{std::lock_guard<std::mutex> lock(queueLock);pending.swap(events);}for(auto&s:pending){if(live&&build)ws.send(s);else ++suppressed;}
+  for(int k:keys)was[k]=now[k];
+- static ULONGLONG profiled=0;if(tick-profiled>=1000){profiled=tick;FILE*f=_wfopen(palcraft_paths::bridge_file(L"controls-performance.json").c_str(),L"wb");if(f){std::fprintf(f,"{\"version\":15,\"unix\":%.6f,\"sample_tick_ms\":%llu,\"binary_writes\":%llu,\"json_writes\":%llu,\"focus_reads\":%llu,\"key_polls\":%llu,\"suppressed_events\":%llu,\"focus\":%s,\"build\":%s,\"menu\":%s,\"viewport_width\":%u,\"viewport_height\":%u}",unixNow(),static_cast<unsigned long long>(tick),static_cast<unsigned long long>(inputWrites),static_cast<unsigned long long>(jsonWrites),static_cast<unsigned long long>(focusReads),static_cast<unsigned long long>(keyPolls),static_cast<unsigned long long>(suppressed),live?"true":"false",build?"true":"false",menu?"true":"false",viewportWidth,viewportHeight);fclose(f);}}
++ static ULONGLONG profiled=0;if(tick-profiled>=1000){profiled=tick;FILE*f=_wfopen(palcraft_paths::bridge_file(L"controls-performance.json").c_str(),L"wb");if(f){std::fprintf(f,"{\"version\":15,\"unix\":%.6f,\"sample_tick_ms\":%llu,\"binary_writes\":%llu,\"json_writes\":%llu,\"focus_reads\":%llu,\"key_polls\":%llu,\"suppressed_events\":%llu,\"focus\":%s,\"build\":%s,\"menu\":%s,\"viewport_width\":%u,\"viewport_height\":%u",unixNow(),static_cast<unsigned long long>(tick),static_cast<unsigned long long>(inputWrites),static_cast<unsigned long long>(jsonWrites),static_cast<unsigned long long>(focusReads),static_cast<unsigned long long>(keyPolls),static_cast<unsigned long long>(suppressed),live?"true":"false",build?"true":"false",menu?"true":"false",viewportWidth,viewportHeight);std::fprintf(f,",\"last_build_off_reason\":\"%s\",\"last_build_off_tick_ms\":%llu,\"last_build_off_generation\":{\"before\":%d,\"after\":%d},\"last_build_off_active\":%s,\"last_build_off_connected\":%s,\"last_build_off_suspended\":%s,\"last_build_off_f5\":%s,\"last_build_off_esc\":%s,\"last_build_off_requested\":%d}",lastBuildOff.reason,static_cast<unsigned long long>(lastBuildOff.tick),lastBuildOff.generationBefore,lastBuildOff.generationAfter,lastBuildOff.active?"true":"false",lastBuildOff.connected?"true":"false",lastBuildOff.suspended?"true":"false",lastBuildOff.f5?"true":"false",lastBuildOff.esc?"true":"false",lastBuildOff.requested);fclose(f);}}
+ }
+--- a/render/palcraft.cpp
++++ b/render/palcraft.cpp
+@@ -85,9 +85,9 @@
+  FILE*f=_wfopen(palcraft_paths::bridge_file(L"camera.tmp").c_str(),L"wb");
+  if(f){bool ok=fwrite(&c,1,sizeof c,f)==sizeof c;fclose(f);if(ok&&MoveFileExW(palcraft_paths::bridge_file(L"camera.tmp").c_str(),palcraft_paths::bridge_file(L"camera.bin").c_str(),MOVEFILE_REPLACE_EXISTING))++compatWrites;}
+ }
+-static void status(bool connected,bool active) {
++static void status(bool connected,bool active,uint32_t cameraFlags=0,long long cameraCommitAge=-1) {
+  FILE *f=_wfopen(palcraft_paths::bridge_file(L"render-status.json").c_str(),L"wb");
+- if(f){std::fprintf(f,"{\"websocket_connected\":%s,\"camera_active\":%s,\"version\":15,\"camera_transport\":\"%s\",\"updated_unix\":%lld}",connected?"true":"false",active?"true":"false",cameraRevision?"persistent_file_to_memory":"legacy_file",static_cast<long long>(std::time(nullptr)));std::fclose(f);}
++ if(f){std::fprintf(f,"{\"websocket_connected\":%s,\"camera_active\":%s,\"version\":15,\"camera_transport\":\"%s\",\"updated_unix\":%lld,\"camera_flags\":%u,\"camera_commit_age_ms\":%lld}",connected?"true":"false",active?"true":"false",cameraRevision?"persistent_file_to_memory":"legacy_file",static_cast<long long>(std::time(nullptr)),cameraFlags,cameraCommitAge);std::fclose(f);}
+ }
+ static double millis(){static LARGE_INTEGER frequency=[](){LARGE_INTEGER v{};QueryPerformanceFrequency(&v);return v;}();LARGE_INTEGER v{};QueryPerformanceCounter(&v);return double(v.QuadPart)*1000/double(frequency.QuadPart);}
+ static int host_proxy_port(){
+@@ -111,7 +111,8 @@
+  while(!stopping) {
+   const auto tick=GetTickCount64();double started=millis();if(previous)cadence.add(started-previous);previous=started;
+   uint64_t revision=cameraRevision.load(),publishFrame=0;std::string captureScope;
+-  if(revision){std::lock_guard<std::mutex> lock(cameraLock);c=memoryCamera;publishFrame=memoryPublishFrame;captureScope=memoryCaptureScope;auto committed=committedAt.load();active=validCamera(c)&&(c.flags&1)&&(tick>=committed?tick-committed:0)<750;}
++  long long cameraCommitAge=-1; // Diagnostic: age from this exact original active sample.
++  if(revision){std::lock_guard<std::mutex> lock(cameraLock);c=memoryCamera;publishFrame=memoryPublishFrame;captureScope=memoryCaptureScope;auto committed=committedAt.load();cameraCommitAge=static_cast<long long>(tick>=committed?tick-committed:0);active=validCamera(c)&&(c.flags&1)&&(tick>=committed?tick-committed:0)<750;}
+   else if(tick-lastCameraRead>=16){
+    lastCameraRead=tick;std::string bytes=read_file(palcraft_paths::bridge_file(L"camera.bin").c_str());
+    active=false;if(bytes.size()==sizeof c){std::memcpy(&c,bytes.data(),sizeof c);active=validCamera(c)&&(c.flags&1)&&std::abs(double(std::time(nullptr))-c.unix_time)<3;}
+@@ -156,10 +157,10 @@
+   if(revision&&tick-lastCompat>=100){lastCompat=tick;publish_compat(c);}
+   work.add(millis()-started);
+   if(tick-lastStatus>=1000){
+-   lastStatus=tick;status(ws.connected(),active);
++   lastStatus=tick;status(ws.connected(),active,c.flags,cameraCommitAge);
+    Timing inputCamera;{std::lock_guard<std::mutex> lock(cameraLock);inputCamera=inputCameraTiming;inputCameraTiming.clear();}
+    FILE*f=_wfopen(palcraft_paths::bridge_file(L"render-performance.json").c_str(),L"wb");
+-   if(f){std::fprintf(f,"{\"version\":15,\"unix\":%lld,\"clock\":\"QueryPerformanceCounter\",\"samples\":%llu,\"loop_interval_mean_ms\":%.6f,\"loop_interval_max_ms\":%.6f,\"work_mean_ms\":%.6f,\"work_max_ms\":%.6f,\"controls_mean_ms\":%.6f,\"controls_max_ms\":%.6f,\"network_mean_ms\":%.6f,\"network_max_ms\":%.6f,\"input_to_camera_samples\":%llu,\"input_to_camera_mean_ms\":%.6f,\"input_to_camera_max_ms\":%.6f,\"camera_commits\":%llu,\"camera_compat_writes\":%llu,\"file_reads\":%llu,\"journal_batches\":%llu,\"camera_ws_frames\":%lu}",static_cast<long long>(std::time(nullptr)),static_cast<unsigned long long>(work.count),cadence.count?cadence.sum/cadence.count:0,cadence.max,work.count?work.sum/work.count:0,work.max,controls.count?controls.sum/controls.count:0,controls.max,network.count?network.sum/network.count:0,network.max,static_cast<unsigned long long>(inputCamera.count),inputCamera.count?inputCamera.sum/inputCamera.count:0,inputCamera.max,static_cast<unsigned long long>(commitReads.load()),static_cast<unsigned long long>(compatWrites.load()),static_cast<unsigned long long>(fileReads.load()),static_cast<unsigned long long>(journalWrites.load()),frame);fclose(f);}
++   if(f){std::fprintf(f,"{\"version\":15,\"unix\":%lld,\"clock\":\"QueryPerformanceCounter\",\"samples\":%llu,\"loop_interval_mean_ms\":%.6f,\"loop_interval_max_ms\":%.6f,\"work_mean_ms\":%.6f,\"work_max_ms\":%.6f,\"controls_mean_ms\":%.6f,\"controls_max_ms\":%.6f,\"network_mean_ms\":%.6f,\"network_max_ms\":%.6f,\"input_to_camera_samples\":%llu,\"input_to_camera_mean_ms\":%.6f,\"input_to_camera_max_ms\":%.6f,\"camera_commits\":%llu,\"camera_compat_writes\":%llu,\"file_reads\":%llu,\"journal_batches\":%llu,\"camera_ws_frames\":%lu,\"camera_flags\":%u,\"camera_commit_age_ms\":%lld}",static_cast<long long>(std::time(nullptr)),static_cast<unsigned long long>(work.count),cadence.count?cadence.sum/cadence.count:0,cadence.max,work.count?work.sum/work.count:0,work.max,controls.count?controls.sum/controls.count:0,controls.max,network.count?network.sum/network.count:0,network.max,static_cast<unsigned long long>(inputCamera.count),inputCamera.count?inputCamera.sum/inputCamera.count:0,inputCamera.max,static_cast<unsigned long long>(commitReads.load()),static_cast<unsigned long long>(compatWrites.load()),static_cast<unsigned long long>(fileReads.load()),static_cast<unsigned long long>(journalWrites.load()),frame,c.flags,cameraCommitAge);fclose(f);}
+    cadence.clear();work.clear();controls.clear();network.clear();
+   }
+   auto spent=GetTickCount64()-tick;Sleep(spent<8?static_cast<DWORD>(8-spent):0);

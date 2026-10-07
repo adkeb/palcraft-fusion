@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "actual_fresh_public_builder_exit_code": 0,
+  "all_four_authored_units_compiled": true,
+  "previous_project_object_bytes_reused": false,
+  "compiler": "Zig0.15.2",
+  "source_dependencies": "18 published source/header files and system/compiler SDK",
+  "artifact_sha256": "2d49b295e297913c1ddb6038afa2173ac9703fc340a082a49808cc7de476819f",
+  "artifact_bytes": 479232,
+  "original_compiled_variant_sha256": "f4dad4ab54744ceff00d14f9bbb1b5d60b0a6ab55f4791d32b42fc53c6aa8a85",
+  "exact_whole_file_equality": false,
+  "original_exports_imports_machine_and_format_equal": true,
+  "PE_raw_section_hash_matches": {
+    ".text": true,
+    ".rdata": true,
+    ".buildid": false,
+    ".data": true,
+    ".pdata": true,
+    ".tls": true,
+    ".reloc": true
+  },
+  "warnings": "Existing SDK qualifier/function-pointer casts and ignored pragma; no build errors.",
+  "game_or_runtime_validation_of_fresh_binary": false,
+  "fresh_public_rebuild_observation_only": true
+}
