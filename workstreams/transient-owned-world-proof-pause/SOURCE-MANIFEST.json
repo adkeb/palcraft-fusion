@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "base_candidate": 29,
+  "runtime_installed": false,
+  "complete_respawn_or_shutdown_accepted": false,
+  "source_files": [
+    {
+      "path": "README.md",
+      "sha256": "4a2d91dfe3bec0af9413ba8091e7813b883e12a5b5df7844c1e58685410f2543",
+      "bytes": 802
+    },
+    {
+      "path": "base/client/main.lua",
+      "sha256": "28636263017e14206bc7fd24e3be6372ff6f7a9ab903ccff4e7ea0de75c1ad93",
+      "bytes": 36398
+    },
+    {
+      "path": "base/client/palcraft-collisions.lua",
+      "sha256": "009af5bd35fe4ede6601a5ce02b536e46a509fb99765beea7ddda577f037bb63",
+      "bytes": 26370
+    },
+    {
+      "path": "source/client/main.lua",
+      "sha256": "a2b344345db575d635127b43b8b2d019bbfb7d75c6fa27e5cefcaaef1295b6ab",
+      "bytes": 37106
+    },
+    {
+      "path": "source/client/palcraft-collisions.lua",
+      "sha256": "ef14457b1284482fbf21271fbab49b428f2a4b8d0c70ddbaaa96703835cbe627",
+      "bytes": 28596
+    },
+    {
+      "path": "source.patch",
+      "sha256": "60eb36863d29e8bd5b9425cb5f9e8ed0575f5e9cec341fcc3d0c231fff244eb5",
+      "bytes": 9003
+    }
+  ]
+}

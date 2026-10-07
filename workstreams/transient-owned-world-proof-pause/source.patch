@@ -1,0 +1,139 @@
+--- a/client/main.lua
++++ b/client/main.lua
+@@ -374,7 +374,8 @@
+ local function str(v)return type(v)=='string'and v or v:ToString()end
+ local function matched(pc,now)
+  if standalone then
+-  local proof=standalone.realm:current()
++  local proof,why=standalone.realm:current()
++  if not proof then return false,why or'Actual Standalone local realm unavailable'end
+   return proof and identity and standalone.realm:validate(proof,pc)==true
+    and proof.server_session_id==identity.server_session_id and proof.world_id==runtime_config.identity.world_id
+    and proof.host_uid==runtime_config.identity.pal_uid or false
+@@ -481,7 +482,20 @@
+   next_identity=now+1000;local f=open('lab-identity.json','rb')
+   if f then local bytes=f:read('*a');f:close();local ok,v=pcall(J.decode,bytes);if ok then identity=v end end
+  end
+- if not matched(pc,now)then
++ local matching,unavailable=matched(pc,now)
++ if not matching then
++  if unavailable and collisions and collisions.context_alive then
++   local alive=collisions.context_alive()
++   if alive==nil then
++    form.was_looking=false -- Resume by rebasing the original input counts, never replay pending motion.
++    if native_suspend and not native_paused then native_suspend();native_paused=true end
++    if now>=next_status then
++     next_status=now+1000
++     json('client-status.json',{status='standalone_context_pending',reason=unavailable,enabled=false,unix=os.time(),version=15})
++    end
++    stage('discovery',started);profile(now);return
++   end
++  end
+   if last_connection~='other_session'then reset('other_session')end
+   connection('other_session');stage('discovery',started);profile(now);return
+  end
+--- a/client/palcraft-collisions.lua
++++ b/client/palcraft-collisions.lua
+@@ -24,11 +24,11 @@
+ M.geometry_signature=function(g)return J.encode(g)end
+ local visual_pipeline
+ local native,addresses,process_event,world_address,mesh,parent,normal;local materials={}
+-local bound_context,bound_context_address,bound_world_address
++local bound_context,bound_context_address,bound_world_address,bound_lifetime
+ local function live(x)return x and x:IsValid()and not x:GetFullName():find('Default__',1,true)end
+ local function write(name,v)local f=assert(io.open(ROOT..name,'wb'));f:write(J.encode(v));f:close()end
+ local function address(name)local o=StaticFindObject(name);assert(o and o:IsValid(),name);return o:GetAddress()end
+-local function context()
++local function context(bind_lifetime)
+  local sp=rawget(_G,'PalCraftStandaloneBootstrap')
+  if sp then
+   local realm=assert(sp.local_realm,'Actual standalone realm required')
+@@ -39,6 +39,8 @@
+   local gs_world,pc_world=gs:GetWorld(),pc:GetWorld()
+   assert(live(gs_world)and live(pc_world)and gs_world:GetAddress()==world:GetAddress()
+    and pc_world:GetAddress()==world:GetAddress()and world:GetAddress()==proof.world_address,'Actual standalone context world changed')
++  if bind_lifetime==true then bound_lifetime={pc=proof.pc,pawn=proof.pawn,host_uid=proof.host_uid,world_id=proof.world_id,
++   process_epoch=proof.process_epoch,realm=realm,permission=rawget(_G,'PalCraftStandalonePermissions')}end
+   return gs
+  end
+  for _,a in ipairs(FindAllOf('GameStateBase')or{})do if live(a)then return a end end;error('No game state')
+@@ -172,13 +174,38 @@
+ M.context=context
+ function M.context_alive()
+  if not bound_context or not bound_context:IsValid()then return false end
++ if bound_world_address then
++  local good,world=pcall(function()return bound_context:GetWorld()end)
++  if not good or not world or not world:IsValid()or world:GetAddress()~=bound_world_address then return false end
++ end
+  local ok,current=pcall(context)
+- if not ok or current:GetAddress()~=bound_context_address then return false end
+- if bound_world_address then
+-  local good,world=pcall(function()return current:GetWorld()end)
+-  if not good or not world or not world:IsValid()or world:GetAddress()~=bound_world_address then return false end
+- end
+- return true
++ if not ok then
++  -- Existing native lifetime anchors never substitute for a current proof.
++  -- They can retain an idle owned scene; no action, camera or ingest is allowed.
++  local good,alive=pcall(function()
++   local b=assert(bound_lifetime);local sp=rawget(_G,'PalCraftStandaloneBootstrap')
++   assert(sp and sp.local_realm==b.realm and rawget(_G,'PalCraftStandalonePermissions')==b.permission)
++   local _,epoch=b.permission.process();assert(epoch==b.process_epoch)
++   local pc,pawn=b.pc,b.pawn
++   assert(live(pc)and live(pawn)and pc:IsLocalController()==true and pc:HasAuthority()==true
++    and pawn:HasAuthority()==true and pawn:IsInitialized()==true and live(pc.Player)
++    and pc.Player:GetFullName():match('^PalLocalPlayer '))
++   local world=bound_context:GetWorld();local function same(o,address)return live(o)and o:GetAddress()==address end
++   local gameplay=StaticFindObject('/Script/Engine.Default__GameplayStatics')
++   assert(bound_context:HasAuthority()==true and gameplay and gameplay:IsValid()
++    and same(gameplay:GetGameState(pc),bound_context_address)and world:GetFullName():find('MainWorld',1,true))
++   assert(same(world,bound_world_address)and same(pc:GetWorld(),bound_world_address)
++    and same(pawn:GetWorld(),bound_world_address)and same(pc.Pawn,pawn:GetAddress())
++    and same(pc:GetDefaultPlayerCharacter(),pawn:GetAddress())and same(pawn:GetController(),pc:GetAddress()))
++   local g=pc:GetPlayerUId()
++   local uid=('%08x-%04x-%04x-%04x-%04x%08x'):format(g.A&0xffffffff,(g.B>>16)&0xffff,g.B&0xffff,(g.C>>16)&0xffff,g.C&0xffff,g.D&0xffffffff)
++   local name=bound_context:GetWorldSaveDirectoryName();if type(name)~='string'then name=name:ToString()end
++   return uid==b.host_uid and name==b.world_id
++  end)
++  if good and alive then return nil,tostring(current)end
++  return false
++ end
++ return current:GetAddress()==bound_context_address
+ end
+ local function observe(method,...)
+  -- Snapshot subscriptions before callbacks; each owner sees one reducer row once.
+@@ -319,7 +346,7 @@
+ function M.status()
+  local n,shapes,drops,model_count=0,0,0,0;local types,unconverted={},{};for _ in pairs(M.items)do drops=drops+1 end
+  for _,a in pairs(M.actors)do n=n+1;shapes=shapes+#a.handles;types[a.id]=(types[a.id]or 0)+1;if a.model then model_count=model_count+1 elseif client and a.visible~=false then unconverted[a.id]=a.model_status or'basic_mesh'end end
+- return {running=M.running,error=M.error,blocks=n,shapes=shapes,models=model_count,unconverted=unconverted,drops=drops,types=types,pending=queued_count(),changes=M.changes,offset=M.offset,side=client and'client'or'server',render=client and'native_unreal_mesh'or'collision',version=9,model_renderer=models and models.status(),world_state=M.world:status(),world_error=M.world_error,pending_view=M.pending_view,observer_error=M.observer_error,chunk_consumer_error=M.chunk_consumer_error,chunk_consumer=M.chunk_consumer and M.chunk_consumer.status and M.chunk_consumer.status(),visual_pipeline=visual_pipeline and visual_pipeline.status(),origin=O}
++ return {running=M.running,error=M.error,blocks=n,shapes=shapes,models=model_count,unconverted=unconverted,drops=drops,types=types,pending=queued_count(),changes=M.changes,offset=M.offset,side=client and'client'or'server',render=client and'native_unreal_mesh'or'collision',version=9,model_renderer=models and models.status(),world_state=M.world:status(),world_error=M.world_error,pending_view=M.pending_view,observer_error=M.observer_error,chunk_consumer_error=M.chunk_consumer_error,chunk_consumer=M.chunk_consumer and M.chunk_consumer.status and M.chunk_consumer.status(),visual_pipeline=visual_pipeline and visual_pipeline.status(),context_unavailable=M.context_unavailable,origin=O}
+ end
+ M.status_json=function()return J.encode(M.status())end
+ function M.stop(context_alive)
+@@ -347,7 +374,7 @@
+  M.ingesting_row=nil;M.pending_view=nil;M.world_observer=nil;M.abandoned=true
+  clear_accepted_views()
+  world_observers={};world_observer_order={}
+- bound_context=nil;bound_context_address=nil;bound_world_address=nil
++ bound_context=nil;bound_context_address=nil;bound_world_address=nil;bound_lifetime=nil
+ end
+ local tick
+ tick=function()
+@@ -359,9 +386,14 @@
+    local current=assert(sp.local_realm,'Actual standalone realm required')
+    current:begin_frame();realm=current -- Close only the frame this callback acquired.
+   end
+-  if client and bound_context and not M.context_alive()then M.abandon();return end
++  M.context_unavailable=nil
++  if client and bound_context then
++   local alive,why=M.context_alive()
++   if alive==false then M.abandon();return end
++   if alive~=true then M.context_unavailable=why;return end
++  end
+   if client and not bound_context then
+-   bound_context=context();bound_context_address=bound_context:GetAddress()
++   bound_context=context(true);bound_context_address=bound_context:GetAddress()
+    local ok,world=pcall(function()return bound_context:GetWorld()end)
+    if ok and world and world:IsValid()then bound_world_address=world:GetAddress()end
+   end

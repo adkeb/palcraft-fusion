@@ -1,0 +1,21 @@
+--- a/client/features.lua
++++ b/client/features.lua
+@@ -193,6 +193,18 @@
+   if v.dim~='minecraft:overworld'then return false,'initial_home_view_pending_authority'end
+   if self.initialized_native_world==v.world_session then return true end
+   local native=assert(bootstrap.current.native_binding)
++  local state=o.view_bridge and o.view_bridge.status and o.view_bridge.status()
++  if state then
++   local mapping,previous=state.mapping,state.native_context
++   local same_native=previous and previous.mc_epoch==native.mc_epoch
++    and previous.session_id==native.session_id and previous.generation==native.generation
++   if state.held or(same_native and mapping and mapping.world_session==v.world_session
++    and mapping.dim==v.dim and mapping.view~=v.view)then
++    -- The original travel callback must commit this tuple and release its ACK hold.
++    -- Home initialization cannot substitute for that physical mapping transition.
++    return false,'physical_mapping_transition_pending'
++   end
++  end
+   assert(o.view_bridge and o.view_bridge.initWorldView(v.world_session,v.dim,v.view,native)==true,'Initial native WorldView commit failed')
+   self.initialized_native_world=v.world_session;return true
+  end

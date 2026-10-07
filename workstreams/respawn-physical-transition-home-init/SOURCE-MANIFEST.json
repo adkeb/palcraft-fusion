@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "base_candidate": 29,
+  "runtime_installed": false,
+  "complete_respawn_or_shutdown_accepted": false,
+  "source_files": [
+    {
+      "path": "README.md",
+      "sha256": "4a2d91dfe3bec0af9413ba8091e7813b883e12a5b5df7844c1e58685410f2543",
+      "bytes": 802
+    },
+    {
+      "path": "base/client/features.lua",
+      "sha256": "3d801fc0dd87f56cacc67a3f21675fb90dffe6b6b88f837a308c139d3088054d",
+      "bytes": 14434
+    },
+    {
+      "path": "checks/check_home_init.lua",
+      "sha256": "0753b4e6f5a17db8859fb7ec2e66b7d6759fe77f5ff614fe159ed33a2a3b5f63",
+      "bytes": 6457
+    },
+    {
+      "path": "source/client/features.lua",
+      "sha256": "f9f88ef67871c25442ad8150bc816e4c0086eed346fd1a8e5dd2b296f7e80e00",
+      "bytes": 15130
+    },
+    {
+      "path": "source.patch",
+      "sha256": "0ed80ddec5eb8807e56ff3a18ef595d2fe043b9a558bb067790d25ac633b2be9",
+      "bytes": 1213
+    }
+  ]
+}

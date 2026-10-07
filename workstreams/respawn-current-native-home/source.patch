@@ -1,0 +1,12 @@
+--- a/server/travel.lua
++++ b/server/travel.lua
+@@ -144,7 +144,8 @@
+  end
+  local snapshot=self.actor.snapshot(b.pc)
+  local initial_home=mapping.native_overworld and(e.reason=='join'or e.reason=='reconnect'or e.reason=='respawn')
+-  and(not current or current.world_session~=row.session or not P.same_binding(current.binding,b))
++  and(not current or current.world_session~=row.session or not P.same_binding(current.binding,b)
++   or(e.reason=='respawn'and current.dim==e.to and(not e.from or e.from==e.to)))
+  local required_pos=e.pos
+  if initial_home then
+   -- The normal saved/respawned Pal character is the initial native-home authority.

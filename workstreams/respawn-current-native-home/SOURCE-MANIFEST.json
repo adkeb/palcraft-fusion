@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "base_candidate": 29,
+  "runtime_installed": false,
+  "complete_respawn_or_shutdown_accepted": false,
+  "source_files": [
+    {
+      "path": "README.md",
+      "sha256": "4a2d91dfe3bec0af9413ba8091e7813b883e12a5b5df7844c1e58685410f2543",
+      "bytes": 802
+    },
+    {
+      "path": "base/server/travel.lua",
+      "sha256": "5384e9674f719299052e9869539f4e5641c8a17a8c68ecb7194ddd3f21eaf9c5",
+      "bytes": 30158
+    },
+    {
+      "path": "source/server/travel.lua",
+      "sha256": "575d72fd71eaaf1ab2f7ee62a94a2706c1827c039e2f9f9058af1c074100cca6",
+      "bytes": 30238
+    },
+    {
+      "path": "source.patch",
+      "sha256": "997f87095cf489bb2b613036707d3ae79c02fbd93af7e7880f00af10bba47ee1",
+      "bytes": 645
+    }
+  ]
+}
