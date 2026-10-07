@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "kind": "normal-local-realm-live-reference-and-frame-proof-performance-source-delta",
+  "source_only": true,
+  "baseline": "readonly exact actual current11 client source; no current files changed",
+  "files": [
+    {
+      "path": "client/runtime/local_realm.lua",
+      "base_sha256": "5b70532cd69e06b7ca14531e183cd87e32946e77cd8ae164ef184689f53bce6d",
+      "new_sha256": "ce3287f882c42a5bd26c7ef68070ffd5f6e1b0aa0d265ffa762c78443d19600a",
+      "bytes": 16553,
+      "managed_target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/local_realm.lua"
+    },
+    {
+      "path": "client/main.lua",
+      "base_sha256": "05ed78fa4938c924cb234bea4ea8698c6bb7daf645cc728a5f1cbb34d089fc98",
+      "new_sha256": "daa598cabb14b300eb24d247b25c22abed17302baac7cc350d9c8821d162c9a9",
+      "bytes": 36446,
+      "managed_target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/main.lua"
+    }
+  ],
+  "patch": {
+    "path": "performance.patch",
+    "sha256": "800b1e7d9f7a0c77cdd15975e8d9fefa9e814d425ae9ed2f237a56a73cd3700d"
+  },
+  "unchanged": [
+    "nativeDLL",
+    "750ms camera freshness window",
+    "camera flags/header/FD",
+    "UID/world/process/permission contracts",
+    "input/focus gates",
+    "native life and resources"
+  ],
+  "original_sample_cost_evidence": {
+    "private_reference": "current11-Mac-normal-gameplay/one-readonly-actual-realm-sample-cost-result.json",
+    "sha256": "62f7fd3432f1d49152ab8287177fa425fbb92950a65904acd17178e021914e1d",
+    "one_original_current_call_reported_CRT_ms": 80,
+    "EngineRealTime_delta0_is_not_duration": true
+  },
+  "actual_profile_values_reported_by_parent": {
+    "callback_interval_ms": 1958,
+    "total_ms": 1838,
+    "discovery_ms": 1632,
+    "native_loop_ms": 9,
+    "native_work_ms": 0.33
+  },
+  "source_call_graph": {
+    "current_full_sample_FindAllOf": 5,
+    "validate_calls_current": true,
+    "current_plus_validate_full_scans_baseline": 10,
+    "guaranteed_current_count_when_standalone_tick_and_matched_due": 3,
+    "guaranteed_FindAllOf_baseline_for_those_paths": 15,
+    "server_clock_not_counted": "external_ms bypasses runtime_time_ms in actual standalone dispatcher",
+    "other_due_paths": [
+      "standalone bootstrap observer",
+      "server session-auth",
+      "entities",
+      "standalone companion/world",
+      "travel/views"
+    ],
+    "actual_total_samples_per_current_callback_measured": false
+  },
+  "candidate_strategy": {
+    "original_full_sampler_for_initial_or_changed_native_context": true,
+    "stable_frame": "one fresh PalPlayerController discovery, native object relationship checks, original complete loaded-save/process/root permission verifier",
+    "within_frame": "same existing callback shares proof; each operation still validates live native context",
+    "cleanup": "original client tick pcall run wrapped by begin_frame/end_frame; cache cleared before error/reset path",
+    "outside_frame": "original full discovery+permission sampler remains",
+    "TimeTTL_or_permanent_permission_cache": false,
+    "permission_failure_has_no_cached_authority_fallback": true
+  },
+  "checks": {
+    "receipt": "checks/receipt.json",
+    "sha256": "9de735804ac09b0f875b4eab8be9fe2de4c820638e46901877d66a686f25cc78",
+    "existing_contract_fixture_reused": true,
+    "synthetic_work_original": {
+      "FindAllOf": 400,
+      "permission_calls": 80
+    },
+    "synthetic_work_initial": {
+      "FindAllOf": 5,
+      "permission_calls": 1
+    },
+    "synthetic_work_stable": {
+      "FindAllOf": 1,
+      "permission_calls": 1
+    },
+    "changed_main_loadfile_parses_not_executed": true,
+    "actual_camera_input_fps_verified": false
+  }
+}

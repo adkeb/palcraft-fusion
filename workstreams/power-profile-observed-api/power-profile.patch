@@ -1,0 +1,54 @@
+--- base/root-aware-power-profile.lua
++++ source/root-aware-power-profile.lua
+@@ -14,19 +14,24 @@
+ local methods={
+  ViewDistance='SetViewDistanceQuality',AntiAliasing='SetAntiAliasingQuality',Shadow='SetShadowQuality',
+  GlobalIllumination='SetGlobalIlluminationQuality',Reflection='SetReflectionQuality',PostProcess='SetPostProcessingQuality',
+- Texture='SetTextureQuality',Effects='SetVisualEffectsQuality',Foliage='SetFoliageQuality',Shading='SetShadingQuality'
++ Texture='SetTextureQuality',Effects='SetVisualEffectQuality',Foliage='SetFoliageQuality',Shading='SetShadingQuality'
+ }
+ local day={ViewDistance=1,AntiAliasing=0,Shadow=1,GlobalIllumination=0,Reflection=0,PostProcess=0,Texture=1,Effects=0,Foliage=1,Shading=1}
+ local qualities={};for key,value in pairs(day)do qualities[key]=request.mode=='night'and 0 or value end
+ local scale=request.mode=='night'and 50 or 71
+ local limit=request.mode=='night'and 15 or(request.frame_rate_limit or 60)
+ if limit~=nil then assert(type(limit)=='number'and limit>=0 and limit<=240,'Frame override must be0..240')end
+-local settings=StaticFindObject('/Script/Engine.Default__GameUserSettings'):GetGameUserSettings()
++local candidates={}
++for _,value in ipairs(FindAllOf('GameUserSettings')or{})do
++ if value and value:IsValid()and not value:GetFullName():find('Default__',1,true)then candidates[#candidates+1]=value end
++end
++assert(#candidates==1,'Actual GameUserSettings singleton not unique')
++local settings=candidates[1]
+ assert(settings and settings:IsValid(),'Client GameUserSettings unavailable')
+ -- Validate the entire required setter surface before changing any setting.
+-for _,method in pairs(methods)do assert(settings[method],'GameUserSettings API unavailable: '..method)end
++for _,method in pairs(methods)do assert(tostring(settings[method]):match('^UFunction:'),'GameUserSettings reflected API unavailable: '..method)end
+ for _,method in ipairs({'SetResolutionScaleValueEx','SetFrameRateLimit','ApplyNonResolutionSettings','SaveSettings','GetFrameRateLimit','SetScreenResolution','GetScreenResolution','ApplyResolutionSettings','ConfirmVideoMode'})do
+- assert(settings[method],'GameUserSettings API unavailable: '..method)
++ assert(tostring(settings[method]):match('^UFunction:'),'GameUserSettings reflected API unavailable: '..method)
+ end
+ for key,method in pairs(methods)do settings[method](settings,qualities[key])end
+ settings:SetResolutionScaleValueEx(scale)
+@@ -37,6 +42,22 @@
+ end
+ settings:ApplyNonResolutionSettings();settings:SaveSettings()
+ local k=StaticFindObject('/Script/Engine.Default__KismetSystemLibrary')
++-- A console-priority setting can override the saved scalability value.
++-- Use the same real local controller and engine console path as the actual
++-- successful day readback, then verify the actual CVars below.
++local percentage=k:GetConsoleVariableFloatValue('r.ScreenPercentage')
++local runtime_limit=k:GetConsoleVariableFloatValue('t.MaxFPS')
++if math.abs(percentage-scale)>=.5 or math.abs(runtime_limit-limit)>=.01 then
++ local local_controllers={}
++ for _,value in ipairs(FindAllOf('PalPlayerController')or{})do
++  if value and value:IsValid()and not value:GetFullName():find('Default__',1,true)
++   and value:IsLocalController()==true then local_controllers[#local_controllers+1]=value end
++ end
++ assert(#local_controllers==1,'Actual local controller required for console-priority profile')
++ local pc=local_controllers[1]
++ if math.abs(runtime_limit-limit)>=.01 then k:ExecuteConsoleCommand(pc,'t.MaxFPS '..tostring(limit),pc)end
++ if math.abs(percentage-scale)>=.5 then k:ExecuteConsoleCommand(pc,'r.ScreenPercentage '..tostring(scale),pc)end
++end
+ local size=settings:GetScreenResolution()
+ local actual={resolution={size.X,size.Y},qualities={},max_fps=k:GetConsoleVariableFloatValue('t.MaxFPS'),
+  screen_percentage=k:GetConsoleVariableFloatValue('r.ScreenPercentage'),saved_frame_limit=settings:GetFrameRateLimit()}

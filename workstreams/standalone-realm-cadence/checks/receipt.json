@@ -1,0 +1,50 @@
+{
+  "actual_fps_or_input_camera_latency_proven": false,
+  "actual_loaded_game": false,
+  "baseline_identical_work": {
+    "global_FindAllOf": 400,
+    "permission_calls": 80
+  },
+  "candidate_initial_frame": {
+    "global_FindAllOf": 5,
+    "permission_calls": 1
+  },
+  "candidate_stable_frame": {
+    "global_FindAllOf": 1,
+    "permission_calls": 1
+  },
+  "cases": [
+    {
+      "name": "one_initial_full_discovery_and_permission_shared_only_inside_original_frame",
+      "passed": true
+    },
+    {
+      "name": "next_frame_one_controller_discovery_and_original_permission_revalidation",
+      "passed": true
+    },
+    {
+      "name": "each_operation_live_possession_and_loaded_context_change_force_original_full_recheck",
+      "passed": true
+    },
+    {
+      "name": "next_frame_permission_failure_is_not_cached_authority_and_frame_error_is_fail_closed",
+      "passed": true
+    },
+    {
+      "name": "fresh_controller_uniqueness_and_remote_peer_preserved_each_frame",
+      "passed": true
+    },
+    {
+      "name": "explicit_invalidate_and_world_mode_change_never_relabel_old_proof",
+      "passed": true
+    },
+    {
+      "name": "frame_cleanup_and_outside_frame_preserve_original_full_sampler",
+      "passed": true
+    }
+  ],
+  "new_probes_or_credentials": false,
+  "ok": true,
+  "original_fixture_reused": true,
+  "targeted_cases": 7
+}

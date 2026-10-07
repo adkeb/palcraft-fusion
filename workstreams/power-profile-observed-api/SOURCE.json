@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "base_sha256": "fae39559f9516ea64de15e5f84ba8330caa095ffd4d8f3135b50156246ee2986",
+  "source_sha256": "73930044ef45f642b31c0d994fda904f9f2cd34eda0db1596b4836d8b8cfcd3d",
+  "observed_game_API": "actual GameUserSettings singleton, singular SetVisualEffectQuality, engine console-priority override and real CVar readback",
+  "bounded_synthetic_checks": [
+    "day profile",
+    "night profile",
+    "duplicate singleton rejected before setters"
+  ],
+  "real_day_counterpart_readback_verified": true,
+  "new_full_day_night_actual_cycle_verified": false,
+  "hardware_or_current_game_operation_by_source_checks": false
+}
