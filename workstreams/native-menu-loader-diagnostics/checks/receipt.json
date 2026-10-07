@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 3,
+  "failures": 0,
+  "errors": 0,
+  "base_sha256": "99578dc07bf9ceb7fdd5585a93db38985062d291662e637604bfe20d94687983",
+  "source_sha256": "d6e1634e6b10a1151d833247f96bfe9930f7c38de81c56e8f785e3fef7eb53f7",
+  "default_plan_command_native_env_and_LNK_request_equal": true,
+  "optin_raw_command_vendor_log_owned_root_same_token": true,
+  "wrong_mode_rejected": true,
+  "all_inputs_synthetic_temporary": true,
+  "vendor_registration_Game_runtime_Popen_GUI_RPC_credentials_currentfiles_or_Git_used": false,
+  "actual_loader_trace_capture_or_exit53_cause_verified": false
+}

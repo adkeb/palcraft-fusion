@@ -1,0 +1,102 @@
+--- a/launcher/crossover_menu_helper.py
++++ b/launcher/crossover_menu_helper.py
+@@ -83,8 +83,22 @@
+     return path
+ 
+ 
+-def plan(root, profile, original_command, host_target):
++TRACE_ENV = 'PALCRAFT_WINE_TRACE'
++TRACE_DEBUGMSG = '-all,err+all,trace+loaddll,trace+module'
++
++
++def resolve_trace_mode(environment):
++    mode = environment.get(TRACE_ENV)
++    if mode in (None, ''):
++        return None
++    if mode != 'loader':
++        raise MenuError('PALCRAFT_WINE_TRACE must be empty or loader')
++    return mode
++
++
++def plan(root, profile, original_command, host_target, trace_mode=None):
+     """Pure source plan. No processes, registrations, or file mutations."""
++    trace_mode = resolve_trace_mode({TRACE_ENV: trace_mode})
+     root = Path(root).absolute()
+     if root.is_symlink() or root.resolve() != root:
+         raise MenuError('Player root must be the original physical owned root')
+@@ -127,12 +141,17 @@
+     # Raw is an official menu type: its stored Command keeps the normal Wine
+     # options even when the native task uses the CrossOver app's environment.
+     link_windows = 'C:\\windows\\Start Menu\\PalCraft\\' + owner + '\\PalCraft Game.lnk'
+-    menu_command = shlex.join([str(wine), '--bottle', profile['bottle_name'],
++    menu_arguments = [str(wine), '--bottle', profile['bottle_name'],
+         '--enable-alt-loader', 'macdrv', '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+         '--env', 'SteamAppId=1623730', '--workdir', prefix[-1],
+-        '--wait-children', '--start', link_windows])
++        '--wait-children', '--start', link_windows]
++    loader_log = root / '.palcraft/logs' / ('client-loader-' + token + '.log')
++    if trace_mode == 'loader':
++        menu_arguments[menu_arguments.index('--debugmsg') + 1] = TRACE_DEBUGMSG
++        menu_arguments[menu_arguments.index('--start'):menu_arguments.index('--start')] = ['--cx-log', str(loader_log)]
++    menu_command = shlex.join(menu_arguments)
+     menu_registry = bottle / 'desktopdata/cxmenu/cxmenu_macosx.plist'
+-    return dict(root=root, vendor=vendor, bottle=bottle, home=home, bundle=bundle,
++    spec = dict(root=root, vendor=vendor, bottle=bottle, home=home, bundle=bundle,
+                 wine=wine, cxmenu=cxmenu, menu=menu, owner=owner, description=description,
+                 link=bottle / 'drive_c/windows/Start Menu/PalCraft' / owner / 'PalCraft Game.lnk',
+                 link_windows=link_windows,
+@@ -142,10 +161,14 @@
+                 bundle_id='com.codeweavers.CrossOverHelper.' +
+                     hashlib.md5(profile['bottle_name'].encode('utf-8')).hexdigest().upper() + '.' +
+                     hashlib.md5(menu.encode('utf-8')).hexdigest().upper())
+-
+-
+-def native_environment(environment):
++    if trace_mode == 'loader':
++        spec.update(wine_trace_mode=trace_mode, wine_trace_log=loader_log)
++    return spec
++
++
++def native_environment(environment, trace_mode=None):
+     """Carry the validated normal Wine options through the vendor CX_ENV path."""
++    trace_mode = resolve_trace_mode({TRACE_ENV: trace_mode})
+     result = dict(environment)
+     try:
+         inherited = shlex.split(result.get('CX_ENV', ''))
+@@ -161,7 +184,7 @@
+     # bin/wine clears WINEDLLOVERRIDES before applying its CX_ENV assignments.
+     assignments += ['SteamAppId=1623730', 'WINEDLLOVERRIDES=dwmapi=n,b']
+     result['CX_ENV'] = shlex.join(assignments)
+-    result['CX_DEBUGMSG'] = '-all'
++    result['CX_DEBUGMSG'] = TRACE_DEBUGMSG if trace_mode == 'loader' else '-all'
+     return result
+ 
+ 
+@@ -329,6 +352,8 @@
+ def prepare(spec, profile, env, runner=subprocess.run, guard=session_guard):
+     """Future normal boot only. All calls are synchronous setup, never game starts."""
+     guard(spec)
++    if spec.get('wine_trace_mode') == 'loader':
++        checked_path(spec['wine_trace_log'], spec['root'])
+     bottle_id, before = bottle_configuration(spec)
+     checked_path(spec['home'], spec['root']).mkdir(parents=True, exist_ok=True)
+     spec['home'].chmod(0o700)
+@@ -406,7 +431,8 @@
+         raise MenuError('Client host manifest role is not unique')
+     owned_path(root, hosts[0]['target'])
+     original = args.original[1:] if args.original[:1] == ['--'] else args.original
+-    spec = plan(root, profile, original, hosts[0]['target'])
++    trace_mode = resolve_trace_mode(os.environ)
++    spec = plan(root, profile, original, hosts[0]['target'], trace_mode=trace_mode)
+     writers = [entry for entry in state['manifest']['files'] if entry.get('role') == 'crossover_shelllink_writer']
+     if len(writers) != 1 or writers[0].get('sha256') != WRITER_SHA256:
+         raise MenuError('The release has no unique exact native ShellLink writer role')
+@@ -423,7 +449,7 @@
+                 raise
+             time.sleep(.05)
+     setup_environment = os.environ.copy()
+-    launch_environment = native_environment(setup_environment)
++    launch_environment = native_environment(setup_environment, trace_mode=trace_mode)
+     prepare(spec, profile, setup_environment)
+     session_guard(spec)
+     # One native vendor app replacement; never also run the shortcut/cxmenu here.

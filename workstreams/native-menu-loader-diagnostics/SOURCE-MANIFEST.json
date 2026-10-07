@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "component": "normal-native-menu-loader-diagnostics",
+  "public_safe": true,
+  "production_slots": 1,
+  "files": [
+    {
+      "path": "base/launcher/crossover_menu_helper.py",
+      "sha256": "99578dc07bf9ceb7fdd5585a93db38985062d291662e637604bfe20d94687983",
+      "bytes": 21960
+    },
+    {
+      "path": "source/launcher/crossover_menu_helper.py",
+      "sha256": "d6e1634e6b10a1151d833247f96bfe9930f7c38de81c56e8f785e3fef7eb53f7",
+      "bytes": 23162
+    },
+    {
+      "path": "loader-diagnostics.patch",
+      "sha256": "64d00c13247b61f19853fdd49005b3f0b700b6f6225683660feb96ae9419452d",
+      "bytes": 5097
+    },
+    {
+      "path": "checks/check_loader_trace.py",
+      "sha256": "e95f2df84cf5caa99fc56159f3e69614c8f63320d5a0a81983857673ccf44378",
+      "bytes": 5057
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "6e03d1d0a04c18748e21945e3062fadbfd2d00236ff73afb320c6a4ac93f0f7f",
+      "bytes": 615
+    },
+    {
+      "path": "README.md",
+      "sha256": "c1b9ebff65744924f08f661b9d5da176cee8078683266d1bba16ab03a68fb046",
+      "bytes": 1497
+    }
+  ],
+  "portable_checker_difference": "same 3 pure cases; receipt printed, archived receipt not overwritten",
+  "actual_runtime_log_identity_author_path_or_credential_data_included": false
+}
