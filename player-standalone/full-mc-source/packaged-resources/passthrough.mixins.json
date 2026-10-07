@@ -1,0 +1,29 @@
+{
+  "required": true,
+  "package": "dev.rehan.passthrough.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "LevelMixin",
+    "MobAccessor",
+    "MobMixin",
+    "PlayerMixin",
+    "PortalMixin",
+    "ProjectileMixin",
+    "ProxyMixin",
+    "ServerExplosionMixin",
+    "ServerPlayerMixin",
+    "WorldServerLevelMixin",
+    "PalPlayerHealthMixin",
+    "PalAvatarLifeMixin",
+    "WorldPlayerTravelMixin",
+    "WorldInteractionGateMixin",
+    "PalPlayerFoodMixin",
+    "PalFoodUseMixin",
+    "PalAvatarRespawnMixin",
+    "PalFoodConsumeMixin",
+    "SessionLoginAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

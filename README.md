@@ -14,7 +14,7 @@
 
 最新修正源码分别保存在 [玩家保存与重启流程](workstreams/normal-journal-owned-player-flow-v2)、[原生实体身份绑定](workstreams/native-entity-binding-next)、[MCP 身份观察](workstreams/MC-local-scope-observation-next) 和 [Windows 快捷方式生成备选](workstreams/windows-shelllink-stdlib-alternative)。备选只有格式与源码检查，尚未证明实际 vendor 解析成功。
 
-MC 10.7 复活同步与 macOS 13 ARM64 HUD 已提供 [实验发布包](https://github.com/adkeb/palcraft-fusion/releases)。MC 10.7 的六生产源已按 [公开构建说明](player-standalone/README.zh-CN.md) 真正编译出相同产物，见 [构建实证](docs/evidence/MC10.7-fresh-six-source-compile.json)；全项目 Gradle 构建与其他用户的全新环境仍待验证。
+MC 10.7 复活同步与 macOS 13 ARM64 HUD 已提供 [实验发布包](https://github.com/adkeb/palcraft-fusion/releases)。MC 完整 100 生产源已通过 [整合源码构建入口](player-standalone/full-mc-source/BUILD.zh-CN.md) 重建基础包，再衔接六源增量得到相同的 10.7 产物；历史混合 debug 策略公开记录，未使用旧项目 class。其他用户的全新环境与完整游戏验收仍待验证。
 
 ## 源码地图
 

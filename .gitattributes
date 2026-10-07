@@ -8,3 +8,6 @@
 *.swift text eol=lf
 *.ps1 text eol=crlf
 *.patch whitespace=-blank-at-eol,-blank-at-eof
+
+player-standalone/full-mc-source/** -text
+player-standalone/full-mc-source/packaged-resources/MANIFEST.MF whitespace=cr-at-eol,-blank-at-eof

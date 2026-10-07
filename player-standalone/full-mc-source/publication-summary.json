@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "scope": "Complete MC production-source100-to-base10.6, then previously fresh six-source10.7 chain",
+  "production_java_sources": 100,
+  "production_classes_generated_each_full_profile": 168,
+  "public_current_source_version": "10.7",
+  "base_history_source_gap_fixed_in_proposal": 6,
+  "public_production_sources_identical_between_versions": 94,
+  "both_full_source_classpaths_exclude_old_project_class_JAR": true,
+  "fresh_default_compile_verified": true,
+  "fresh_g_compile_verified": true,
+  "historical_debug_profile_selection": {
+    "fresh_g_exact_classes": 155,
+    "fresh_default_exact_classes": 10,
+    "fresh_g_LNT_minus1_only_classes": 3
+  },
+  "LNT_normalized_records": [
+    "HostState$FramePose",
+    "HostState$Sample",
+    "HostState$WorldView"
+  ],
+  "program_Code_descriptors_or_other_attributes_modified": false,
+  "old_project_class_byte_reuse": 0,
+  "exact_base10_6_sha256": "401a4ae60eb428d106aba448d42ba3a74b28eb7d06624184bc247228b58a89af",
+  "exact_base10_6_bytes": 554989,
+  "exact_chain10_7_sha256": "f35ebc90cfa2f77c81b7f9f02d7ea721bffc21166bc63ff36159825bd0170b55",
+  "exact_chain10_7_bytes": 552361,
+  "chain10_7_class_origin": "Prior verified fresh-source six-unit javac output, not old frozen class directory. This last step was pure Python assembly, not a third source compile.",
+  "new_public_full_builder_compile_mode_monolithic_invocation_verified": true,
+  "new_public_full_builder_packing_mode_exact_verified": true,
+  "actual_full_compile_source_commands_recorded_privately": true,
+  "nice": 19,
+  "one_active_processor": true,
+  "heap_mib": [
+    128,
+    128,
+    512,
+    512
+  ],
+  "default_compile_total_seconds": 2.440035625,
+  "g_full_compile_seconds": 2.002086041,
+  "thermal_before_celsius": 33.1875,
+  "thermal_after_default_celsius": 38.078125,
+  "thermal_observation_state": "nominal",
+  "fans_target_rpm": [
+    3000,
+    3000
+  ],
+  "raw_paths_logs_or_game_SDK_published": false,
+  "Game_GUI_RPC_Gradle_network_canonical_backend_world_Saved_Git_touched": false,
+  "entire_D04_and_original42_complete": false,
+  "integrated_source_CLI_verified": true,
+  "integrated_CLI_full_source_compiled_this_call": true,
+  "integrated_CLI_production_source_counts": [
+    100,
+    100
+  ],
+  "integrated_CLI_JVM_jobs": 4,
+  "integrated_CLI_old_project_class_byte_reuse": 0,
+  "integrated_CLI_class_profile_dirs_preexisting": false,
+  "new_integrated_entry_required_source_fix": false,
+  "old_safe_archive_preserved_sha256": "0225fe55c26d7129ee141dd28080117aa667c73284d7bd6ae3f89bc934bb5702"
+}
