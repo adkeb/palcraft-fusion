@@ -1,0 +1,11 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -316,7 +316,7 @@
+         client = session['components']['client']
+         opened = session['native_menu_open']
+         bundle = str(owned_path(root, '.palcraft/native-menu/PalCraft Game.app'))
+-        if (session.get('token') != token or session.get('phase') not in ('bootstrap', 'promoting', 'running')
++        if (session.get('token') != token or session.get('phase') not in ('starting', 'bootstrap', 'promoting', 'running')
+                 or opened.get('state') != 'returned' or opened.get('returncode') != 0
+                 or opened.get('token') != token or opened.get('bundle') != bundle
+                 or opened.get('client') != client or not opened.get('bundle_identifier')

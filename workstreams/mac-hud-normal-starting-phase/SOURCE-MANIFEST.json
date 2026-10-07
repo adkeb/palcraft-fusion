@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "component": "normal-Mac-HUD-starting-phase",
+  "public_safe": true,
+  "production_changes": 1,
+  "HUD_source_is_unchanged_test_dependency": true,
+  "files": [
+    {
+      "path": "base/launcher/runtime.py",
+      "sha256": "da4ff409739304c846c0e51879d83a721bf6be2a32425044fa49ab6d95d3902c",
+      "bytes": 71703
+    },
+    {
+      "path": "source/launcher/runtime.py",
+      "sha256": "0906e94327f834a41a0b0c9bdc2dbf41ccdd5b2b76d7a14476fa016f1e498bf4",
+      "bytes": 71715
+    },
+    {
+      "path": "source/mac/hud_overlay.swift",
+      "sha256": "9a4669c8d949876817d8513655613dde1dbcc789a881728328ce25b06445b12e",
+      "bytes": 27408
+    },
+    {
+      "path": "starting-phase.patch",
+      "sha256": "f99456e49e6f1b3d58762b41bee426789224dc2d6aed66ee8dbf6d2b44208fd2",
+      "bytes": 747
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "6bf06606211b02a871447552621390c3d133fe44b07489a7008dbbc64e11f771",
+      "bytes": 507
+    },
+    {
+      "path": "README.md",
+      "sha256": "e5eeffa62bee5f2f515838ff493dc134bcb01488dc373ec138db631e0e35ee12",
+      "bytes": 1223
+    },
+    {
+      "path": "checks/check_foreground_group.py",
+      "sha256": "58c8f7c44ca92b8f907d437fcf5c4dd8bdddbee6643fa46ac94bdabb012a1460",
+      "bytes": 7737
+    }
+  ],
+  "portable_check_adjustment": "stdout receipt only; identical three source cases",
+  "actual_environment_identity_permission_or_window_metadata_included": false
+}
