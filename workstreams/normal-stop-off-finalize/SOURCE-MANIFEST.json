@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "kind": "original-normal-stop-persisted-off-finalization-source-delta",
+  "source_only": true,
+  "files": [
+    {
+      "path": "launcher/journal_lifecycle.py",
+      "base_sha256": "751d94c8a7a0c46967fd7526aae18e0520efa4d609bb72e0cce3818943bd2962",
+      "new_sha256": "2f7cf14b2aad8fb4b2dfbc39ab15868e1c655fbb8a4f9d0e9d6190e7f9cdd33f",
+      "bytes": 39169
+    },
+    {
+      "path": "installer/cli.py",
+      "base_sha256": "9b81b7c5e1ad965e51911502baceffcf2e12534685c98767f8dcb8b6172b2605",
+      "new_sha256": "ea106d525d9b2f0c580bc7cf0b68d7de459b5cf3e1ee7a7ca7facdfd95c03c74",
+      "bytes": 13001
+    }
+  ],
+  "entry": {
+    "path": "run_frozen_cli.py",
+    "sha256": "68a0ada1f318deff7420001ed9890d48a027329aa018c2fd08acb45cab7e8bc2"
+  },
+  "patch": {
+    "path": "finalize-stop.patch",
+    "sha256": "0ada67e0735c49b704f5018efb780b67c4e042c4d658974652da17f9f0f1ba3d"
+  },
+  "original_base_pins": {
+    "core": "9880d8dd8d4e672cf13836e4ca10e4d553a5fdf5886a73b40bd5418ce81fbcee",
+    "runtime": "5bbfefec5387d596101a869a44c2e2407eeedf5326d062faae12d490a1f3684e"
+  },
+  "API": "launcher.journal_lifecycle.finalize_stop(root,dry_run=False,quiet_seconds=2)",
+  "CLI": "original installer.cli finalize-stop --root OWNED_ROOT [--dry-run]",
+  "shared_original_issuer": "NormalLifecycle.finish now collects only its own real Popen exits and calls _issue_normal_stop; finalize-stop calls same issuer using original persisted records",
+  "same_boot_validation": [
+    "marker/root/current/session/scope token and native UID/world",
+    "original normal-stop request forcefalse",
+    "original incomplete exits/session agreement and actor identity fields",
+    "actual wait and worker child-exit records",
+    "current OS PIDs including supervisor off without signalling/adoption",
+    "original durable save r1/r2 and hashes",
+    "postsubmission original Level mtime/bytes/SHA",
+    "original correlated return/observe/quit Title records",
+    "original host exit0/primaryfalse/job0",
+    "original conservative ports available",
+    "Saved/WAL and eventstream stable through final hashing"
+  ],
+  "future_one_shot_diagnostic": "original readiness named in incomplete-stop with failed_conjuncts and port_checks; no unverified TIME_WAIT attribution",
+  "port_reuseaddr_or_unowned_LISTEN_relaxation": false,
+  "repeat_save_stop_GameUI_phase_statehash_or_Popen_reconstruction": false,
+  "checks_receipt": {
+    "path": "checks/receipt.json",
+    "sha256": "0816ba1a09540530ff1771a203306f52b10115ce9c12f288181edb8efc8768cb"
+  },
+  "wrapper_parse_import_help_verified_only": true,
+  "actual_current_stop_finalized": false
+}

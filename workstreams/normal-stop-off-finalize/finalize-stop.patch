@@ -1,0 +1,258 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -415,58 +415,182 @@
+             output.close()
+ 
+     def finish(self, phase):
+-        from launcher.runtime import process_matches
+         for name, child in self.owner.children.items():
+             if child.poll() is not None:
+                 self.record_exit(name, child)
+-        current_exits = {v['role']: v for v in self.exits.values()}
+-        native = self.scope.get('native_scope', {})
+-        host = read_json(self.root / '.palcraft/control' / (self.token + '.host.json'), {})
+-        ready = (phase == 'stopped' and self.save_witness is not None and self.scope.get('normal_title_observed')
+-                 and current_exits.get('client', {}).get('exit_code') == 0 and host.get('exit_code') == 0
+-                 and host.get('primary_pid') == native.get('pid') and host.get('primary_alive') is False
+-                 and host.get('job_active_processes') == 0 and host.get('phase') == 'stopped'
+-                 and set(self.exits) == set(self.scope['actors'])
+-                 and all(v.get('actual_wait_completed') and not process_matches(v) for v in self.exits.values())
+-                 and all(v['exit_code'] == 0 and v.get('normal_stop_request') == 'owned_server_stdin_stop'
+-                         for v in self.exits.values() if v['role'] == 'mc_server')
+-                 and all(v['exit_code'] in (0, 130) and v.get('normal_stop_request') == 'owned_guest_SIGINT'
+-                         for v in self.exits.values() if v['role'] == 'mc_guest')
+-                 and all(v.get('owned_child_exit', {}).get('actual_wait_completed') is True
+-                         and not process_matches(v['owned_child_exit']['child'])
+-                         for v in self.exits.values() if v['role'] in ('proxy', 'hud', 'udp', 'ssh')))
+-        if ready:
+-            from launcher.runtime import _port_free
+-            # A separately launched unowned backend is never adopted or shut down.
+-            ready = all(_port_free(port) for port in (25567, 25599, 25603))
+-        if not ready:
+-            pending = {'ok': False, 'code': 'JOURNAL_WITNESS_PENDING', 'token': self.token,
+-                       'actor_exits': self.exits, 'normal_save_witness': self.save_witness,
+-                       'normal_title_observed': bool(self.scope.get('normal_title_observed')),
+-                       'normal_stop_receipt_created': False}
+-            atomic_json(_scope_path(self.root, self.token, 'incomplete-stop.json'), pending)
+-            return pending
+-        before = _persistent_inventory(self.root)
+-        time.sleep(self.quiet_seconds)
+-        if before != _persistent_inventory(self.root):
+-            fail('JOURNAL_SAVE_PENDING', '全部进程退出后 Saved/WAL 仍在变化，未签发完整停机见证。')
+-        hashes = {rel: digest(self.root / rel) for rel in before}
+-        if before != _persistent_inventory(self.root):
+-            fail('JOURNAL_SAVE_PENDING', 'Saved/WAL 在散列期间变化，未签发完整停机见证。')
+-        source = self.root / EVENTS
+-        stream = file_identity(source) if source.exists() else None
+-        receipt = {'schema': 1, 'kind': 'palcraft-owned-normal-stop-v1', 'root': str(self.root),
+-            'root_id': self.scope['root_id'], 'token': self.token, 'native_scope': native,
+-            'active_events_path': str(source), 'stream_identity': stream, 'actor_exits': self.exits,
+-            'normal_save_completed': True, 'normal_save_witness': self.save_witness,
+-            'normal_title_Quit_and_native_exit0': True, 'MC_guest_normal_exit': current_exits.get('mc_guest', {}).get('exit_code'),
+-            'MC_server_normal_stop_exit': current_exits.get('mc_server', {}).get('exit_code'),
+-            'all_owned_producers_and_consumers_stopped': True,
+-            'all_this_stream_producers_and_consumers_off_before_rotation': True,
+-            'Saved_and_WAL_stable_after_all_actors_off': True, 'persistent_stat_inventory': before,
+-            'persistent_sha256': hashes, 'observed_unix': time.time(),
+-            'new_SID_credential_permission_ACK_reader_offset_or_transaction_WAL_written': False}
+-        path = _scope_path(self.root, self.token, 'normal-stop-receipt.json')
+-        atomic_json(path, receipt)
+-        return {'ok': True, 'normal_stop_receipt': str(path), 'actor_exits': self.exits,
+-                'normal_save_completed': True, 'next_cold_boot_uses_original_rotator': True}
++        return _issue_normal_stop(self.root, self.token, self.scope, self.exits,
++                                  self.save_witness, phase, self.quiet_seconds)
++
++def _issue_normal_stop(root, token, scope, exits, save_witness, phase, quiet_seconds=2, dry_run=False):
++    from launcher.runtime import process_matches
++    current_exits = {v['role']: v for v in exits.values()}
++    native = scope.get('native_scope', {})
++    host = read_json(root / '.palcraft/control' / (token + '.host.json'), {})
++    requirements = {
++        'phase_stopped': phase == 'stopped',
++        'save_witness_exists': save_witness is not None,
++        'title_observed': bool(scope.get('normal_title_observed')),
++        'client_exit0': current_exits.get('client', {}).get('exit_code') == 0,
++        'host_exit0': host.get('exit_code') == 0,
++        'host_primary_matches': host.get('primary_pid') == native.get('pid'),
++        'primary_not_alive': host.get('primary_alive') is False,
++        'job_empty': host.get('job_active_processes') == 0,
++        'host_phase_stopped': host.get('phase') == 'stopped',
++        'actor_keys_same': set(exits) == set(scope['actors']),
++        'all_actualwait_and_absent': all(v.get('actual_wait_completed') and not process_matches(v) for v in exits.values()),
++        'server_original_stop0': all(v['exit_code'] == 0 and v.get('normal_stop_request') == 'owned_server_stdin_stop'
++                                   for v in exits.values() if v['role'] == 'mc_server'),
++        'guest_original_stop': all(v['exit_code'] in (0, 130) and v.get('normal_stop_request') == 'owned_guest_SIGINT'
++                                  for v in exits.values() if v['role'] == 'mc_guest'),
++        'wrapper_child_wait_and_absent': all(v.get('owned_child_exit', {}).get('actual_wait_completed') is True
++                                           and not process_matches(v['owned_child_exit']['child'])
++                                           for v in exits.values() if v['role'] in ('proxy', 'hud', 'udp', 'ssh'))}
++    ready = all(requirements.values())
++    ports = {}
++    if ready:
++        from launcher.runtime import _port_free
++        # A separately launched unowned backend is never adopted or shut down.
++        ports = {str(port): _port_free(port) for port in (25567, 25599, 25603)}
++        ready = all(ports.values())
++    if not ready:
++        pending = {'ok': False, 'code': 'JOURNAL_WITNESS_PENDING', 'token': token,
++                   'actor_exits': exits, 'normal_save_witness': save_witness,
++                   'normal_title_observed': bool(scope.get('normal_title_observed')),
++                   'normal_stop_receipt_created': False, 'port_checks': ports,
++                   'readiness_checked_unix': time.time(), 'readiness_checks': requirements,
++                   'failed_conjuncts': [key for key, value in requirements.items() if not value]
++                       + ['port:' + port for port, available in ports.items() if not available]}
++        if not dry_run:
++            atomic_json(_scope_path(root, token, 'incomplete-stop.json'), pending)
++        return pending
++    if dry_run:
++        return {'ok': True, 'dry_run': True, 'token': token, 'normal_stop_receipt_created': False,
++                'readiness_checks': requirements, 'port_checks': ports, 'save_or_stop_requested': False,
++                'would_check_persistent_quiet_and_hash_before_issuance': True}
++    source = root / EVENTS
++    initial_stream = file_identity(source) if source.exists() else None
++    before = _persistent_inventory(root)
++    time.sleep(quiet_seconds)
++    if before != _persistent_inventory(root):
++        fail('JOURNAL_SAVE_PENDING', '全部进程退出后 Saved/WAL 仍在变化，未签发完整停机见证。')
++    hashes = {rel: digest(root / rel) for rel in before}
++    if before != _persistent_inventory(root):
++        fail('JOURNAL_SAVE_PENDING', 'Saved/WAL 在散列期间变化，未签发完整停机见证。')
++    level = Path(read_json(root / '.palcraft/standalone/scope.json')['installed_level_path_host'])
++    level_relative = level.relative_to(root).as_posix()
++    if (hashes.get(level_relative) != save_witness.get('level_sha256')
++            or before.get(level_relative, {}).get('bytes') != save_witness.get('level_bytes')
++            or before.get(level_relative, {}).get('mtime_ns', 0) / 1e9 != save_witness.get('level_mtime')):
++        fail('JOURNAL_SAVE_CHANGED', '签发时原 Level 见证不再匹配，未使用新文件替代。')
++    source = root / EVENTS
++    stream = file_identity(source) if source.exists() else None
++    if stream != initial_stream:
++        fail('JOURNAL_SAVE_PENDING', '正常停机后的事件卷仍在变化，未签发见证。')
++    if any(process_matches(v) for v in exits.values()):
++        fail('JOURNAL_ACTOR_ALIVE', '散列期间原进程重新出现，未签发停机见证。')
++    if not all(_port_free(port) for port in (25567, 25599, 25603)):
++        fail('JOURNAL_WITNESS_PENDING', '停机见证签发前后端端口仍不可用。')
++    receipt = {'schema': 1, 'kind': 'palcraft-owned-normal-stop-v1', 'root': str(root),
++        'root_id': scope['root_id'], 'token': token, 'native_scope': native,
++        'active_events_path': str(source), 'stream_identity': stream, 'actor_exits': exits,
++        'normal_save_completed': True, 'normal_save_witness': save_witness,
++        'normal_title_Quit_and_native_exit0': True, 'MC_guest_normal_exit': current_exits.get('mc_guest', {}).get('exit_code'),
++        'MC_server_normal_stop_exit': current_exits.get('mc_server', {}).get('exit_code'),
++        'all_owned_producers_and_consumers_stopped': True,
++        'all_this_stream_producers_and_consumers_off_before_rotation': True,
++        'Saved_and_WAL_stable_after_all_actors_off': True, 'persistent_stat_inventory': before,
++        'persistent_sha256': hashes, 'observed_unix': time.time(),
++        'new_SID_credential_permission_ACK_reader_offset_or_transaction_WAL_written': False}
++    path = _scope_path(root, token, 'normal-stop-receipt.json')
++    atomic_json(path, receipt)
++    return {'ok': True, 'normal_stop_receipt': str(path), 'actor_exits': exits,
++            'normal_save_completed': True, 'next_cold_boot_uses_original_rotator': True}
++
++def finalize_stop(root, dry_run=False, quiet_seconds=2):
++    """Finish this same completed boot from original persisted waits; no new save/stop/signals."""
++    from installer.core import operation_lock
++    from launcher.runtime import process_identity
++    root = Path(root).absolute()
++    with operation_lock(root):
++        session = read_json(owned_path(root, '.palcraft/session.json'))
++        token = session.get('token', '')
++        scope = read_json(_scope_path(root, token, 'scope.json'))
++        pointer = read_json(owned_path(root, LIFECYCLE + '/current.json'))
++        owner = marker(root)
++        state = get_state(root); profile = state['profile']; native = scope.get('native_scope', {})
++        if (not enabled(profile) or session.get('phase') != 'stopped'
++                or session.get('normal_stop_stage') != 'await_native_exit'
++                or pointer.get('token') != token or scope.get('token') != token
++                or scope.get('root') != str(root) or scope.get('root_id') != owner['id']
++                or scope.get('active_events_path') != str(root / EVENTS)
++                or native.get('world_id') != profile['connection']['identity']['world_id']
++                or native.get('pal_uid') != profile['connection']['identity']['pal_uid']):
++            fail('JOURNAL_SCOPE', '收尾只接受本安装同一次完整正常停机的原 boot。')
++        request = read_json(_scope_path(root, token, 'stop-request.json'))
++        if request.get('token') != token or request.get('root_id') != owner['id'] or request.get('force') is not False:
++            fail('JOURNAL_SCOPE', '缺少原同 boot 的正常关闭请求。')
++        pending = read_json(_scope_path(root, token, 'incomplete-stop.json'))
++        witness = read_json(_scope_path(root, token, 'normal-save-file-witness.json'))
++        if (pending.get('token') != token or pending.get('code') != 'JOURNAL_WITNESS_PENDING'
++                or pending.get('normal_save_witness') != witness
++                or session.get('journal_lifecycle', {}).get('actor_exits') != pending.get('actor_exits')
++                or witness.get('native_scope') != native or witness.get('after_submission') is not True
++                or witness.get('stable') is not True or witness.get('normal_save_completed') is not True):
++            fail('JOURNAL_WITNESS_PENDING', '原保存及 actual-wait 记录不完整，未重造见证。')
++        exits = pending['actor_exits']
++        if not exits or set(exits) != set(scope.get('actors', {})):
++            fail('JOURNAL_WITNESS_PENDING', '原 actor actual-wait 集合不完整。')
++        for key, actor in scope['actors'].items():
++            result = exits[key]
++            if (any(result.get(k) != actor.get(k) for k in ('pid', 'identity', 'role'))
++                    or result.get('actual_wait_completed') is not True
++                    or not isinstance(actor.get('pid'), int) or not actor.get('identity')):
++                fail('JOURNAL_WITNESS_PENDING', '原进程身份或 actual-wait 记录缺失。')
++            if process_identity(actor['pid']) is not None:
++                fail('JOURNAL_ACTOR_ALIVE', '原 PID 当前仍存在；未收养或操作该进程。')
++            if actor['role'] in ('proxy', 'hud', 'udp', 'ssh'):
++                worker = read_json(owned_path(root, '.palcraft/control/' + token + '.' + actor['role'] + '.' + str(actor['pid']) + '-exit.json'))
++                if (worker != result.get('owned_child_exit') or worker.get('token') != token
++                        or worker.get('component') != actor['role'] or worker.get('actual_wait_completed') is not True
++                        or not worker.get('child', {}).get('identity')
++                        or process_identity(worker['child']['pid']) is not None):
++                    fail('JOURNAL_WITNESS_PENDING', '原 worker 子进程 actual-wait 或退出记录不完整。')
++        supervisor = session.get('supervisor', {})
++        if not supervisor.get('identity') or process_identity(supervisor.get('pid')) is not None:
++            fail('JOURNAL_ACTOR_ALIVE', '原监督器尚未退出，不能从持久记录补收尾。')
++        save = read_json(_scope_path(root, token, 'save-request.json'))
++        save_id = witness.get('normal_save_id', '')
++        if not re.fullmatch(r'[a-f0-9-]{36}', save_id):
++            fail('JOURNAL_SAVE_SCOPE', '原正常保存 ID 无效。')
++        wal = owned_path(root, DEV + '/bridge/exchange/pal-client-save-' + save_id + '.r000002.json')
++        row = read_json(wal); intent_path = wal.with_name(wal.name.replace('.r000002.', '.r000001.'))
++        intent = read_json(intent_path)
++        expected = {'protocol': 3, 'id': save_id, 'world_directory': native['world_id'], 'pal_uid': native['pal_uid']}
++        if (save.get('request') != expected or row != read_json(wal.with_suffix('.durable.json'))
++                or intent != read_json(intent_path.with_suffix('.durable.json'))
++                or intent.get('status') != 'normal_save_intent' or intent.get('revision') != 1
++                or row.get('status') != 'normal_save_requested' or row.get('revision') != 2
++                or any(row.get(k) != v for k, v in expected.items())
++                or any(intent.get(k) != row.get(k) for k in ('protocol', 'id', 'boot_id', 'world_directory', 'pal_uid'))
++                or row.get('boot_id') != native.get('save_boot_id')
++                or digest(wal) != witness.get('save_request_durable_sha256')):
++            fail('JOURNAL_SAVE_SCOPE', '原保存 durable r1/r2 与本 boot/file witness 不一致。')
++        level = owned_path(root, USER + '/Saved/SaveGames/' + profile['standalone']['save_account_directory'] + '/' + native['world_id'] + '/Level.sav')
++        actual = file_identity(level)
++        if (actual['mtime_ns'] <= save['submitted_unix'] * 1e9
++                or actual['mtime_ns'] / 1e9 != witness['level_mtime']
++                or actual['bytes'] != witness['level_bytes'] or digest(level) != witness['level_sha256']):
++            fail('JOURNAL_SAVE_CHANGED', '原提交之后的 Level 文件见证已变化。')
++        for action in ('return_title', 'observe_title', 'quit_title'):
++            submitted = read_json(_scope_path(root, token, action + '-request.json'))
++            observed = read_json(_scope_path(root, token, action + '-observation.json'))
++            value = observed.get('result', {})
++            if (observed.get('ok') is not True or value.get('action') != action
++                    or value.get('request_id') != submitted.get('request_id')
++                    or value.get('token') != token or value.get('process_epoch') != native.get('process_epoch')
++                    or value.get('observed_unix', 0) < submitted.get('submitted_unix', 0) - 1):
++                fail('JOURNAL_SCOPE', '原正常 Title/Quit 关联记录不完整。')
++            if action == 'observe_title' and scope.get('normal_title_observed') != value:
++                fail('JOURNAL_SCOPE', '原 Title 回执与 scope 不一致。')
++        # Same issuer as normal finish. No fake owner/Popen and no phase/state edit.
++        return _issue_normal_stop(root, token, scope, exits, witness, session['phase'], quiet_seconds, dry_run)
+--- a/installer/cli.py
++++ b/installer/cli.py
+@@ -93,7 +93,7 @@
+     parser = argparse.ArgumentParser(description='PalCraft 玩家安装、个人客户端启动和排错工具。')
+     commands = parser.add_subparsers(dest='command', required=True)
+     for name in ('install', 'configure', 'update', 'rollback', 'uninstall', 'bottle-create', 'form',
+-                 'resources', 'credential-import', 'performance', 'doctor', 'start', 'promote', 'stop', 'status', 'recover', 'recover-session', 'diagnostics', '_session', '_worker', '_proxy'):
++                 'resources', 'credential-import', 'performance', 'doctor', 'start', 'promote', 'stop', 'finalize-stop', 'status', 'recover', 'recover-session', 'diagnostics', '_session', '_worker', '_proxy'):
+         sub = commands.add_parser(name)
+         sub.add_argument('--root', required=True, help='自己选择的独立安装目录')
+         if name not in ('status', 'diagnostics', '_session', '_worker', '_proxy', 'doctor'):
+@@ -170,6 +170,9 @@
+             result = configure(root, read_json(args.profile), dry)
+         elif command == 'update':
+             result = update(root, args.bundle, dry)
++        elif command == 'finalize-stop':
++            from launcher.journal_lifecycle import finalize_stop
++            result = finalize_stop(root, dry)
+         elif command == 'rollback':
+             result = rollback(root, dry)
+         elif command == 'uninstall':

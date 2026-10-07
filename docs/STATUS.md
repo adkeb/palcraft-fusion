@@ -8,6 +8,10 @@
 
 单机候选已推进到 `0.4.0-mac-standalone-candidate.11-normal-mac-startup`。原安装器更新已恢复既有后端启动模板，监督器自动向自己原生 Helper 发送一次正常 App open，实际游戏已映射本安装的 dwmapi、UE4SS、UTF8 路径桥接和 Durable/Credit 组件。原 World 通过正常 API 加载，真实单机角色、进程身份及权限已观察，并导出一张真实 Palworld 引擎场景图。没有手动第二次启动或伪造 ready。原身份签发与签名验证、Mac guest 清单、原 profile/角色准备/同步和同监督器 promote 已完成；六个原归属组件存活，实际世界快照 ACK 自然完成，transport/game readiness 由真实回执达到就绪。流体模块缺少的客户端日志路径已按实际进程和世界范围补齐同一个数据字段，原 dispatcher 自然恢复新 authority。[永久生成修复](../workstreams/standalone-fluid-log-scope) 保留原权限和断言，并由现有游戏运行时采用同一真实路径。
 
+最近一轮真实单机运行已完成正常保存、返回标题、退出游戏与所归属后端进程的实际等待退出，相关数据在退出后保持稳定。最终停机收据未由原一次性收尾步骤生成，新增 [同次正常退出收尾入口](../workstreams/normal-stop-off-finalize) 复用原签发流程，针对性测试已通过，尚未对真实安装执行该入口。另发现原安装器将三份正常运行生成的配置变化识别成更新冲突，修复仍在开发。
+
+[原生上下文发现优化](../workstreams/standalone-realm-cadence) 和 [定时画质接口修复](../workstreams/power-profile-observed-api) 已公开为独立源码增量；前者尚待新版本实机帧耗时验证，后者保留昼夜配置规则与真实设置读回。源码检查不代表游戏性能或完整玩法已验收。
+
 10.7 复活同步候选包含六份 Java 增量，已通过 Java 25 编译并在之前的隔离环境加载。完整公开构建入口已在 Mac 从 100 个生产源生成新 168 class，明确混合 debug 与三类行号元数据规范化后重建基础包，再衔接六源 11 个新 class 准确得到 F35；未使用旧项目 class 字节。全项目 Gradle 构建、其他用户全新环境、完整复活同步、库存持久与正常游玩仍待验证。公开实验包和独立源码备选均保留对应的验证范围。
 
 原生菜单 v2 的唯一 COM 创建器已修复实机中文路径损失，通过 API 获取的现有文件 ASCII 别名并核对真实同文件身份。实际保存与 fresh Load 读回的四字段均通过，链接为 1968 字节，没有执行目标或改动会话。修正源码与自写文件工具已公开；后续正常更新、真正应用启动、窗口和物理 F5 仍待验证。 后续实机测试已确认 Helper 获得环境但 Wine task 使用主应用环境，因此当前候选改用官方 raw Command 显式传参。配套 [首次 App open](../workstreams/normal-native-menu-first-open)、[生成启动模板保留](../workstreams/generated-launch-template-continuity) 和 [Mac 本地 guest 清单](../workstreams/mac-local-guest-manifest) 已完成各自源码检查；正在组合下一普通启动候选，实际 Mod 加载、世界、角色、登录与完整玩法仍待验证。
