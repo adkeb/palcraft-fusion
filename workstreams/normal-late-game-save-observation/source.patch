@@ -1,0 +1,125 @@
+--- base/launcher/journal_lifecycle.py
++++ source/launcher/journal_lifecycle.py
+@@ -85,6 +85,37 @@
+         and host.get('primary_alive') is False and host.get('job_active_processes') == 0
+         and session.get('journal_lifecycle', {}).get('actor_exits') == receipt.get('actor_exits')
+         and receipt.get('normal_save_witness', {}).get('normal_save_completed') is True)
++
++def _normal_late_receipt_matches(root, scope, receipt):
++    late = receipt.get('final_post_exit_level_witness')
++    if late is None:
++        return True
++    selected = Path(read_json(root / '.palcraft/standalone/scope.json')['installed_level_path_host'])
++    level = owned_path(root, selected.relative_to(root).as_posix())
++    host = read_json(owned_path(root, '.palcraft/control/' + scope['token'] + '.host.json'))
++    codec = late.get('final_level_codec_observation', {})
++    files = codec.get('files', {})
++    player = level.parent / 'Players' / (scope['native_scope']['pal_uid'].replace('-', '').upper() + '.sav')
++    expected_files = {path.relative_to(root).as_posix() for path in (level, player)}
++    return (late.get('kind') == 'palcraft-final-normal-game-save-observation-v1'
++        and late.get('normal_save_id') == receipt.get('normal_save_witness', {}).get('normal_save_id')
++        and late.get('native_scope') == scope.get('native_scope')
++        and late.get('original_early_witness_preserved') is True
++        and late.get('standard_codec_reparsed_this_call') is True
++        and late.get('normal_save_completed') is True
++        and late.get('level_identity') == file_identity(level) and late.get('level_sha256') == digest(level)
++        and late.get('original_host_exit_observation') == host
++        and host.get('exit_code') == 0 and host.get('phase') == 'stopped'
++        and host.get('primary_pid') == scope['native_scope']['pid']
++        and host.get('primary_alive') is False and host.get('job_active_processes') == 0
++        and codec.get('kind') == 'final-owned-normal-Level-codec-observation-v1'
++        and codec.get('world_id') == scope['native_scope']['world_id']
++        and codec.get('pal_uid') == scope['native_scope']['pal_uid']
++        and codec.get('standard_codec_reparsed') is True and codec.get('level_and_player_parsed') is True
++        and codec.get('owned_UID_in_Level') is True and set(files) == expected_files
++        and codec.get('standard_codec') == 'palworld_save_tools decompress_sav_to_gvas + GvasFile.read PALWORLD_TYPE_HINTS'
++        and all(value == {'identity': file_identity(owned_path(root, name)), 'sha256': digest(owned_path(root, name))}
++                for name, value in files.items()))
+ 
+ 
+ def prepare_cold_boot(root, dry_run=False, normal_stop_receipt=None):
+@@ -138,7 +169,7 @@
+                            for field in ('pid', 'identity', 'role')) for key, actor in scope['actors'].items())
+                 or (not _unsaved_crash_receipt_matches(root, scope, previous, receipt) if unsaved_crash
+                      else not _saved_crash_receipt_matches(root, scope, previous, receipt) if saved_crash
+-                    else not receipt.get('normal_title_Quit_and_native_exit0'))
++                    else not receipt.get('normal_title_Quit_and_native_exit0') or not _normal_late_receipt_matches(root, scope, receipt))
+                 or not receipt.get('Saved_and_WAL_stable_after_all_actors_off')):
+             fail('JOURNAL_STALE_RECEIPT', '停机见证不属于这一 boot、这一事件卷或真实等待结束的进程。')
+         inventory = _crash_persistent_inventory if unsaved_crash else _persistent_inventory
+@@ -582,7 +613,9 @@
+         'persistent_sha256': hashes, 'observed_unix': time.time(),
+         'new_SID_credential_permission_ACK_reader_offset_or_transaction_WAL_written': False}
+     if late_level_witness is not None:
+-        assert saved_crash and late_level_witness['original_early_witness_preserved']
++        assert late_level_witness['original_early_witness_preserved']
++        assert late_level_witness['kind'] == ('palcraft-final-late-game-save-observation-v1' if saved_crash
++                                             else 'palcraft-final-normal-game-save-observation-v1')
+         receipt['final_post_exit_level_witness'] = late_level_witness
+     if saved_crash:
+         receipt.update(saved_crash_off_completed=True, original_session_phase=session['phase'],
+@@ -688,6 +721,40 @@
+             'CharacterSaveParameterMap_contains_UID1':True,'UID1_PlayerSav_bytes':codec['uid1_PlayerSav_bytes']},
+         'extra_native_BootRegistry_not_claimed':True,'standard_codec_reparsed_this_call':True,'observed_unix':time.time()}
+ 
++def _late_normal_saved_level(root, token, scope, session, save, witness, level):
++    """Keep the early successful save witness and observe a later game-written save after normal exit."""
++    host_path = owned_path(root, '.palcraft/control/' + token + '.host.json')
++    host = read_json(host_path)
++    native = scope['native_scope']
++    actual = file_identity(level)
++    if (session.get('phase') != 'stopped' or session.get('normal_stop_stage') != 'await_native_exit'
++            or not scope.get('normal_title_observed') or witness.get('normal_save_completed') is not True
++            or host.get('primary_pid') != native.get('pid') or host.get('primary_alive') is not False
++            or host.get('job_active_processes') != 0 or host.get('exit_code') != 0
++            or host.get('phase') != 'stopped'
++            or actual['mtime_ns'] <= int(witness['level_mtime'] * 1e9)
++            or actual['mtime_ns'] <= int(save['submitted_unix'] * 1e9)
++            or actual['mtime_ns'] > host_path.stat().st_mtime_ns):
++        fail('JOURNAL_SAVE_CHANGED', '晚写 Level 不属于原正常保存、Title/Quit 及 native exit0 的真实边界。')
++    # This existing helper reparses Level and Player through the standard codec,
++    # checks the exact owned world/UID and checks both files again afterwards.
++    # Keep only the codec's observation facts, not its unsaved-boot labels.
++    observed = _existing_level_codec(root, {'profile': get_state(root)['profile'], 'scope': scope})
++    codec = {key: observed[key] for key in ('world_id', 'pal_uid', 'files', 'standard_codec',
++             'codec_python_executable', 'standard_codec_reparsed', 'level_and_player_parsed', 'owned_UID_in_Level')}
++    codec['kind'] = 'final-owned-normal-Level-codec-observation-v1'
++    if actual != file_identity(level):
++        fail('JOURNAL_SAVE_PENDING', '正常退出后的最终 Level 在只读解析期间又变化。')
++    row = codec['files'][level.relative_to(root).as_posix()]
++    return {'schema': 1, 'kind': 'palcraft-final-normal-game-save-observation-v1',
++            'normal_save_id': witness['normal_save_id'], 'native_scope': native,
++            'level_mtime': actual['mtime_ns'] / 1e9, 'level_bytes': actual['bytes'],
++            'level_identity': actual, 'level_sha256': row['sha256'],
++            'after_submission': True, 'stable': True, 'normal_save_completed': True,
++            'original_early_witness_preserved': True, 'original_host_exit_observation': host,
++            'standard_codec_reparsed_this_call': True, 'final_level_codec_observation': codec,
++            'extra_native_BootRegistry_not_claimed': True, 'observed_unix': time.time()}
++
+ def finalize_stop(root, dry_run=False, quiet_seconds=2):
+     return _finalize_off(root, dry_run, quiet_seconds)
+ 
+@@ -770,11 +837,10 @@
+         level = owned_path(root, USER + '/Saved/SaveGames/' + profile['standalone']['save_account_directory'] + '/' + native['world_id'] + '/Level.sav')
+         actual = file_identity(level)
+         late_level_witness = None
+-        if (actual['mtime_ns'] <= save['submitted_unix'] * 1e9
++        level_changed = (actual['mtime_ns'] <= save['submitted_unix'] * 1e9
+                 or actual['mtime_ns'] / 1e9 != witness['level_mtime']
+-                or actual['bytes'] != witness['level_bytes'] or digest(level) != witness['level_sha256']):
+-            if not saved_crash:
+-                fail('JOURNAL_SAVE_CHANGED', '原提交之后的 Level 文件见证已变化。')
++                or actual['bytes'] != witness['level_bytes'] or digest(level) != witness['level_sha256'])
++        if level_changed and saved_crash:
+             late_level_witness = _late_saved_level(root, token, scope, session, save, witness, level)
+         for action in (() if saved_crash else ('return_title', 'observe_title', 'quit_title')):
+             submitted = read_json(_scope_path(root, token, action + '-request.json'))
+@@ -787,6 +853,8 @@
+                 fail('JOURNAL_SCOPE', '原正常 Title/Quit 关联记录不完整。')
+             if action == 'observe_title' and scope.get('normal_title_observed') != value:
+                 fail('JOURNAL_SCOPE', '原 Title 回执与 scope 不一致。')
++        if level_changed and not saved_crash:
++            late_level_witness = _late_normal_saved_level(root, token, scope, session, save, witness, level)
+         # Same issuer as normal finish. No fake owner/Popen and no phase/state edit.
+         return _issue_off_receipt(root, token, scope, exits, witness, session['phase'], quiet_seconds, dry_run,
+                                   saved_crash=saved_crash, session=session, late_level_witness=late_level_witness)

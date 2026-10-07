@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "applicable_base": "candidate.27-static-perblock-model",
+  "bounded_temporary_source_cases_passed": 3,
+  "runtime_acceptance_pending": true,
+  "source_files": [
+    {
+      "path": "README.md",
+      "sha256": "8f38ce872fd310c17c17089a3471f77ca9ab3cebe138fa08b263e469dd5d5375",
+      "bytes": 1369
+    },
+    {
+      "path": "base/launcher/journal_lifecycle.py",
+      "sha256": "ec90f26ed5232e7bf23dafa5df0c438ccefa50d1c47fe4d4683ac42f59e4f176",
+      "bytes": 71921
+    },
+    {
+      "path": "checks/check_normal_late.py",
+      "sha256": "7e8e62dad3b43ca4653ab1702791f2fbe343f217b84580292f3d012b9bbadd68",
+      "bytes": 5674
+    },
+    {
+      "path": "source/launcher/journal_lifecycle.py",
+      "sha256": "0978af9600087def973ddc33973ca69e2a9b3579101afbaece08ab20f1fbeb37",
+      "bytes": 77140
+    },
+    {
+      "path": "source.patch",
+      "sha256": "865889ac9bab6f985e6fbd870f8bd98e6c31164ba92ffbd8b462f109c3700a04",
+      "bytes": 9327
+    }
+  ]
+}
