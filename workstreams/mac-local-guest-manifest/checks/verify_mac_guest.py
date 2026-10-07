@@ -248,6 +248,5 @@ if __name__ == '__main__':
         'full_profile_validate_or_installed_state_function_exercised': False,
         'windows_entire_default_manifest_and_allocations_equal_original': True,
         'network_ports_processes_or_GUI_used': False, 'current_ready_or_gameplay_claimed': False}
-    (HERE / 'verification.json').write_text(json.dumps(receipt, indent=2) + '\n')
     print(json.dumps(receipt, indent=2))
     raise SystemExit(0 if result.wasSuccessful() else 1)

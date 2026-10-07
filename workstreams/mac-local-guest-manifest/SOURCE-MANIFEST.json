@@ -7,8 +7,8 @@
   "changed_production_files": 1,
   "files": {
     "README.md": {
-      "sha256": "f398aeb8a5cd366cb4ef265f29fc632ece05b72978050d517a38af232a61d179",
-      "bytes": 1940
+      "sha256": "e8672d4f1fdb02686f594c5c82c6d781cc570d52f2edf99fd9107af19814d355",
+      "bytes": 2189
     },
     "base/multiplayer/prepare_guest.py": {
       "sha256": "0d500220d7849f4f2f461f024eb42353f6d7f404f70030d76face54d4b6268bf",
@@ -23,8 +23,8 @@
       "bytes": 1090
     },
     "checks/verify_mac_guest.py": {
-      "sha256": "fd92194afcca6a36760dc680e3175424a5efda26e58959594e0140dfa380f2b2",
-      "bytes": 15057
+      "sha256": "5677604d3287fcf1ae92c2457b947e82041bad48823fdb188c38d21cead908f5",
+      "bytes": 14975
     },
     "consumer/credentials.py": {
       "sha256": "5fef4e9ae5e8825d5d7c20025f24fde21939954dfe3aafeaf1a7ac8107d87eab",
@@ -47,11 +47,15 @@
       "bytes": 769
     }
   },
-  "check_script_same_bytes_as_passed_source_checks": true,
+  "check_script_same_bytes_as_passed_source_checks": false,
   "original_bounded_source_tests_passed": 12,
   "portable_copy_tests_rerun": false,
   "fixtures_are_fixed_existing_synthetic_test_data": true,
   "actual_credential_keys_grants_role_JSON_INPUTS_or_private_HANDOFF_included": false,
   "author_or_actual_installation_paths_included": false,
-  "process_service_network_or_gameplay_claimed": false
+  "process_service_network_or_gameplay_claimed": false,
+  "portable_checker_only_final_receipt_write_removed": true,
+  "portable_check_function_logic_unchanged": true,
+  "checker_receipt_destination": "stdout; recorded verification.json unchanged",
+  "portable_ZIP_source_file_modes": "0644; archive itself frozen read-only"
 }

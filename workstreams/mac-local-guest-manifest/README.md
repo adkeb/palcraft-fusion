@@ -10,4 +10,4 @@ The portable bounded checker is `python3 -B checks/verify_mac_guest.py`. It read
 
 `consumer/credentials.py` is an unchanged source snapshot used only for the schema test. The checker exercises its original inspection and guest-profile preparation functions with file-reading/error stubs, not the real profile validator, installed state, or credential-import writes. It makes no local signature-verification or gameplay claim.
 
-The original 12 bounded source checks passed. This portable layout copies the same checker and source bytes without rerunning that unchanged suite.
+The original 12 bounded source checks passed. The portable checker prints its fresh receipt to stdout and leaves the recorded verification file unchanged, so it also works from a read-only source tree. Only that final receipt-write line was removed; all check function logic and production source bytes remain identical. The unchanged check functions were not rerun for this packaging adjustment.
