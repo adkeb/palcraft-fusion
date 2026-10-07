@@ -1,0 +1,166 @@
+--- a/client/main.lua
++++ b/client/main.lua
+@@ -351,6 +351,97 @@
+  end
+  control_stop_ok=true;return client_control.status(nil,proof)
+ end
++local function saved_shutdown_scope(request,proof)
++ assert(type(request)=='table'and request.kind=='normal_saved_world_shutdown_v1'and request.action=='return_title',
++  'Normal saved lifecycle shutdown required')
++ assert(type(request.normal_save_id)=='string'and#request.normal_save_id>0,'Original normal Save ID required')
++ local token=assert(request.token);assert(type(token)=='string'and#token==32 and token:match('^[a-f0-9]+$'),'Owned lifecycle token required')
++ local base='.palcraft/standalone/journal-lifecycle/'
++ local function read(name)local f=assert(io.open(Paths.join(base..name),'rb'));local v=J.decode(f:read('*a'));f:close();return v end
++ assert(read('current.json').token==token,'Current owned lifecycle differs')
++ local scope=read(token..'/scope.json');local witness=read(token..'/normal-save-file-witness.json')
++ assert(scope.token==token and witness.normal_save_completed==true and witness.after_submission==true and witness.stable==true
++  and witness.normal_save_id==request.normal_save_id,'Successful current normal Save required')
++ local actual={process_epoch=proof.process_epoch,server_session_id=proof.server_session_id,world_id=proof.world_id,pal_uid=proof.host_uid}
++ for key,value in pairs(actual)do
++  assert(scope.native_scope[key]==value and witness.native_scope[key]==value,'Saved native scope differs:'..key)
++ end
++ for key,value in pairs(scope.native_scope)do assert(witness.native_scope[key]==value,'Save witness belongs to another native scope')end
++ return true
++end
++local function saved_home_cleanup_ready(server_features,proof,view)
++ local source=view_state.mapping
++ if not source or source.native_overworld~=true or source.dim~='minecraft:overworld'then return false end
++ local known,count={},0
++ local function home(ticket,mapping,uid,world_session,dim,version)
++  if not ticket then return true end
++  if uid~=proof.host_uid or not mapping or mapping.native_overworld~=true or mapping.dim~='minecraft:overworld'
++   or mapping.world_session~=source.world_session or world_session~=mapping.world_session or dim~=mapping.dim
++   or ticket.world_session~=world_session or ticket.dim~=dim or ticket.view~=version or ticket.region_id~=mapping.region_id
++   or not ticket.realm or ticket.realm.server_session_id~=proof.server_session_id or ticket.realm.world_id~=proof.world_id
++   or ticket.realm.host_uid~=proof.host_uid or ticket.realm.process_epoch~=proof.process_epoch
++   or ticket.realm.world_address~=proof.world_address then return false end
++  for _,key in ipairs({'X','Y','Z'})do if not mapping.origin or math.abs(mapping.origin[key]-home_origin[key])>=.001 then return false end end
++  if not known[ticket]then known[ticket]=true;count=count+1 end
++  return true
++ end
++ local slot=server_features.composition and server_features.composition.features.travel
++ local travel=slot and slot.instance
++ if not slot or(slot.phase~='disabled'and(slot.phase~='running'or not travel))then return false end
++ if travel then
++  for uid,tx in pairs(travel.pending)do
++   if not home(tx._ticket,tx.mapping,uid,tx.world_session,tx.dim,tx.view)then return false end
++  end
++  for uid,player in pairs(travel.players)do
++   if not home(player._ticket,player.mapping,uid,player.world_session,player.dim,player.view)then return false end
++  end
++ end
++ if view then
++  for _,scene in ipairs(view.recovery_scenes)do
++   local t=scene.ticket
++   if not t or not home(t,scene.mapping,scene.pal_uid,t.world_session,t.dim,t.view)then return false end
++  end
++  if view.status().owned_server_leases~=count then return false end
++ elseif count>0 then return false end
++ return true
++end
++function client_control.normal_saved_shutdown(server_features,proof,view,request,known_dead)
++ view_thread();assert(saved_shutdown_scope(request,assert(proof)))
++ local ctx
++ if known_dead then
++  assert(proof.world and proof.game_state and proof.world:IsValid()==false and proof.game_state:IsValid()==false,
++   'Original native world death not verified')
++  ctx={context_alive=false,collisions=collisions}
++ else
++  ctx=control_context(proof)
++  assert(ctx.context_alive==true,'Actual saved world context pending')
++  assert(proof.save_manager:IsWorldAutoSaving()==false,'Native world autosave still active')
++ end
++ if operator_paused and control_stop_ok==true then return{stop_ok=true,context_alive=ctx.context_alive,normal_saved_shutdown=true}end
++ assert(saved_home_cleanup_ready(server_features,proof,view),'Saved shutdown requires exact owned native-home scenes')
++ operator_paused=true;control_stop_ok=false
++ if native_suspend then native_suspend();native_paused=true end
++ assert(server_features:stop('normal_saved_shutdown',ctx)==true,'Server feature cleanup failed')
++ if view then
++  while #view.recovery_scenes>0 do
++   local ticket=view.recovery_scenes[#view.recovery_scenes].ticket
++   if ctx.context_alive then assert(view.release(ticket)==true,'Owned server scene release failed')
++   else assert(view.abandon(ticket)==true,'Dead server scene abandon failed')end
++  end
++  assert(view.status().owned_server_leases==0,'Server still owns shared scene references')
++  server_features.retained_travel_handoff=nil;server_features.retained_travel_scenes=nil
++ end
++ client_view.reset('normal_saved_shutdown',ctx.context_alive)
++ if ctx.context_alive then form.stop('normal_saved_shutdown')end -- Dead native world has no live form to restore.
++ -- Preserve the existing owner order: legacy visuals precede shared chunk cleanup.
++ if collisions then collisions.stop(ctx.context_alive)end
++ assert(features:stop('normal_saved_shutdown',ctx)==true,'Client feature cleanup failed')
++ collisions=nil;session=nil;_G.PalCraftCollisionCompanion=nil
++ if camera_file then
++  publish(string.pack('<c8I4I4dddddddffffff','PALCRFT1',2,0,os.time(),0,0,0,0,0,0,0,0,0,60,.1,1000000))
++ end
++ control_stop_ok=true;return{stop_ok=true,context_alive=ctx.context_alive,normal_saved_shutdown=true}
++end
+ function client_control.start(server_features,proof)
+  local ctx=control_context(proof)
+  assert(control_stop_ok~=false,'Previous world stop did not complete')
+--- a/server/runtime/standalone_world.lua
++++ b/server/runtime/standalone_world.lua
+@@ -4,11 +4,11 @@
+ local M={version=1}
+ function M.new(o)
+  assert(o and o.local_realm and o.client_worker,'Actual local realm and current client worker required')
+- local realm=o.local_realm;local api={}
++ local realm=o.local_realm;local api={};local known
+  local function current()
+   local p=realm:current()
+   if not p or p.mode~='standalone'or realm:validate(p,p.pc)~=true then return nil end
+-  return p
++  known=p;return p
+  end
+  function api.companion()
+   local p=current();if not p then return nil end
+@@ -49,6 +49,24 @@
+  end
+  function api.start(features)return control('start',features)end
+  function api.stop(features)return control('stop',features)end
++ function api.normal_saved_shutdown(features,request)
++  local p=current();local dead=false
++  if not p then
++   assert(known and known.world:IsValid()==false and known.game_state:IsValid()==false,
++    'Actual fresh standalone context or known dead original world required')
++   local title={}
++   for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do
++    if pc:IsValid()and not pc:GetFullName():find('Default__',1,true)and pc.Player:IsValid()
++     and pc.Player:GetFullName():match('^PalLocalPlayer ')and pc:GetFullName():find('BP_PalPlayerController_Title_C',1,true)then title[#title+1]=pc end
++   end
++   assert(#title==1,'Actual Title local controller pending')
++   p=known;dead=true
++  end
++  local _,epoch=assert(_G.PalCraftStandalonePermissions).process()
++  assert(epoch==p.process_epoch,'Saved shutdown actual native process changed')
++  local controls=assert(o.client_control,'Existing client lifecycle controls unavailable')
++  return assert(controls.normal_saved_shutdown,'Normal saved shutdown entry unavailable')(features,p,api.view,request,dead)
++ end
+  function api.control_status()return control('status')end
+  return api
+ end
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -363,8 +363,20 @@
+         prefix += "local p,epoch=assert(_G.PalCraftStandalonePermissions).process()\nassert(epoch==" + q(native['process_epoch']) + ",'Native boot changed')\n"
+         result = "return {request_id=" + q(request_id) + ",token=" + q(self.token) + ",process_epoch=epoch,action=" + q(action) + ",observed_unix=os.time()}\n"
+         if action == 'return_title':
+-            prefix += "local r=assert(sp.local_realm:current())\nassert(r.server_session_id==" + q(native['server_session_id']) + " and r.world_id==" + q(native['world_id']) + " and r.host_uid==" + q(native['pal_uid']) + ",'Loaded world changed')\n"
+-            prefix += "assert(r.save_manager:IsWorldAutoSaving()==false,'Native world autosave still active')\nlocal stopped=assert(sp.world).stop(assert(_G.PalCraftServerFeatures))\nassert(stopped.stop_ok==true,'Original owned world cleanup pending')\nr.pc:ClientReturnToMainMenu('PalCraft normal saved singleplayer stop')\n"
++            prefix += "local r=sp.local_realm:current()\nif r then assert(r.server_session_id==" + q(native['server_session_id']) + " and r.world_id==" + q(native['world_id']) + " and r.host_uid==" + q(native['pal_uid']) + ",'Loaded world changed') end\n"
++            witness = self.save_witness
++            if not witness or witness.get('normal_save_completed') is not True or witness.get('native_scope') != native:
++                fail('JOURNAL_SAVE_REQUIRED', '本 boot 原成功正常 Save 见证缺失，不能请求已保存关闭。')
++            request = '{kind="normal_saved_world_shutdown_v1",action="return_title",token=' + q(self.token) + ',normal_save_id=' + q(witness['normal_save_id']) + '}'
++            prefix += (
++                "if r then assert(r.save_manager:IsWorldAutoSaving()==false,'Native world autosave still active') end\n"
++                "local title\nif not r then local found={}\n"
++                "for _,pc in ipairs(FindAllOf('PalPlayerController')or{})do if pc:IsValid() and not pc:GetFullName():find('Default__',1,true) and pc.Player:IsValid() and pc.Player:GetFullName():match('^PalLocalPlayer ') and pc:GetFullName():find('BP_PalPlayerController_Title_C',1,true)then found[#found+1]=pc end end\n"
++                "assert(#found==1,'Actual Title local controller pending');title=found[1] end\n"
++                "local stopped=assert(sp.world).normal_saved_shutdown(assert(_G.PalCraftServerFeatures)," + request + ")\n"
++                "assert(stopped.stop_ok==true,'Original owned world cleanup pending')\n"
++                "if stopped.context_alive then assert(r,'Actual saved MainWorld unavailable');r.pc:ClientReturnToMainMenu('PalCraft normal saved singleplayer stop') else assert(title,'Actual Title local controller pending') end\n"
++            )
+         else:
+             prefix += "local found={}\nfor _,pc in ipairs(FindAllOf('PalPlayerController')or{})do if pc:IsValid() and not pc:GetFullName():find('Default__',1,true) and pc.Player:IsValid() and pc.Player:GetFullName():match('^PalLocalPlayer ') and pc:GetFullName():find('BP_PalPlayerController_Title_C',1,true) then found[#found+1]=pc end end\nassert(#found==1,'Actual Title local controller pending')\n"
+             if action == 'quit_title':

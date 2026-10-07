@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "base_candidate": 30,
+  "production_source_slots": 3,
+  "original_operator_guard_and_stop_preserved": true,
+  "bounded_synthetic_cases_passed": 3,
+  "actual_normal_shutdown_accepted": false,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "ff340db02ebded04188033baf3bd1cb9a7b7cc0505993fc6926e8a4d899336be",
+      "bytes": 1290
+    },
+    {
+      "path": "base/client/main.lua",
+      "sha256": "a2b344345db575d635127b43b8b2d019bbfb7d75c6fa27e5cefcaaef1295b6ab",
+      "bytes": 37106
+    },
+    {
+      "path": "base/launcher/journal_lifecycle.py",
+      "sha256": "48ef3be7381d1e53e1a7ad8751c356873ee295100adbef40ff537ad2f8da2f70",
+      "bytes": 77931
+    },
+    {
+      "path": "base/server/runtime/standalone_world.lua",
+      "sha256": "3e7d05c08a65609ad0bf2333f1c3a06bb415463bbe2b191aea879570e467effa",
+      "bytes": 2632
+    },
+    {
+      "path": "checks/check_shutdown.lua",
+      "sha256": "6c4a66b1c236fd83cb86e27b1a012e6a1274c673a583819dbb2f0e99467eabb9",
+      "bytes": 7879
+    },
+    {
+      "path": "source/client/main.lua",
+      "sha256": "b4a315c859f52aeb73d57ae3408236804824c4575f80b2a29d476f0cf90c5b74",
+      "bytes": 42936
+    },
+    {
+      "path": "source/launcher/journal_lifecycle.py",
+      "sha256": "1e180a18e7ecc7dc11ceb14e981d2a53e147c8ddd1b16e4990a0fa667c5431cc",
+      "bytes": 79145
+    },
+    {
+      "path": "source/server/runtime/standalone_world.lua",
+      "sha256": "9253746aeb2b45c831fd420f616385e503c87a940486b9d090e03df9b1f1ab98",
+      "bytes": 3710
+    },
+    {
+      "path": "source.patch",
+      "sha256": "23f51898a11ff46b2356ff866dc544975f42a2baff2f4c2946684df7aa5b2f11",
+      "bytes": 11423
+    }
+  ]
+}
