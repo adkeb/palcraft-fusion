@@ -12,9 +12,11 @@
 
 最新修正源码分别保存在 [玩家保存与重启流程](workstreams/normal-journal-owned-player-flow-v2)、[原生实体身份绑定](workstreams/native-entity-binding-next)、[MCP 身份观察](workstreams/MC-local-scope-observation-next) 和 [Windows 快捷方式生成备选](workstreams/windows-shelllink-stdlib-alternative)。备选只有格式与源码检查，尚未证明实际 vendor 解析成功。
 
-候选 14 的正常复活已恢复原 33 级角色，但后续世界 ACK 未完成，完整负载下仍约 6 FPS。随后的一次正常保存已完成，客户端在返回标题期间以退出码 3 崩溃。新增 [已保存崩溃恢复](workstreams/saved-crash-off-recovery) 已在真实安装签发独立收据，保留异常退出事实；候选 16 正在验证恢复后的更新、冷启动、复活同步与实际操作。
+候选 14 的正常复活已恢复原 33 级角色，但后续世界 ACK 未完成，完整负载下仍约 6 FPS。随后的一次正常保存已完成，客户端在返回标题期间以退出码 3 崩溃。[已保存崩溃恢复](workstreams/saved-crash-off-recovery) 已在真实安装签发独立收据，保留异常退出事实；后续更新已实际保留存档。
 
 候选 16 还包含 [帧内检查优化](workstreams/standalone-callback-live-guard)、[HUD 启动阶段归属修复](workstreams/mac-hud-normal-starting-phase) 和 [单机复活生命周期修复](workstreams/standalone-respawn-lifecycle)。这些修正已通过各自针对性源码检查，完整实机效果仍待验证。
+
+候选 17 已在真实 Mac 上恢复离线 Steam 前置，完成正常世界加载、身份登记验签和六组件接入。HUD 的启动归属组已实际生成，正常切换游戏到前台后，输入焦点和 1280×720 视口也恢复；完整负载仍约 7 FPS，F5 事件发送尚未证明游戏变身。初始接入还在把原角色移向 MC 旧位置，目标与真实地形重叠。[保留真实 Pal 出生位置](workstreams/initial-native-home-pal-spawn) 与 [删除重复身份检查及写盘](workstreams/standalone-service-frame-reuse) 已合入候选 18，等待正常升级后的实机验收。
 
 已有 [正常退出收尾源码](workstreams/normal-stop-off-finalize)、[上下文发现性能修正](workstreams/standalone-realm-cadence) 和 [定时画质接口修正](workstreams/power-profile-observed-api)，每项均标明源码检查与实机验证范围。
 
