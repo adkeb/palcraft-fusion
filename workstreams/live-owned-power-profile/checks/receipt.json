@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "ok": true,
+  "cases_passed": 3,
+  "cases": [
+    "default configure return/profile unchanged",
+    "same-owner request; original Pal mailbox script; relay period; actual extracted Foundation timer; four correlated readbacks",
+    "stale owner rejected; mismatching actual options rejected; closing owner cancelled"
+  ],
+  "all_native_owner_identity_and_MC_options_data_synthetic": true,
+  "Foundation_Timer_only_no_NSApp_or_GUI": true,
+  "Pal_reflected_setters_fake_UE": true,
+  "actual_MC_HUD_Game_roles_or_live_effect_not_verified": true,
+  "installed_state_credentials_world_Game_GUI_RPC_network_or_Popen_role_actions": false,
+  "actual_terminal_chunk": "1a071f",
+  "source_checker": "checks/check_live_power.py",
+  "fixture_correction": "Initial synthetic relay call was inside the existing 250ms poll interval; only fixture timing was advanced. No production fix was based on that failure.",
+  "prior_pass_chunk": "5d388e",
+  "final_three_cases_passed": true
+}

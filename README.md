@@ -60,3 +60,5 @@ MC 10.9 目标区域同步已提供 [组件实验包](https://github.com/adkeb/p
 正常退出时的晚写存档收尾已实际成功：[正常晚写存档观察](workstreams/normal-late-game-save-observation) 保留早期保存记录，原标准 codec 重新检查最终 Level、Player 与本人 UID；游戏和六组件的真实退出记录均保留。候选 28 已正常更新、保留存档并重新启动离线单机，完整场景与生存玩法仍在验收。公共安装的 codec 依赖配置尚未全部解决。
 
 [可选标准存档 codec 入口](workstreams/portable-normal-codec-entry) 增加 `finalize-stop --codec-python`，缺少 pyooz 时提供明确提示；三项限定函数案例通过，目前为未安装的源码增量。
+
+[同一运行会话内调整性能](workstreams/live-owned-power-profile) 和 [实际读回关联修正](workstreams/live-power-readback-correlation) 已公开源码：以后可由原监督器在线调整帕鲁、MC 与 HUD 帧率并读取实际值，避免仅修改下次启动配置。MC/Swift 编译通过，当前游戏尚未安装这项增量，实际实时效果仍待验证。

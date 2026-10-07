@@ -1,0 +1,5 @@
+This single-source follow-up to the live owned performance delta strengthens the two requested readback rules. Apply it after the original seven payload changes; all other source and compiled MC/HUD pins remain unchanged.
+
+A correlated Pal success must report both the real `t.MaxFPS` and settings limit equal to the requested cap. A generic `client-op-result.json` error without operation ID does not prove that the current performance request failed. The owner therefore keeps that result unknown until the existing deadline, retaining any correlated MC/HUD observations and reporting timeout without success. No generic error is promoted to a current request rejection.
+
+Two actual Python function cases passed with synthetic identities, a controlled fixture clock, and synthetic peer readbacks. No game, GUI, RPC, credential, installed file, or runtime process was used. MC/Swift were not rebuilt. The existing Pal generated setter/assertion and all original owner/world/session guards are unchanged.

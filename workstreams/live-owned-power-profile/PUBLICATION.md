@@ -1,0 +1,1 @@
+Source changes are published for review and rebuilding. Compiled MC/HUD binaries and source ZIPs remain in the local handoff and are not embedded in this Git tree. The source manifest records their build identity; runtime installation and live FPS effects have not been accepted.

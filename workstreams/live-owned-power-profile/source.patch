@@ -1,0 +1,586 @@
+--- a/player/installer/performance.py
++++ b/player/installer/performance.py
+@@ -1,5 +1,11 @@
+-"""Portable personal display profiles. No hardware policy or remote process control."""
++"""Personal display profiles and opt-in updates handled by the current local owner."""
+ import copy
++import json
++import os
++import re
++import time
++import uuid
++from pathlib import Path
+ from installer.core import configure, fail, get_state
+ 
+ PRESETS = {
+@@ -47,11 +53,233 @@
+             'operator_action': 'Apply targets only to this assigned personal guest/relay; the player launcher does not control backend processes.'}
+ 
+ 
+-def set_performance(root, preset, pal_fps=None, mc_fps=None, hud_fps=None, dry_run=False):
++def set_performance(root, preset, pal_fps=None, mc_fps=None, hud_fps=None, dry_run=False,
++                    live=False, mc_render_distance=None, mc_muted=None, timeout=10):
+     state = get_state(root)
+     profile = with_preset(state['profile'], preset, pal_fps, mc_fps, hud_fps)
++    if live:
++        targets = {key: profile['performance'][key] for key in ('pal_fps', 'mc_fps', 'hud_fps')}
++        if mc_render_distance is not None:
++            targets['mc_render_distance'] = mc_render_distance
++        if mc_muted is not None:
++            targets['mc_muted'] = mc_muted
++        return request_live(root, targets, dry_run, timeout)
++    if mc_render_distance is not None or mc_muted is not None:
++        fail('CONFIG_PERFORMANCE', 'MC 距离和静音参数需要 --live。')
+     configured = configure(root, profile, dry_run=dry_run)
+     return {'ok': configured['ok'], 'dry_run': dry_run, 'performance': profile['performance'],
+             'local_client_applies': 'on next personal client start', 'remote_plan': remote_plan(profile),
+             'remote_applied': False, 'hardware_controls': False,
+             'message': '个人帕鲁帧率已配置；MC/HUD目标需运营者应用到对应个人guest/relay。'}
++
++
++LIVE_KIND = 'palcraft-owned-live-performance-v1'
++
++
++def live_targets(value):
++    if not isinstance(value, dict) or set(value) - {'pal_fps', 'mc_fps', 'hud_fps', 'mc_render_distance', 'mc_muted'}:
++        fail('PERFORMANCE_TARGETS', '实时性能参数不合法。')
++    validate_performance({'preset': 'custom', **value}, value.get('pal_fps'))
++    if 'mc_render_distance' in value and (type(value['mc_render_distance']) is not int or not 2 <= value['mc_render_distance'] <= 32):
++        fail('PERFORMANCE_TARGETS', 'MC 渲染距离必须为 2..32。')
++    if 'mc_muted' in value and type(value['mc_muted']) is not bool:
++        fail('PERFORMANCE_TARGETS', 'MC 静音值必须为 true 或 false。')
++    return dict(value)
++
++
++def role_environment(root, token, role, env):
++    """Called only by the existing owner immediately before its role Popen."""
++    from installer.core import marker, owned_path
++    result = dict(env)
++    result.update(PALCRAFT_PERFORMANCE_DIR=str(owned_path(root, '.palcraft/control/' + token + '.performance')),
++                  PALCRAFT_PERFORMANCE_TOKEN=token, PALCRAFT_PERFORMANCE_ROOT_ID=marker(root)['id'],
++                  PALCRAFT_PERFORMANCE_ROLE=role)
++    return result
++
++
++def request_live(root, targets, dry_run=False, timeout=10):
++    from installer.core import atomic_json, marker, operation_lock, owned_path, read_json
++    from launcher.runtime import process_matches
++    from launcher.journal_lifecycle import enabled
++    root = Path(root).absolute()
++    targets = live_targets(targets)
++    if not 1 <= timeout <= 30:
++        fail('PERFORMANCE_TIMEOUT', '实时性能等待时间必须为 1..30 秒。')
++    with operation_lock(root):
++        state = get_state(root)
++        session = read_json(owned_path(root, '.palcraft/session.json'), {})
++        token = session.get('token', '')
++        if (not enabled(state['profile']) or session.get('phase') != 'running'
++                or not re.fullmatch(r'[a-f0-9]{32}', token)
++                or not process_matches(session.get('supervisor', {}))):
++            fail('PERFORMANCE_OWNER', '实时性能请求需要本安装正在运行的原单机 supervisor。')
++        heartbeat = owned_path(root, '.palcraft/control/' + token + '.heartbeat')
++        if not heartbeat.is_file() or time.time() - heartbeat.stat().st_mtime > 12:
++            fail('PERFORMANCE_OWNER', '原 supervisor 租约未在刷新。')
++        request_path = owned_path(root, '.palcraft/control/' + token + '.performance-request.json')
++        previous = read_json(request_path, {})
++        if previous.get('expires_unix', 0) > time.time():
++            fail('PERFORMANCE_PENDING', '本会话已有待处理的实时性能请求。')
++        request = {'schema': 1, 'kind': LIVE_KIND, 'root_id': marker(root)['id'], 'token': token,
++                   'request_id': uuid.uuid4().hex, 'targets': targets, 'expires_unix': time.time() + timeout}
++        if dry_run:
++            return {'ok': True, 'dry_run': True, 'targets': targets, 'config_changed': False,
++                    'remote_applied': False, 'owner_phase': session['phase']}
++        atomic_json(request_path, request)
++    result_path = owned_path(root, '.palcraft/control/' + token + '.performance-result.json')
++    latest = None
++    while time.time() < request['expires_unix']:
++        value = read_json(result_path, {})
++        if all(value.get(key) == request[key] for key in ('kind', 'root_id', 'token', 'request_id')):
++            latest = value
++            if value.get('status') != 'pending':
++                return value
++        time.sleep(.1)
++    return {**(latest or {}), 'ok': False, 'status': 'timeout', 'remote_applied': False,
++            'request_id': request['request_id'], 'targets': targets, 'config_changed': False,
++            'message': '未取得全部实际读回；已取得的读回保留，不声称配置等于实时生效。'}
++
++
++def pal_operation(request, native):
++    """The original game-thread mailbox changes FPS only, never the world/save."""
++    q = lambda value: json.dumps(value, ensure_ascii=False)
++    prefix = "assert(IsInGameThread(),'Owned game thread required')\nlocal sp=assert(_G.PalCraftStandaloneBootstrap)\n"
++    prefix += "local p,epoch=assert(_G.PalCraftStandalonePermissions).process()\nassert(epoch==" + q(native['process_epoch']) + ",'Native boot changed')\n"
++    prefix += "local r=assert(sp.local_realm:current())\nassert(r.server_session_id==" + q(native['server_session_id']) + " and r.world_id==" + q(native['world_id']) + " and r.host_uid==" + q(native['pal_uid']) + ",'Loaded world changed')\n"
++    prefix += "assert(os.time()<=" + str(request['expires_unix']) + ",'Performance request expired')\n"
++    prefix += "local limit=" + str(request['targets']['pal_fps']) + "\n"
++    return prefix + """local found={}
++for _,v in ipairs(FindAllOf('GameUserSettings')or{})do
++ if v and v:IsValid() and not v:GetFullName():find('Default__',1,true)then found[#found+1]=v end
++end
++assert(#found==1,'Actual GameUserSettings singleton required')
++local s=found[1]
++for _,name in ipairs({'SetFrameRateLimit','ApplyNonResolutionSettings','GetFrameRateLimit'})do
++ assert(tostring(s[name]):match('^UFunction:'),'GameUserSettings API missing: '..name)
++end
++local k=assert(StaticFindObject('/Script/Engine.Default__KismetSystemLibrary'))
++assert(k:IsValid() and r.pc:IsValid(),'Actual client settings/controller unavailable')
++s:SetFrameRateLimit(limit);s:ApplyNonResolutionSettings()
++if math.abs(k:GetConsoleVariableFloatValue('t.MaxFPS')-limit)>=.01 then
++ k:ExecuteConsoleCommand(r.pc,'t.MaxFPS '..tostring(limit),r.pc)
++end
++local actual={pal_fps=k:GetConsoleVariableFloatValue('t.MaxFPS'),settings_limit=s:GetFrameRateLimit()}
++assert(math.abs(actual.pal_fps-limit)<.01 and math.abs(actual.settings_limit-limit)<.01,'Actual Pal FPS did not apply')
++""" + "return {kind=" + q(LIVE_KIND) + ",root_id=" + q(request['root_id']) + ",token=" + q(request['token']) + ",request_id=" + q(request['request_id']) + ",process_epoch=epoch,actual=actual}\n"
++
++
++def readback_matches(role, actual, targets):
++    if not isinstance(actual, dict):
++        return False
++    key = 'pal_fps' if role == 'pal' else 'mc_fps' if role == 'mc_guest' else 'hud_fps'
++    value = actual.get(key)
++    if not isinstance(value, (int, float)) or abs(value - targets[key]) >= .001:
++        return False
++    return role != 'mc_guest' or all(actual.get(key) == targets[key]
++                                   for key in ('mc_render_distance', 'mc_muted') if key in targets)
++
++
++class OwnedPerformance:
++    """Nonblocking work in the existing Session loop, using its own Popen handles."""
++    def __init__(self, owner):
++        self.owner = owner
++        self.pending = None
++        self.seen = None
++
++    def tick(self):
++        from installer.core import DEV, atomic_json, marker, operation_lock, owned_path, read_json
++        from launcher.runtime import process_matches
++        o = self.owner
++        root_id = marker(o.root)['id']
++        request_path = o.control / (o.token + '.performance-request.json')
++        result_path = o.control / (o.token + '.performance-result.json')
++        directory = owned_path(o.root, '.palcraft/control/' + o.token + '.performance')
++        request = self.pending['request'] if self.pending else read_json(request_path, {})
++        if not request or (self.pending is None and request.get('request_id') == self.seen):
++            return
++        if (request.get('schema') != 1 or request.get('kind') != LIVE_KIND
++                or request.get('root_id') != root_id or request.get('token') != o.token
++                or not re.fullmatch(r'[a-f0-9]{32}', str(request.get('request_id', '')))):
++            return
++
++        def publish(status, message=None):
++            reads = self.pending['readbacks'] if self.pending else {}
++            result = {key: request[key] for key in ('schema', 'kind', 'root_id', 'token', 'request_id', 'targets')}
++            result.update(ok=status == 'applied', status=status, remote_applied=status == 'applied',
++                          readbacks=reads, config_changed=False, world_or_saved_changed_by_request=False, unix=time.time())
++            if message:
++                result['message'] = message
++            atomic_json(result_path, result)
++            if status != 'pending':
++                self.pending = None
++                self.seen = request['request_id']
++                for path in (request_path, directory / 'request.json'):
++                    if read_json(path, {}).get('request_id') == request['request_id']:
++                        path.unlink(missing_ok=True)
++            else:
++                self.pending['published_readbacks'] = json.dumps(reads, sort_keys=True)
++
++        if o.closing or o.should_close() or o.session.get('phase') != 'running':
++            publish('cancelled', '原会话正在停止或尚未完整运行。')
++            return
++        if request.get('expires_unix', 0) <= time.time():
++            publish('timeout', '原角色未在请求期限内完成全部读回。')
++            return
++        roles = {'mc_guest': o.journal.roles.get('mc_guest') if o.journal else None,
++                 'hud_relay': o.journal.roles.get('hud_relay') if o.journal else None,
++                 'hud': o.children.get('hud')}
++        client = o.children.get('client')
++        if (client is None or client.poll() is not None
++                or any(child is None or child.poll() is not None for child in roles.values())
++                or not o.journal.scope.get('native_scope')):
++            publish('unavailable', '需要本 supervisor 已拥有的 client、个人 MC 和两层 HUD；不会另行启动或接管角色。')
++            return
++        hud_child = read_json(o.control / (o.token + '.hud-child.json'), {})
++        if (hud_child.get('token') != o.token or hud_child.get('root_id') != root_id
++                or hud_child.get('wrapper_pid') != roles['hud'].pid
++                or not process_matches(hud_child.get('child', {}))):
++            publish('unavailable', '原 HUD worker 的实际 child 身份未取得。')
++            return
++        if self.pending is None:
++            live_targets(request['targets'])
++            with operation_lock(o.root):
++                bridge = o.root / DEV / 'bridge'
++                target = bridge / 'client-op.lua'
++                if target.exists() or (bridge / 'client-op.pending').exists() or o.journal.pending is not None:
++                    return  # Existing form/normal lifecycle operation keeps the mailbox.
++                result = bridge / 'client-op-result.json'
++                prior = result.stat().st_mtime_ns if result.exists() else None
++                source = pal_operation(request, o.journal.scope['native_scope'])
++                pending = bridge / 'client-op.pending'
++                pending.write_text(source, encoding='utf-8')
++                os.replace(pending, target)
++            self.pending = {'request': request, 'prior_pal_result': prior, 'readbacks': {},
++                            'pids': {'mc_guest': roles['mc_guest'].pid, 'hud_relay': roles['hud_relay'].pid,
++                                     'hud': hud_child['child']['pid']}}
++            directory.mkdir(exist_ok=True)
++            atomic_json(directory / 'request.json', request)
++            publish('pending')
++        reads = self.pending['readbacks']
++        for role, pid in self.pending['pids'].items():
++            value = read_json(directory / (role + '.json'), {})
++            if (all(value.get(key) == request[key] for key in ('kind', 'root_id', 'token', 'request_id'))
++                    and value.get('role') == role and value.get('pid') == pid):
++                reads[role] = value
++                if value.get('ok') is True and not readback_matches(role, value.get('actual'), request['targets']):
++                    reads[role] = {**value, 'ok': False, 'error': 'Actual role readback differs from the request'}
++        pal_result = o.root / DEV / 'bridge/client-op-result.json'
++        if pal_result.exists() and pal_result.stat().st_mtime_ns != self.pending['prior_pal_result']:
++            value = read_json(pal_result, {})
++            result = value.get('result')
++            if value.get('ok') is True and isinstance(result, dict) and all(result.get(key) == request[key] for key in ('kind', 'root_id', 'token', 'request_id')):
++                reads['pal'] = {'ok': readback_matches('pal', result.get('actual'), request['targets'])
++                                     and result.get('process_epoch') == o.journal.scope['native_scope']['process_epoch'],
++                                'actual': result.get('actual'), 'process_epoch': result.get('process_epoch')}
++            elif value.get('ok') is False and not (o.root / DEV / 'bridge/client-op.lua').exists():
++                reads['pal'] = {'ok': False, 'error': str(result)}
++        if any(value.get('ok') is not True for value in reads.values()):
++            publish('rejected', '至少一个原角色未完成实际参数应用；读回保留。')
++        elif set(reads) == {'pal', 'mc_guest', 'hud_relay', 'hud'}:
++            publish('applied')
++        elif json.dumps(reads, sort_keys=True) != self.pending['published_readbacks']:
++            publish('pending')
+--- a/player/launcher/runtime.py
++++ b/player/launcher/runtime.py
+@@ -757,6 +757,8 @@
+         self.native_menu_open_attempted = self.session.get('native_menu_open', {}).get('attempted') is True
+         from launcher.journal_lifecycle import NormalLifecycle, enabled
+         self.journal = NormalLifecycle(self) if enabled(self.state['profile']) else None
++        from installer.performance import OwnedPerformance
++        self.performance = OwnedPerformance(self)
+ 
+     def save(self, phase, **kwargs):
+         self.session.update(phase=phase, **kwargs)
+@@ -787,6 +789,10 @@
+             env['PALCRAFT_MAC_FOREGROUND_GROUP_REQUIRED'] = '1'
+             group = _mac_game_foreground_group(self.root, self.token)
+             env['PALCRAFT_MAC_FOREGROUND_GROUP'] = json.dumps(group, separators=(',', ':')) if group else ''
++        if name == 'hud' and self.journal is not None:
++            from installer.performance import role_environment
++            env = role_environment(self.root, self.token, name, env)
++            env['PALCRAFT_HUD_FPS'] = str(p.get('performance', {}).get('hud_fps', 60))
+         if name in ('ssh', 'udp', 'hud', 'proxy'):
+             # Worker leases expire if the supervisor crashes; the game is managed by its Win32 job host.
+             args = [sys.executable, str(self.root / TOOLS / 'launcher/palcraft.py'), '_worker',
+@@ -1021,6 +1027,11 @@
+                         _write_control(self.root, self.token, 'close')
+                     self.closing = True
+                     self.save('closing', code=self.failure[0], message=self.failure[1] + '；等待游戏正常退出。')
++                try:
++                    self.performance.tick()
++                except (PlayerError, OSError, KeyError, ValueError) as error:
++                    self.session['performance_error'] = {'code': getattr(error, 'code', 'PERFORMANCE_IO'),
++                                                         'message': str(error)}
+                 time.sleep(self.poll_seconds)
+         except PlayerError as exc:
+             # Startup failure before client launch can unwind immediately. If a client exists, ask its job host to close.
+@@ -1078,6 +1089,10 @@
+     heartbeat = owned_path(root, '.palcraft/control/' + token + '.heartbeat')
+     child = subprocess.Popen(argv, stdin=subprocess.DEVNULL)
+     child_record = {'pid': child.pid, 'identity': process_identity(child.pid)}
++    if component == 'hud' and os.environ.get('PALCRAFT_PERFORMANCE_TOKEN') == token:
++        atomic_json(owned_path(root, '.palcraft/control/' + token + '.hud-child.json'),
++                    {'token': token, 'root_id': marker(root)['id'], 'wrapper_pid': os.getpid(),
++                     'child': child_record, 'created_by_this_worker': True})
+     stopping = False
+ 
+     def request_stop(*unused):
+--- a/player/launcher/journal_lifecycle.py
++++ b/player/launcher/journal_lifecycle.py
+@@ -327,12 +327,15 @@
+                 fail('JOURNAL_ROLE_SCOPE', '后端角色配置属于另一安装、玩家或事件流。')
+             plans.append((role, launch, argv))
+         from launcher.runtime import process_identity
++        from installer.performance import role_environment
+         for role, launch, argv in plans:
+             name = {'server': 'mc_server', 'guest': 'mc_guest', 'hud': 'hud_relay'}[role]
+             output = (self.root / '.palcraft/logs' / (name + '.log')).open('ab')
+             self.role_outputs.append(output)
++            env = (role_environment(self.root, self.token, name, os.environ)
++                   if role in ('guest', 'hud') else dict(os.environ))
+             child = subprocess.Popen(argv, cwd=launch['cwd'], stdin=subprocess.PIPE if role == 'server' else subprocess.DEVNULL,
+-                                     stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
++                                     stdout=output, stderr=subprocess.STDOUT, start_new_session=True, env=env)
+             self.roles[name] = child
+             record = {'pid': child.pid, 'identity': process_identity(child.pid), 'created_by_this_supervisor': True}
+             self.register(name, record)
+--- a/player/mac/hud/hud_relay.py
++++ b/player/mac/hud/hud_relay.py
+@@ -184,6 +184,39 @@
+                             raw_bytes=0, encoded_bytes=0, encode_ms_total=0.0)
+         self.metric_lock = threading.Lock()
+         self.last_source = self.last_status = 0.
++        self.power_env = {key: os.environ.get('PALCRAFT_PERFORMANCE_' + key.upper(), '')
++                          for key in ('dir', 'token', 'root_id', 'role')}
++        self.power_seen = None
++        self.power_checked = 0.
++
++    def apply_owned_performance(self):
++        env = self.power_env
++        if not env['dir'] or env['role'] != 'hud_relay' or time.monotonic() - self.power_checked < .25:
++            return
++        self.power_checked = time.monotonic()
++        directory = Path(env['dir'])
++        try:
++            heartbeat = directory.parent / (env['token'] + '.heartbeat')
++            if time.time() - heartbeat.stat().st_mtime > 12:
++                return
++            request = json.loads((directory / 'request.json').read_text(encoding='utf8'))
++            if (request.get('kind') != 'palcraft-owned-live-performance-v1'
++                    or request.get('token') != env['token'] or request.get('root_id') != env['root_id']
++                    or request.get('expires_unix', 0) <= time.time() or request.get('request_id') == self.power_seen):
++                return
++            fps = request['targets']['hud_fps']
++            if type(fps) is not int or not 1 <= fps <= 120:
++                return
++            self.period = 1 / fps
++            value = {key: request[key] for key in ('schema', 'kind', 'root_id', 'token', 'request_id')}
++            value.update(role='hud_relay', pid=os.getpid(), ok=True, actual={'hud_fps': 1 / self.period})
++            target = directory / 'hud_relay.json'
++            temporary = target.with_suffix('.tmp')
++            temporary.write_text(json.dumps(value), encoding='utf8')
++            temporary.replace(target)
++            self.power_seen = request['request_id']
++        except (OSError, ValueError, KeyError, TypeError):
++            pass
+ 
+     def slow_client(self):
+         with self.metric_lock:
+@@ -196,6 +229,7 @@
+         with self.metric_lock:
+             state = dict(self.metrics)
+         state.update(unix=time.time(), clients=self.latest.clients, protocol=2, layers=1,
++                     fps=1 / self.period,
+                      frame_age_ms=(time.monotonic() - self.last_source) * 1000 if self.last_source else -1,
+                      queue_capacity=1, encode_ms_mean=state["encode_ms_total"] / max(1, state["encoded"]))
+         try:
+@@ -214,6 +248,7 @@
+         try:
+             while not self.stop.is_set():
+                 start = time.monotonic()
++                self.apply_owned_performance()
+                 try:
+                     if self.latest.clients and source.open():
+                         frame = source.reader.poll()
+--- a/mc/src/client/java/dev/rehan/passthrough/client/PassthroughClient.java
++++ b/mc/src/client/java/dev/rehan/passthrough/client/PassthroughClient.java
+@@ -2,6 +2,11 @@
+ 
+ import dev.rehan.passthrough.Passthrough;
+ import dev.rehan.passthrough.WorldBridge;
++import com.google.gson.JsonObject;
++import com.google.gson.JsonParser;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.nio.file.StandardCopyOption;
+ import java.util.List;
+ import java.util.Optional;
+ import net.fabricmc.api.ClientModInitializer;
+@@ -65,6 +70,8 @@
+ 	private static int respawnIn;
+ 	private static boolean hidden;
+     private static int reconnectTicks;
++    private static long powerPollAt;
++    private static String powerSeen;
+ 
+ 	@Override
+ 	public void onInitializeClient() {
+@@ -107,6 +114,7 @@
+ 			configured = true;
+ 			configure(minecraft.options);
+ 		}
++        applyOwnedPerformance(minecraft.options);
+ 
+         // A shared-world restart leaves Palworld running; reconnect this guest automatically.
+         String sharedAddress=System.getProperty("palcraft.server","");
+@@ -123,6 +131,63 @@
+ 
+     private static void connectShared(Minecraft mc,String address){
+         net.minecraft.client.gui.screens.ConnectScreen.startConnecting(mc.gui.screen(),mc,net.minecraft.client.multiplayer.resolver.ServerAddress.parseString(address),new net.minecraft.client.multiplayer.ServerData("PalCraft shared world",address,net.minecraft.client.multiplayer.ServerData.Type.LAN),false,null);
++    }
++
++    /** Runs in this existing guest's client tick; it cannot launch or select another guest. */
++    private static void applyOwnedPerformance(Options options) {
++        String directory = System.getenv("PALCRAFT_PERFORMANCE_DIR");
++        if (directory == null || !"mc_guest".equals(System.getenv("PALCRAFT_PERFORMANCE_ROLE"))) return;
++        long now = System.nanoTime();
++        if (now < powerPollAt) return;
++        powerPollAt = now + 250_000_000L;
++        JsonObject request = null;
++        Path dir = Path.of(directory);
++        try {
++            String token = System.getenv("PALCRAFT_PERFORMANCE_TOKEN");
++            String rootID = System.getenv("PALCRAFT_PERFORMANCE_ROOT_ID");
++            if (System.currentTimeMillis() - Files.getLastModifiedTime(dir.getParent().resolve(token + ".heartbeat")).toMillis() > 12_000) return;
++            request = JsonParser.parseString(Files.readString(dir.resolve("request.json"))).getAsJsonObject();
++            if (!"palcraft-owned-live-performance-v1".equals(request.get("kind").getAsString()) ||
++                !token.equals(request.get("token").getAsString()) || !rootID.equals(request.get("root_id").getAsString()) ||
++                request.get("expires_unix").getAsDouble() * 1000 <= System.currentTimeMillis()) return;
++            String id = request.get("request_id").getAsString();
++            if (!id.matches("[a-f0-9]{32}") || id.equals(powerSeen)) return;
++            powerSeen = id;
++            JsonObject target = request.getAsJsonObject("targets");
++            int fps = target.get("mc_fps").getAsInt();
++            if (fps < 1 || fps > 60 || fps != target.get("mc_fps").getAsDouble()) throw new IllegalArgumentException("MC FPS must be 1..60");
++            Integer distance = target.has("mc_render_distance") ? target.get("mc_render_distance").getAsInt() : null;
++            if (distance != null && (distance < 2 || distance > 32 || distance != target.get("mc_render_distance").getAsDouble())) throw new IllegalArgumentException("MC render distance must be 2..32");
++            if (target.has("mc_muted") && !target.get("mc_muted").getAsJsonPrimitive().isBoolean()) throw new IllegalArgumentException("MC mute must be boolean");
++            options.framerateLimit().set(fps);
++            if (distance != null) options.renderDistance().set(distance);
++            if (target.has("mc_muted")) options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).set(target.get("mc_muted").getAsBoolean() ? 0.0 : 1.0);
++            JsonObject actual = new JsonObject();
++            actual.addProperty("mc_fps", options.framerateLimit().get());
++            actual.addProperty("mc_render_distance", options.renderDistance().get());
++            double volume = options.getSoundSourceOptionInstance(net.minecraft.sounds.SoundSource.MASTER).get();
++            actual.addProperty("mc_master_volume", volume);
++            actual.addProperty("mc_muted", volume == 0);
++            boolean applied = options.framerateLimit().get() == fps && (distance == null || options.renderDistance().get().equals(distance)) &&
++                (!target.has("mc_muted") || (volume == 0) == target.get("mc_muted").getAsBoolean());
++            publishPower(dir, request, applied, actual, applied ? null : "Actual options rejected the requested value");
++        } catch (Exception error) {
++            if (request != null && powerSeen != null && request.has("request_id") && powerSeen.equals(request.get("request_id").getAsString())) {
++                try { publishPower(dir, request, false, new JsonObject(), error.toString()); } catch (Exception ignored) { }
++            }
++        }
++    }
++
++    private static void publishPower(Path dir, JsonObject request, boolean ok, JsonObject actual, String error) throws java.io.IOException {
++        JsonObject result = new JsonObject();
++        for (String key : List.of("schema", "kind", "root_id", "token", "request_id")) result.add(key, request.get(key));
++        result.addProperty("role", "mc_guest"); result.addProperty("pid", ProcessHandle.current().pid());
++        result.addProperty("ok", ok); result.add("actual", actual);
++        if (error != null) result.addProperty("error", error);
++        Path pending = dir.resolve("mc_guest.tmp"), target = dir.resolve("mc_guest.json");
++        Files.writeString(pending, result.toString());
++        try { Files.move(pending, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
++        catch (java.nio.file.AtomicMoveNotSupportedException unavailable) { Files.move(pending, target, StandardCopyOption.REPLACE_EXISTING); }
+     }
+ 
+ 	/** Settings for sitting behind another game: keep running unfocused, and no sky/cloud/bobbing effects in the picture. */
+--- a/hud/hud_overlay.swift
++++ b/hud/hud_overlay.swift
+@@ -153,6 +153,10 @@
+     private var lastToken: (UInt32, UInt64)?
+     private var watchdog: DispatchSourceTimer?
+     private var timers: [Timer] = []
++    private var displayTimer: Timer?
++    private var displayFPS = 60.0
++    private var powerSeen: String?
++    private let powerEnvironment: [String: String]
+     private var shown: DecodedHUD?
+     private var eligible = false, focused = false
+     private var requireReceivedAfter = 0.0
+@@ -169,6 +173,8 @@
+ 
+     override init() {
+         let env = ProcessInfo.processInfo.environment
++        powerEnvironment = env
++        if let fps = env["PALCRAFT_HUD_FPS"].flatMap(Double.init), (1...120).contains(fps) { displayFPS = fps }
+         root = URL(fileURLWithPath: env["PALCRAFT_BRIDGE_DIR"] ??
+             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/PalCraft/bridge").path)
+         titleHeight = CGFloat(Double(env["PALCRAFT_TITLEBAR_HEIGHT"] ?? "") ?? 28)
+@@ -203,11 +209,12 @@
+         pixels.contentsGravity = .resize
+         pixels.magnificationFilter = .nearest
+         pixels.minificationFilter = .linear
+-        for (interval, action) in [(0.1, self.position), (1.0 / 60.0, self.display)] {
++        for (interval, action) in [(0.1, self.position)] {
+             let timer = Timer(timeInterval: interval, repeats: true) { _ in action() }
+             timers.append(timer)
+             RunLoop.main.add(timer, forMode: .common)
+         }
++        scheduleDisplay()
+         position()
+         network.async { self.connect() }
+         let timer = DispatchSource.makeTimerSource(queue: network)
+@@ -228,6 +235,7 @@
+     }
+     func applicationWillTerminate(_ notification: Notification) {
+         timers.forEach { $0.invalidate() }
++        displayTimer?.invalidate()
+         network.async { self.watchdog?.cancel(); self.connection?.cancel() }
+         try? "\(Date().timeIntervalSince1970) 0".write(
+             to: root.appendingPathComponent("platform-focus.txt"), atomically: true, encoding: .utf8)
+@@ -439,7 +447,42 @@
+         guard let bytes = try? Data(contentsOf: root.appendingPathComponent(name)) else { return nil }
+         return (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any]
+     }
++    private func scheduleDisplay() {
++        displayTimer?.invalidate()
++        let timer = Timer(timeInterval: 1.0 / displayFPS, repeats: true) { [weak self] _ in self?.display() }
++        displayTimer = timer
++        RunLoop.main.add(timer, forMode: .common)
++    }
++    private func applyOwnedPerformance() {
++        let env = powerEnvironment
++        guard env["PALCRAFT_PERFORMANCE_ROLE"] == "hud",
++              let path = env["PALCRAFT_PERFORMANCE_DIR"], let token = env["PALCRAFT_PERFORMANCE_TOKEN"],
++              let rootID = env["PALCRAFT_PERFORMANCE_ROOT_ID"] else { return }
++        let dir = URL(fileURLWithPath: path)
++        let heartbeat = dir.deletingLastPathComponent().appendingPathComponent(token + ".heartbeat")
++        guard let stamp = (try? heartbeat.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
++              Date().timeIntervalSince(stamp) <= 12,
++              let bytes = try? Data(contentsOf: dir.appendingPathComponent("request.json")),
++              let request = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any],
++              request["kind"] as? String == "palcraft-owned-live-performance-v1",
++              request["root_id"] as? String == rootID, request["token"] as? String == token,
++              let id = request["request_id"] as? String, id != powerSeen,
++              let expires = request["expires_unix"] as? Double, expires > Date().timeIntervalSince1970,
++              let targets = request["targets"] as? [String: Any], let fps = targets["hud_fps"] as? Int,
++              (1...120).contains(fps) else { return }
++        displayFPS = Double(fps)
++        scheduleDisplay()
++        var result = request.filter { ["schema", "kind", "root_id", "token", "request_id"].contains($0.key) }
++        result["role"] = "hud"; result["pid"] = ProcessInfo.processInfo.processIdentifier
++        result["ok"] = displayTimer?.isValid == true
++        result["actual"] = ["hud_fps": 1.0 / (displayTimer?.timeInterval ?? .infinity)]
++        if let output = try? JSONSerialization.data(withJSONObject: result) {
++            do { try output.write(to: dir.appendingPathComponent("hud.json"), options: .atomic); powerSeen = id }
++            catch { }
++        }
++    }
+     private func position() {
++        applyOwnedPerformance()
+         let now = hudMonotonic(), unix = Date().timeIntervalSince1970
+         let front = NSWorkspace.shared.frontmostApplication
+         if groupRequired && now - groupCheckedAt >= 1 {
+@@ -509,6 +552,7 @@
+             let frameAge = shown.map { now - $0.received + $0.sourceAge } ?? -1
+             let status: [String: Any] = [
+                 "frames": frames, "visible": panel.isVisible, "focused": focused, "frame_age": frameAge, "unix": unix,
++                "display_fps": displayFPS,
+                 "connected": s.connected, "connection_generation": s.generation, "reconnects": s.reconnects,
+                 "packets": s.packets, "decoded": s.decoded, "dropped_batch": s.skipped, "dropped_mailbox": s.coalesced,
+                 "dropped_transition": transitionDrops, "rejected": s.rejected,
+--- a/player/installer/cli.py
++++ b/player/installer/cli.py
+@@ -118,6 +118,10 @@
+             sub.add_argument('--pal-fps', type=int)
+             sub.add_argument('--mc-fps', type=int)
+             sub.add_argument('--hud-fps', type=int)
++            sub.add_argument('--live', action='store_true', help='由当前原单机 owner 在已有 MC/HUD/客户端循环中应用并读回；不改下次启动配置')
++            sub.add_argument('--mc-render-distance', type=int)
++            sub.add_argument('--mc-muted', choices=('true', 'false'))
++            sub.add_argument('--timeout', type=float, default=10)
+         if name == 'resources':
+             sub.add_argument('--minecraft-jar', required=True)
+             sub.add_argument('--resource-pack', action='append', default=[])
+@@ -192,7 +196,9 @@
+             result = import_credential(root, args.credential, args.guest_manifest, dry)
+         elif command == 'performance':
+             from installer.performance import set_performance
+-            result = set_performance(root, args.preset, args.pal_fps, args.mc_fps, args.hud_fps, dry)
++            result = set_performance(root, args.preset, args.pal_fps, args.mc_fps, args.hud_fps, dry,
++                                     live=args.live, mc_render_distance=args.mc_render_distance,
++                                     mc_muted=None if args.mc_muted is None else args.mc_muted == 'true', timeout=args.timeout)
+         elif command == 'form':
+             from launcher.form_request import request_form
+             result = request_form(root, args.mode, dry)

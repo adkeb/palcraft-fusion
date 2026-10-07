@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "ok": true,
+  "cases_passed": 2,
+  "cases": [
+    "Pal t.MaxFPS and settings_limit must both match",
+    "uncorrelated generic queue error remains unknown until timeout; partial role readbacks retained"
+  ],
+  "synthetic_owner_native_identity_clock_and_peer_readback_only": true,
+  "Game_GUI_RPC_credential_installed_source_or_runtime_operations": false,
+  "MC_or_Swift_recompile": false,
+  "actual_terminal_chunk": "d0b52b",
+  "actual_exit_code": 0
+}

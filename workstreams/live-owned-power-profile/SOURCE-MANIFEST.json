@@ -1,0 +1,123 @@
+{
+  "schema": 1,
+  "base_candidate": 28,
+  "source_only": true,
+  "files": [
+    {
+      "target": "PalCraft-Dev/player-tools/installer/performance.py",
+      "role": "player_tool",
+      "base_sha256": "90d15e7cb923e8edcaeb75eeb355eb0874e8e09dd5d5201b9f6854a8e9561ace",
+      "source": "proposal/player/installer/performance.py",
+      "source_sha256": "e90ee78efc1d7eb5aa61cee40753d80ec555116cb8d553e45dbb54c9e9c1da66",
+      "bytes": 16892,
+      "outer_mirror": "PalCraft-Player/installer/performance.py"
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/launcher/runtime.py",
+      "role": "player_tool",
+      "base_sha256": "0906e94327f834a41a0b0c9bdc2dbf41ccdd5b2b76d7a14476fa016f1e498bf4",
+      "source": "proposal/player/launcher/runtime.py",
+      "source_sha256": "1a52fcadfcf3bdf0859de0da6b452ae541b8cb8a36ef0717aa9182ef6ce001eb",
+      "bytes": 72774,
+      "outer_mirror": "PalCraft-Player/launcher/runtime.py"
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/launcher/journal_lifecycle.py",
+      "role": "player_tool",
+      "base_sha256": "a8c49589fb0980b7c51d14f9fed1f3d5c7d2750acbdcf8320f11375a3f2f86c2",
+      "source": "proposal/player/launcher/journal_lifecycle.py",
+      "outer_mirror": "PalCraft-Player/launcher/journal_lifecycle.py",
+      "source_sha256": "48ef3be7381d1e53e1a7ad8751c356873ee295100adbef40ff537ad2f8da2f70",
+      "bytes": 77931
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/mac/hud/hud_relay.py",
+      "role": "standalone_component",
+      "base_sha256": "685ad3caaef9c9e9792bae77e18a5b3ed3f16ca51d409f3a68a696ab5b700191",
+      "source": "proposal/player/mac/hud/hud_relay.py",
+      "source_sha256": "890826ded73867b88a64411f9d46a4ce9a603eca41d766e7998414644ffacfbf",
+      "bytes": 16961,
+      "outer_mirror": "PalCraft-Player/mac/hud/hud_relay.py"
+    },
+    {
+      "source": "proposal/mc/src/client/java/dev/rehan/passthrough/client/PassthroughClient.java",
+      "base_sha256": "c3178c92ddc53564f3b425533aecccac331b70ea3b2157af8641c89021260169",
+      "role": "MC managed guest client source; JAR build not yet requested",
+      "source_sha256": "7b517d1213e4d1e477639991df3a1a6bc6147253357607e7f5049f7343d1f4ee",
+      "bytes": 13233
+    },
+    {
+      "source": "proposal/hud/hud_overlay.swift",
+      "base_sha256": "9a4669c8d949876817d8513655613dde1dbcc789a881728328ce25b06445b12e",
+      "role": "existing managed mac_hud source; binary build not yet requested",
+      "source_sha256": "88e6c7596448a6175eb3f2e2be4c566cc844f496206b4294d9ae397885b2eb22",
+      "bytes": 30055
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/installer/cli.py",
+      "role": "player_tool",
+      "base_sha256": "6c3aa4b6d7b71b96c1e2b90156b4123fbc474fabc118a220b2dd87b6824b9cdf",
+      "source": "proposal/player/installer/cli.py",
+      "outer_mirror": "PalCraft-Player/installer/cli.py",
+      "source_sha256": "5e1caa066b3789db4064d6427d822cd91e5404b62f75d9e47938a3bb9383908b",
+      "bytes": 14802
+    }
+  ],
+  "compiled_payloads": [
+    {
+      "target": "PalCraft-Dev/minecraft-mods/passthrough-0.2.0-integration.10.6-mac.jar",
+      "role": "minecraft_mod",
+      "path": "outputs/passthrough-0.2.0-integration.10.10-live-owned-performance.jar",
+      "base_sha256": "fbbf30937a85f7f8d879520de9ce663fc87b031a6a94d3110fe38bb1294cf53c",
+      "sha256": "80490b0d35ca66ec777ff8ba606f63f644bce62cc09cf17b4b9703d990e5edc0",
+      "bytes": 554883,
+      "actual_version": "0.2.0-integration.10.10-live-owned-performance",
+      "retained_target_filename": true,
+      "source_archive": "mc10_10-live-owned-performance-source.zip",
+      "source_archive_sha256": "18495b7434a157c339cbf056c60e60be0495d4c2baeb7472e9feb9a58a9ae93f",
+      "unchanged_jar_entries": 171,
+      "replaced_jar_entries": [
+        "dev/rehan/passthrough/client/PassthroughClient.class",
+        "fabric.mod.json"
+      ]
+    },
+    {
+      "target": "PalCraft-Dev/player-tools/bin/hud-overlay-v4",
+      "role": "mac_hud",
+      "path": "outputs/PalCraft-HUD-Live-Owned-Power-Mac13",
+      "base_sha256": "bc7a12191cb599dff4f7d8ad2d5074cb4806928fd1e1c892e871a4530f9af02e",
+      "sha256": "2ef60b40f24250f5407d3f5fc93decfbf1aee453234cbbcb08905d1a2287aeed",
+      "bytes": 224560,
+      "implementation_version": "7-live-owned-power",
+      "source_sha256": "88e6c7596448a6175eb3f2e2be4c566cc844f496206b4294d9ae397885b2eb22",
+      "min_macos": "13.0",
+      "architecture": "arm64",
+      "source_build_chain_tag": "arm64-apple-macosx13.0-source-build"
+    }
+  ],
+  "requirements_delta": {
+    "minecraft_mod": {
+      "actual_version": "0.2.0-integration.10.10-live-owned-performance",
+      "sha256": "80490b0d35ca66ec777ff8ba606f63f644bce62cc09cf17b4b9703d990e5edc0",
+      "bytes": 554883,
+      "source_archive_sha256": "18495b7434a157c339cbf056c60e60be0495d4c2baeb7472e9feb9a58a9ae93f"
+    },
+    "mac_hud": {
+      "version": "7-live-owned-power",
+      "sha256": "2ef60b40f24250f5407d3f5fc93decfbf1aee453234cbbcb08905d1a2287aeed",
+      "bytes": 224560,
+      "source_sha256": "88e6c7596448a6175eb3f2e2be4c566cc844f496206b4294d9ae397885b2eb22",
+      "relay_sha256": "890826ded73867b88a64411f9d46a4ce9a603eca41d766e7998414644ffacfbf"
+    }
+  },
+  "all_other_requirements_and_roles_unchanged": true,
+  "unchanged_source_dependency": {
+    "HostLink.java": "95b24c596c2dadf3d83d5348a111e35873cc681304deab7f46d888deef0a25bf"
+  },
+  "codec_baseline_chain": {
+    "candidate28_journal": "0978af9600087def973ddc33973ca69e2a9b3579101afbaece08ab20f1fbeb37",
+    "codec_journal": "a8c49589fb0980b7c51d14f9fed1f3d5c7d2750acbdcf8320f11375a3f2f86c2",
+    "candidate28_cli": "e67e9668e4f7e734bf37a0505b72165e96a36c263c1853843b64d3f0b26b4e65",
+    "codec_cli": "6c3aa4b6d7b71b96c1e2b90156b4123fbc474fabc118a220b2dd87b6824b9cdf"
+  }
+}

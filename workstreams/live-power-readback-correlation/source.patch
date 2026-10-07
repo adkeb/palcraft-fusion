@@ -1,0 +1,23 @@
+--- a/player/installer/performance.py
++++ b/player/installer/performance.py
+@@ -175,6 +175,9 @@
+     value = actual.get(key)
+     if not isinstance(value, (int, float)) or abs(value - targets[key]) >= .001:
+         return False
++    if role == 'pal':
++        limit = actual.get('settings_limit')
++        return isinstance(limit, (int, float)) and abs(limit - targets['pal_fps']) < .001
+     return role != 'mc_guest' or all(actual.get(key) == targets[key]
+                                    for key in ('mc_render_distance', 'mc_muted') if key in targets)
+ 
+@@ -275,8 +278,8 @@
+                 reads['pal'] = {'ok': readback_matches('pal', result.get('actual'), request['targets'])
+                                      and result.get('process_epoch') == o.journal.scope['native_scope']['process_epoch'],
+                                 'actual': result.get('actual'), 'process_epoch': result.get('process_epoch')}
+-            elif value.get('ok') is False and not (o.root / DEV / 'bridge/client-op.lua').exists():
+-                reads['pal'] = {'ok': False, 'error': str(result)}
++            # Generic mailbox errors carry no operation ID. They cannot prove
++            # this request failed; retain unknown until its normal deadline.
+         if any(value.get('ok') is not True for value in reads.values()):
+             publish('rejected', '至少一个原角色未完成实际参数应用；读回保留。')
+         elif set(reads) == {'pal', 'mc_guest', 'hud_relay', 'hud'}:

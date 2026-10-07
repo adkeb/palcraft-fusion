@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "files": [
+    {
+      "source": "proposal/player/installer/performance.py",
+      "target": "PalCraft-Dev/player-tools/installer/performance.py",
+      "role": "player_tool",
+      "outer_mirror": "PalCraft-Player/installer/performance.py",
+      "base_sha256": "e90ee78efc1d7eb5aa61cee40753d80ec555116cb8d553e45dbb54c9e9c1da66",
+      "source_sha256": "6a880cfb49caffb58aa9fd2d67320ab95c933713b632f96461ce196e6cbf047c",
+      "bytes": 17037
+    }
+  ],
+  "all_previous_MC_HUD_and_other_sources_and_compile_pins_unchanged": true
+}
