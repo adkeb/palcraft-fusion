@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 4,
+  "failures": 0,
+  "errors": 0,
+  "actual_created_Popen_wait_exit3_used": true,
+  "all_world_Save_WAL_native_host_inputs_synthetic_temporary": true,
+  "normal_Title_exit0_requirements_retained": true,
+  "distinct_saved_crash_kind_and_failed_phase_retained": true,
+  "original_apply_three_targets_and_original_named_rotator_used": true,
+  "actual_root_Save_credentials_Game_SDK_GUI_RPC_Git_or_restart_used": false,
+  "source_pins": {
+    "source/installer/cli.py": "0ce1116ec34d8706131b1e6f36084631ed1c8309b42028d25a09112fd2f95acf",
+    "source/installer/core.py": "f2cfa4048da10ad3b2b5813bc7b2bf37b40b866a0dc3b8a5355726dec46a34fb",
+    "source/launcher/journal_lifecycle.py": "bab797abf0ba93f7ce63528d8539c0598107a42f995e7a5c184bcc7ee4b2ba07"
+  }
+}

@@ -1,0 +1,265 @@
+--- a/launcher/journal_lifecycle.py
++++ b/launcher/journal_lifecycle.py
+@@ -13,6 +13,8 @@
+ 
+ EVENTS = 'BridgeLab/rpc/palcraft-events.ndjson'
+ LIFECYCLE = '.palcraft/standalone/journal-lifecycle'
++SAVED_CRASH_KIND = 'palcraft-owned-saved-crash-off-v1'
++SAVED_CRASH_RECEIPT = 'saved-crash-off-receipt.json'
+ 
+ 
+ def enabled(profile):
+@@ -48,6 +50,28 @@
+     for name, actor in scope.get('actors', {}).items():
+         if process_matches(actor):
+             fail('JOURNAL_ACTOR_ALIVE', '上一事件卷仍有本 boot 的实际进程：' + name)
++
++
++def _saved_crash_receipt_matches(root, scope, session, receipt):
++    """Read the original failed boot's truth; never issue or repair a receipt."""
++    clients = [value for value in receipt.get('actor_exits', {}).values() if value.get('role') == 'client']
++    if len(clients) != 1:
++        return False
++    code = clients[0].get('exit_code')
++    host = read_json(owned_path(root, '.palcraft/control/' + session['token'] + '.host.json'), {})
++    return (session.get('phase') == 'failed' and session.get('code') == 'CLIENT_EXIT'
++        and receipt.get('kind') == SAVED_CRASH_KIND and receipt.get('saved_crash_off_completed') is True
++        and receipt.get('normal_title_Quit_and_native_exit0') is False
++        and receipt.get('original_session_phase') == session['phase']
++        and receipt.get('original_session_code') == session['code']
++        and receipt.get('normal_stop_stage') == session.get('normal_stop_stage')
++        and receipt.get('normal_title_observed') == bool(scope.get('normal_title_observed'))
++        and type(code) is int and code != 0 and receipt.get('client_exit_code') == code
++        and receipt.get('host_observation') == host and host.get('exit_code') == code
++        and host.get('phase') == 'failed' and host.get('primary_pid') == scope.get('native_scope', {}).get('pid')
++        and host.get('primary_alive') is False and host.get('job_active_processes') == 0
++        and session.get('journal_lifecycle', {}).get('actor_exits') == receipt.get('actor_exits')
++        and receipt.get('normal_save_witness', {}).get('normal_save_completed') is True)
+ 
+ 
+ def prepare_cold_boot(root, dry_run=False, normal_stop_receipt=None):
+@@ -64,6 +88,12 @@
+     automatic = normal_stop_receipt is None
+     path = (_scope_path(root, scope['token'], 'normal-stop-receipt.json') if automatic and scope
+             else Path(normal_stop_receipt) if not automatic else None)
++    saved_crash = False
++    if automatic and scope:
++        previous = read_json(owned_path(root, '.palcraft/session.json'), {})
++        crash_path = _scope_path(root, scope['token'], SAVED_CRASH_RECEIPT)
++        if previous.get('phase') == 'failed' and crash_path.is_file():
++            path, saved_crash = crash_path, True
+     if automatic and scope and path is not None and not path.is_file():
+         # start calls this before allocating a new token and outside its lock.
+         # Reuse the original completed stop; never request a second shutdown.
+@@ -78,7 +108,7 @@
+     receipt = read_json(path)
+     if automatic:
+         previous = read_json(owned_path(root, '.palcraft/session.json'), {})
+-        if (receipt.get('kind') != 'palcraft-owned-normal-stop-v1'
++        if (receipt.get('kind') != (SAVED_CRASH_KIND if saved_crash else 'palcraft-owned-normal-stop-v1')
+                 or receipt.get('token') != scope.get('token') or previous.get('token') != scope.get('token')
+                 or receipt.get('root_id') != marker(root)['id'] or receipt.get('root') != str(root)
+                 or receipt.get('stream_identity') != file_identity(source)
+@@ -87,7 +117,8 @@
+                 or any(not v.get('actual_wait_completed') for v in receipt['actor_exits'].values())
+                 or any(any(receipt['actor_exits'][key].get(field) != actor.get(field)
+                            for field in ('pid', 'identity', 'role')) for key, actor in scope['actors'].items())
+-                or not receipt.get('normal_title_Quit_and_native_exit0')
++                or (not _saved_crash_receipt_matches(root, scope, previous, receipt) if saved_crash
++                    else not receipt.get('normal_title_Quit_and_native_exit0'))
+                 or not receipt.get('Saved_and_WAL_stable_after_all_actors_off')):
+             fail('JOURNAL_STALE_RECEIPT', '停机见证不属于这一 boot、这一事件卷或真实等待结束的进程。')
+         if _persistent_inventory(root) != receipt['persistent_stat_inventory']:
+@@ -431,6 +462,11 @@
+                                   self.save_witness, phase, self.quiet_seconds)
+ 
+ def _issue_normal_stop(root, token, scope, exits, save_witness, phase, quiet_seconds=2, dry_run=False):
++    return _issue_off_receipt(root, token, scope, exits, save_witness, phase, quiet_seconds, dry_run)
++
++
++def _issue_off_receipt(root, token, scope, exits, save_witness, phase, quiet_seconds=2, dry_run=False,
++                       saved_crash=False, session=None):
+     from launcher.runtime import process_matches
+     current_exits = {v['role']: v for v in exits.values()}
+     native = scope.get('native_scope', {})
+@@ -454,6 +490,15 @@
+         'wrapper_child_wait_and_absent': all(v.get('owned_child_exit', {}).get('actual_wait_completed') is True
+                                            and not process_matches(v['owned_child_exit']['child'])
+                                            for v in exits.values() if v['role'] in ('proxy', 'hud', 'udp', 'ssh'))}
++    if saved_crash:
++        for name in ('phase_stopped', 'title_observed', 'client_exit0', 'host_exit0', 'host_phase_stopped'):
++            requirements.pop(name)
++        code = current_exits.get('client', {}).get('exit_code')
++        requirements.update(phase_failed=phase == 'failed',
++            client_actual_nonzero_exit=type(code) is int and code != 0,
++            host_same_actual_nonzero_exit=host.get('exit_code') == code,
++            host_phase_failed=host.get('phase') == 'failed',
++            original_client_exit_session=session is not None and session.get('code') == 'CLIENT_EXIT')
+     ready = all(requirements.values())
+     ports = {}
+     if ready:
+@@ -470,7 +515,7 @@
+                    'failed_conjuncts': [key for key, value in requirements.items() if not value]
+                        + ['port:' + port for port, available in ports.items() if not available]}
+         if not dry_run:
+-            atomic_json(_scope_path(root, token, 'incomplete-stop.json'), pending)
++            atomic_json(_scope_path(root, token, 'incomplete-saved-crash-off.json' if saved_crash else 'incomplete-stop.json'), pending)
+         return pending
+     if dry_run:
+         return {'ok': True, 'dry_run': True, 'token': token, 'normal_stop_receipt_created': False,
+@@ -499,23 +544,38 @@
+         fail('JOURNAL_ACTOR_ALIVE', '散列期间原进程重新出现，未签发停机见证。')
+     if not all(_port_free(port) for port in (25567, 25599, 25603)):
+         fail('JOURNAL_WITNESS_PENDING', '停机见证签发前后端端口仍不可用。')
+-    receipt = {'schema': 1, 'kind': 'palcraft-owned-normal-stop-v1', 'root': str(root),
++    receipt = {'schema': 1, 'kind': SAVED_CRASH_KIND if saved_crash else 'palcraft-owned-normal-stop-v1', 'root': str(root),
+         'root_id': scope['root_id'], 'token': token, 'native_scope': native,
+         'active_events_path': str(source), 'stream_identity': stream, 'actor_exits': exits,
+         'normal_save_completed': True, 'normal_save_witness': save_witness,
+-        'normal_title_Quit_and_native_exit0': True, 'MC_guest_normal_exit': current_exits.get('mc_guest', {}).get('exit_code'),
++        'normal_title_Quit_and_native_exit0': not saved_crash, 'MC_guest_normal_exit': current_exits.get('mc_guest', {}).get('exit_code'),
+         'MC_server_normal_stop_exit': current_exits.get('mc_server', {}).get('exit_code'),
+         'all_owned_producers_and_consumers_stopped': True,
+         'all_this_stream_producers_and_consumers_off_before_rotation': True,
+         'Saved_and_WAL_stable_after_all_actors_off': True, 'persistent_stat_inventory': before,
+         'persistent_sha256': hashes, 'observed_unix': time.time(),
+         'new_SID_credential_permission_ACK_reader_offset_or_transaction_WAL_written': False}
+-    path = _scope_path(root, token, 'normal-stop-receipt.json')
++    if saved_crash:
++        receipt.update(saved_crash_off_completed=True, original_session_phase=session['phase'],
++            original_session_code=session['code'], normal_stop_stage=session.get('normal_stop_stage'),
++            normal_title_observed=bool(scope.get('normal_title_observed')),
++            client_exit_code=current_exits['client']['exit_code'], host_observation=host)
++    path = _scope_path(root, token, SAVED_CRASH_RECEIPT if saved_crash else 'normal-stop-receipt.json')
+     atomic_json(path, receipt)
+-    return {'ok': True, 'normal_stop_receipt': str(path), 'actor_exits': exits,
++    key = 'saved_crash_off_receipt' if saved_crash else 'normal_stop_receipt'
++    return {'ok': True, key: str(path), 'actor_exits': exits,
+             'normal_save_completed': True, 'next_cold_boot_uses_original_rotator': True}
+ 
+ def finalize_stop(root, dry_run=False, quiet_seconds=2):
++    return _finalize_off(root, dry_run, quiet_seconds)
++
++
++def finalize_saved_crash(root, dry_run=False, quiet_seconds=2):
++    """Sign only saved, actually waited crash-off facts; never claim a normal exit."""
++    return _finalize_off(root, dry_run, quiet_seconds, saved_crash=True)
++
++
++def _finalize_off(root, dry_run=False, quiet_seconds=2, saved_crash=False):
+     """Finish this same completed boot from original persisted waits; no new save/stop/signals."""
+     from installer.core import operation_lock
+     from launcher.runtime import process_identity
+@@ -527,8 +587,9 @@
+         pointer = read_json(owned_path(root, LIFECYCLE + '/current.json'))
+         owner = marker(root)
+         state = get_state(root); profile = state['profile']; native = scope.get('native_scope', {})
+-        if (not enabled(profile) or session.get('phase') != 'stopped'
+-                or session.get('normal_stop_stage') != 'await_native_exit'
++        valid_phase = (session.get('phase') == 'failed' and session.get('code') == 'CLIENT_EXIT' if saved_crash
++                       else session.get('phase') == 'stopped' and session.get('normal_stop_stage') == 'await_native_exit')
++        if (not enabled(profile) or not valid_phase
+                 or pointer.get('token') != token or scope.get('token') != token
+                 or scope.get('root') != str(root) or scope.get('root_id') != owner['id']
+                 or scope.get('active_events_path') != str(root / EVENTS)
+@@ -590,7 +651,7 @@
+                 or actual['mtime_ns'] / 1e9 != witness['level_mtime']
+                 or actual['bytes'] != witness['level_bytes'] or digest(level) != witness['level_sha256']):
+             fail('JOURNAL_SAVE_CHANGED', '原提交之后的 Level 文件见证已变化。')
+-        for action in ('return_title', 'observe_title', 'quit_title'):
++        for action in (() if saved_crash else ('return_title', 'observe_title', 'quit_title')):
+             submitted = read_json(_scope_path(root, token, action + '-request.json'))
+             observed = read_json(_scope_path(root, token, action + '-observation.json'))
+             value = observed.get('result', {})
+@@ -602,4 +663,5 @@
+             if action == 'observe_title' and scope.get('normal_title_observed') != value:
+                 fail('JOURNAL_SCOPE', '原 Title 回执与 scope 不一致。')
+         # Same issuer as normal finish. No fake owner/Popen and no phase/state edit.
+-        return _issue_normal_stop(root, token, scope, exits, witness, session['phase'], quiet_seconds, dry_run)
++        return _issue_off_receipt(root, token, scope, exits, witness, session['phase'], quiet_seconds, dry_run,
++                                  saved_crash=saved_crash, session=session)
+--- a/installer/core.py
++++ b/installer/core.py
+@@ -743,17 +743,25 @@
+     session = read_json(owned_path(root, '.palcraft/session.json'))
+     pointer = read_json(owned_path(root, LIFECYCLE + '/current.json'))
+     token = session.get('token', '')
+-    if (session.get('phase') != 'stopped' or not re.fullmatch(r'[a-f0-9]{32}', token)
++    saved_crash = session.get('phase') == 'failed' and session.get('code') == 'CLIENT_EXIT'
++    if ((session.get('phase') != 'stopped' and not saved_crash) or not re.fullmatch(r'[a-f0-9]{32}', token)
+             or pointer.get('token') != token):
+         fail('GENERATED_OWNER_STOP', '正常生成数据归属需要当前同 boot 的完整正常停机见证。')
+     prefix = LIFECYCLE + '/' + token + '/'
+     scope = read_json(owned_path(root, prefix + 'scope.json'))
+-    receipt_path = owned_path(root, prefix + 'normal-stop-receipt.json')
++    receipt_path = owned_path(root, prefix + ('saved-crash-off-receipt.json' if saved_crash else 'normal-stop-receipt.json'))
+     if not receipt_path.is_file():
+         fail('GENERATED_OWNER_STOP', '尚无当前同 boot 的完整正常停机回执，未采纳生成数据。', '用原 finalize-stop 签收已有真实正常关闭记录后，再运行普通 update。')
+     receipt = read_json(receipt_path)
+     native = scope.get('native_scope', {})
+     title = scope.get('normal_title_observed', {})
++    if saved_crash:
++        from launcher.journal_lifecycle import _saved_crash_receipt_matches
++        stop_truth = _saved_crash_receipt_matches(root, scope, session, receipt)
++    else:
++        stop_truth = (isinstance(title, dict) and title.get('action') == 'observe_title'
++            and title.get('token') == token and title.get('process_epoch') == native.get('process_epoch')
++            and bool(title.get('request_id')) and receipt.get('normal_title_Quit_and_native_exit0') is True)
+     actors, exits = scope.get('actors', {}), receipt.get('actor_exits', {})
+     witness = receipt.get('normal_save_witness', {})
+     stream = owned_path(root, EVENTS)
+@@ -762,11 +770,9 @@
+     next_connection = after['profile']['connection']
+     required = ('server_session_id', 'process_epoch', 'world_id', 'pal_uid', 'save_boot_id')
+     if (scope.get('root') != str(root) or scope.get('root_id') != owner['id'] or scope.get('token') != token
+-            or receipt.get('schema') != 1 or receipt.get('kind') != 'palcraft-owned-normal-stop-v1'
++            or receipt.get('schema') != 1 or receipt.get('kind') != ('palcraft-owned-saved-crash-off-v1' if saved_crash else 'palcraft-owned-normal-stop-v1')
+             or receipt.get('root') != str(root) or receipt.get('root_id') != owner['id'] or receipt.get('token') != token
+-            or receipt.get('native_scope') != native or not isinstance(title, dict)
+-            or title.get('action') != 'observe_title' or title.get('token') != token
+-            or title.get('process_epoch') != native.get('process_epoch') or not title.get('request_id')
++            or receipt.get('native_scope') != native or not stop_truth
+             or any(not isinstance(native.get(key), str) or not native[key] for key in required)
+             or type(native.get('pid')) is not int or native['pid'] < 1
+             or native['world_id'] != identity.get('world_id') or native['pal_uid'] != identity.get('pal_uid')
+@@ -778,7 +784,7 @@
+             or any(exits[name].get('actual_wait_completed') is not True
+                    or any(exits[name].get(key) != actor.get(key) for key in ('pid', 'identity', 'role'))
+                    for name, actor in actors.items())
+-            or any(receipt.get(key) is not True for key in ('normal_save_completed', 'normal_title_Quit_and_native_exit0',
++            or any(receipt.get(key) is not True for key in ('normal_save_completed',
+                    'all_owned_producers_and_consumers_stopped', 'all_this_stream_producers_and_consumers_off_before_rotation',
+                    'Saved_and_WAL_stable_after_all_actors_off'))
+             or witness.get('native_scope') != native or witness.get('after_submission') is not True or witness.get('stable') is not True
+@@ -840,7 +846,9 @@
+             # Keep the actual current SID/process epoch, never an old release's identity placeholder.
+             extra_files[target] = raw
+         adopted[target] = hashlib.sha256(raw).hexdigest()
+-    return adopted, {'normal_stop_receipt_sha256': receipt_sha, 'targets': sorted(adopted)}
++    receipt_key = ('saved_crash_off_receipt_sha256' if receipt.get('kind') == 'palcraft-owned-saved-crash-off-v1'
++                   else 'normal_stop_receipt_sha256')
++    return adopted, {receipt_key: receipt_sha, 'targets': sorted(adopted)}
+ 
+ 
+ def _apply(root, release, state_after, extra_files=None, fault=None, configuration_only=False):
+--- a/installer/cli.py
++++ b/installer/cli.py
+@@ -93,7 +93,7 @@
+     parser = argparse.ArgumentParser(description='PalCraft 玩家安装、个人客户端启动和排错工具。')
+     commands = parser.add_subparsers(dest='command', required=True)
+     for name in ('install', 'configure', 'update', 'rollback', 'uninstall', 'bottle-create', 'form',
+-                 'resources', 'credential-import', 'performance', 'doctor', 'start', 'promote', 'stop', 'finalize-stop', 'status', 'recover', 'recover-session', 'diagnostics', '_session', '_worker', '_proxy'):
++                 'resources', 'credential-import', 'performance', 'doctor', 'start', 'promote', 'stop', 'finalize-stop', 'finalize-saved-crash', 'status', 'recover', 'recover-session', 'diagnostics', '_session', '_worker', '_proxy'):
+         sub = commands.add_parser(name)
+         sub.add_argument('--root', required=True, help='自己选择的独立安装目录')
+         if name not in ('status', 'diagnostics', '_session', '_worker', '_proxy', 'doctor'):
+@@ -173,6 +173,9 @@
+         elif command == 'finalize-stop':
+             from launcher.journal_lifecycle import finalize_stop
+             result = finalize_stop(root, dry)
++        elif command == 'finalize-saved-crash':
++            from launcher.journal_lifecycle import finalize_saved_crash
++            result = finalize_saved_crash(root, dry)
+         elif command == 'rollback':
+             result = rollback(root, dry)
+         elif command == 'uninstall':

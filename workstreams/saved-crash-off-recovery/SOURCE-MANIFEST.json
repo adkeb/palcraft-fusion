@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "component": "saved-crash-off-recovery",
+  "public_safe": true,
+  "production_changes": 3,
+  "files": [
+    {
+      "path": "base/installer/cli.py",
+      "sha256": "ea106d525d9b2f0c580bc7cf0b68d7de459b5cf3e1ee7a7ca7facdfd95c03c74",
+      "bytes": 13001
+    },
+    {
+      "path": "base/installer/core.py",
+      "sha256": "ef261fdbf486fdd2c9c807eb62a15b63f92ef810589f929d777dfd35c1ce8b6c",
+      "bytes": 65849
+    },
+    {
+      "path": "base/launcher/journal_lifecycle.py",
+      "sha256": "af3d02f83aa4eeb48efbcae8a8ab31a52e80631c770202e6cea68ff1556ee561",
+      "bytes": 39775
+    },
+    {
+      "path": "source/installer/cli.py",
+      "sha256": "0ce1116ec34d8706131b1e6f36084631ed1c8309b42028d25a09112fd2f95acf",
+      "bytes": 13198
+    },
+    {
+      "path": "source/installer/core.py",
+      "sha256": "f2cfa4048da10ad3b2b5813bc7b2bf37b40b866a0dc3b8a5355726dec46a34fb",
+      "bytes": 66476
+    },
+    {
+      "path": "source/launcher/journal_lifecycle.py",
+      "sha256": "bab797abf0ba93f7ce63528d8539c0598107a42f995e7a5c184bcc7ee4b2ba07",
+      "bytes": 43984
+    },
+    {
+      "path": "dependencies/installer/__init__.py",
+      "sha256": "afffe6f28318f8c0f68b969d2f80cf52cffbf0eea96ccc774a03687684507bc4",
+      "bytes": 72
+    },
+    {
+      "path": "dependencies/installer/paths.py",
+      "sha256": "36f2236346983a514bb26233914bedafa73f282462809d1156b27aba094c9cdf",
+      "bytes": 2845
+    },
+    {
+      "path": "dependencies/installer/resources.py",
+      "sha256": "6073fff2c33917a0b38527ef156c179e6391fd0e160ad68dbd4a8dde7c89241d",
+      "bytes": 4624
+    },
+    {
+      "path": "dependencies/installer/standalone.py",
+      "sha256": "d24fd399d18b2b10d90ecc3df3489e551e7b931f72f648e887f57f45bf4f9ae3",
+      "bytes": 16766
+    },
+    {
+      "path": "dependencies/launcher/__init__.py",
+      "sha256": "f350a019999c2b5e070e71989481d726dbf86f8a22646a37c4d2d9676025aa6f",
+      "bytes": 77
+    },
+    {
+      "path": "dependencies/launcher/runtime.py",
+      "sha256": "da4ff409739304c846c0e51879d83a721bf6be2a32425044fa49ab6d95d3902c",
+      "bytes": 71703
+    },
+    {
+      "path": "checks/check_saved_crash.py",
+      "sha256": "c5c0fde9c89c7adc5bd4be483bc915a699766a89f54e33d310d32472edfdc67a",
+      "bytes": 15044
+    },
+    {
+      "path": "saved-crash-off-recovery.patch",
+      "sha256": "662f4ef6d005f55dbc4aa93703c67a7ba673e92df26bb10fcf8eccdce7b2f196",
+      "bytes": 18277
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "7452c5e1c5ccaa162520a815cee1d699abd24ec52764db526f6f1d43d808474f",
+      "bytes": 798
+    },
+    {
+      "path": "run_frozen_cli.py",
+      "sha256": "bbeaceeb993d4a8f619cc1e0b6580399cc0f98a40c939cea6b70ee29cdf59b16",
+      "bytes": 1560
+    },
+    {
+      "path": "README.md",
+      "sha256": "44bd927792f0e10797c0ccd4ce15417cb7a0743c1d9311c4dde25da9fd4dd6b0",
+      "bytes": 2249
+    }
+  ],
+  "check_portability_adjustment": "identical four cases; print receipt without overwriting archived evidence",
+  "actual_identity_Save_path_environment_credential_host_or_private_receipt_included": false
+}
