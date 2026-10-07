@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "base_candidate": 31,
+  "source_sha256": "4b59b65b68e870bf32e8b91f9f472f0e3d105ac15de3ece2bbd4390504b4cc7d",
+  "production_slots": 1,
+  "bounded_synthetic_cases_passed": 3,
+  "actual_auto_cold_start_accepted": false,
+  "runtime_installed": false
+}

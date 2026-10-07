@@ -88,3 +88,5 @@ Mac 候选 28 已实际完成首次自然场景 ACK 和物理 F5 第一人称变
 候选 29 已实际完成鼠标转向和一次火把生存守恒，但正常死亡复活后的视图转换及返回标题未通过：保存完成后，返回标题发生真实异常退出。已公开 [暂时缺少保存证明时暂停](../workstreams/transient-owned-world-proof-pause)、[等待原物理视图转换](../workstreams/respawn-physical-transition-home-init) 和 [同世界复活保留帕鲁出生位置](../workstreams/respawn-current-native-home) 源码候选；这不是完整复活或退出成功的声明。
 
 候选 29 返回标题的异常退出已通过原已保存崩溃收尾实际恢复，保留退出码 3、标题未完成和原早期保存记录；最终存档经标准 codec 解析。新增 [正常已保存世界关闭](../workstreams/normal-saved-world-shutdown) 源码保留原 operator guard，单独清理属于本次保存的恢复场景，再返回标题。限定源码检查通过，实际正常退出仍待下一版验证。
+
+候选 31 已通过一次原恢复入口完成当前完整目标区域和 ACK；正常帕鲁复活后新视图也自然完成，MC 生命和原库存恢复，物理 F5 切回显示原装备与 HUD。首次自动准备仍有晚接入快照丢失问题，已公开 [权威快照晚接入补齐源码](../workstreams/late-authoritative-snapshot-native-catchup)；自动冷启动、原生模型像素和正常退出仍未全部验收。

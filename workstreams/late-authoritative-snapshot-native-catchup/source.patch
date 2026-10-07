@@ -1,0 +1,116 @@
+--- a/client/companion_chunk_bridge.lua
++++ b/client/companion_chunk_bridge.lua
+@@ -200,6 +200,51 @@
+  end
+  return out
+ end
++-- A late attachment can receive an authoritative end after its native begin/body
++-- were already consumed by World. Only that reducer's real committed receipt can
++-- seed a missing native stage; this never invents snapshot or readiness evidence.
++function Bridge:_late_snapshot_end(row,life)
++ local r=self.world:committed_snapshot(life.snapshot)
++ if type(life.bounds)~='table'or#life.bounds~=6 or not r or type(r.bounds)~='table'or#r.bounds~=6 or r.committed~=true or r.snapshot~=life.snapshot or r.session~=row.session or r.session~=self.world.session
++  or r.dim~=(row.dim or'minecraft:overworld')or r.player~=life.player or r.end_seq~=row.seq
++  or r.end_seq<(self.world.last_gap_seq or 0)or G.stable(r.bounds)~=G.stable(life.bounds)then return end
++ for _,region in pairs(self.views.regions)do
++  local child=region.scheduler
++  if not region.retiring and region.refs>0 and region.dim==r.dim and not child.snapshots[r.snapshot]then
++   local ticket
++   for _,t in pairs(self.views.tickets)do
++    if t.region==region and not t.released and t.generation==self.views.generation and t.world_session==r.session
++     and(not t.player or not r.player or t.player==r.player)then ticket=t;break end
++   end
++   local exists=false
++   for _,coverage in ipairs(child.coverage)do
++    if coverage.snapshot==r.snapshot and coverage.seq==r.end_seq and coverage.session==r.session
++     and coverage.generation==child.generation then exists=true;break end
++   end
++   if not exists then for _,job in ipairs(self.bootstrap)do
++    if job.ticket.region==region then for _,receipt in ipairs(job.receipts)do
++     if receipt.snapshot==r.snapshot and receipt.end_seq==r.end_seq then exists=true;break end
++    end end
++    if exists then break end
++   end end
++   if ticket and not exists then
++    local positions,seen={},{}
++    local function add(at)
++     if inside(at,r.bounds)and inside(at,region.window)then
++      local k=at_key(at);if not seen[k]then seen[k]=true;positions[#positions+1]=G.clone(at)end
++     end
++    end
++    local world=self.world.worlds[r.dim]
++    for _,g in pairs(world and world.blocks or{})do add(g.at)end
++    for _,ch in pairs(child.chunks)do if ch.dimension==r.dim then for _,g in pairs(ch.blocks)do add(g.at)end end end
++    table.sort(positions,function(a,b)return at_key(a)<at_key(b)end)
++    self.bootstrap[#self.bootstrap+1]={ticket=ticket,late_region=region,late_generation=child.generation,
++     blocks=positions,index=1,base_seq=row.seq,receipts={G.clone(r)}}
++    region.commit_hold='companion_bootstrap'
++   end
++  end
++ end
++end
+ function Bridge:on_row(row,accepted,reason)
+  if not self.installed or row.t~='blocks'then return true end
+  if accepted~=true then self.error='World reducer rejected row: '..tostring(reason);return false,self.error end
+@@ -215,6 +260,7 @@
+   local event={};for k,v in pairs(e)do event[k]=v end;event.dim=row.dim;event.session=row.session
+   self.block_events[block_key(dimension,event.at)]=event
+  end end
++ for _,life in ipairs(row.lifecycle or{})do if life.op=='snapshot_end'then self:_late_snapshot_end(row,life)end end
+  local ok,why=self.views:ingest(self:_transform(row));if ok==false and why~='stale'then self.error=why;return false,why end
+  self.stats.rows=self.stats.rows+1;return true
+ end
+@@ -238,6 +284,41 @@
+ end
+ function Bridge:_seed_one()
+  local job=self.bootstrap[1];if not job then return end
++ if job.late_region then
++  local region=job.late_region;local child=region.scheduler
++  if self.views.regions[region.id]~=region or region.retiring or region.refs==0
++   or child.generation~=job.late_generation or self.world.session~=job.receipts[1].session then
++   table.remove(self.bootstrap,1);local pending=false
++   for _,other in ipairs(self.bootstrap)do if other.ticket.region==region then pending=true;break end end
++   if not pending then region.commit_hold=nil end;return
++  end
++  local blocks,clears={},{}
++  for _=1,(self.options.seed_blocks_per_tick or 32)do
++   local at=job.blocks[job.index];if not at then break end;job.index=job.index+1
++   local latest=self.latest[block_key(region.dim,at)]
++   if not latest or latest<=job.base_seq then
++    local g=self.world:get(region.dim,table.unpack(at))
++    if g then
++     local op=G.clone(g);op.op='upsert'
++     blocks[#blocks+1]=self:_transform({ops={op}}).ops[1]
++    else clears[#clears+1]=G.clone(at)end
++   end
++  end
++  if #blocks>0 or #clears>0 then child:apply_blocks(region.dim,blocks,clears);self.stats.seeded_blocks=self.stats.seeded_blocks+#blocks end
++  if job.index>#job.blocks then
++   for _,r in ipairs(job.receipts)do
++    local current=self.world:committed_snapshot(r.snapshot)
++    if current and current.committed==true and current.end_seq==r.end_seq and r.end_seq>=(self.world.last_gap_seq or 0)then
++     child.coverage[#child.coverage+1]={dim=r.dim,bounds=G.clone(r.bounds),session=r.session,
++      generation=child.generation,snapshot=r.snapshot,player=r.player,seq=r.end_seq,source='companion_reducer_receipt'}
++    end
++   end
++   table.remove(self.bootstrap,1)
++   local pending=false;for _,other in ipairs(self.bootstrap)do if other.ticket.region==region then pending=true;break end end
++   if not pending then region.commit_hold=nil end
++  end
++  return
++ end
+  if job.ticket.released or job.ticket.generation~=self.views.generation then
+   table.remove(self.bootstrap,1);local pending=false
+   for _,other in ipairs(self.bootstrap)do if other.ticket.region==job.ticket.region then pending=true;break end end
+@@ -352,7 +433,10 @@
+   progress.session_generation=ticket.session_generation;progress.player=ticket.player;proof.companion_bootstrap=progress
+  end
+  if self.error then proof.errors[#proof.errors+1]=self.error end
+- for _,job in ipairs(self.bootstrap)do if job.ticket==ticket then proof.snapshots_pending=proof.snapshots_pending+1;proof.errors[#proof.errors+1]='companion_bootstrap_pending'end end
++ for _,job in ipairs(self.bootstrap)do
++  if job.late_region==ticket.region then proof.snapshots_pending=proof.snapshots_pending+1;proof.ready=false
++  elseif not job.late_region and job.ticket==ticket then proof.snapshots_pending=proof.snapshots_pending+1;proof.errors[#proof.errors+1]='companion_bootstrap_pending'end
++ end
+  for _,task in pairs(self.retirements)do if task.section.region_id==ticket.region_id then proof.errors[#proof.errors+1]='legacy_retirement_pending: '..tostring(task.error)end end
+  for _,stage in pairs(self.world.snapshots or{})do if stage.dim==ticket.dim then
+   local a,b=stage.bounds,ticket.required_bounds
