@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-07T01:17:47.823062+00:00",
+  "base_sha256": "17ec929e6cb1b0e7471a25efb7f37d252cb5e60550a947d92519a0b0e900c8ae",
+  "source_sha256": "5134d6bdb3936fabb9eeeb611b61ae51b5ebc65c5840b76856edea5a43f304da",
+  "patch_sha256": "9a76760027bdeb59c6235fab72cf1501acc78f9afabf889ce5706809817adcf2",
+  "source_only": true,
+  "installed_source_or_session_modified": false,
+  "vendor_or_saved_modified": false,
+  "actual_native_helper_environment_inheritance_verified": false,
+  "actual_gameplay_pass_claimed": false,
+  "source": "source/launcher/crossover_menu_helper.py",
+  "base": "base/launcher/crossover_menu_helper.py",
+  "public_checker_uses_owned_frozen_baseline_and_user_supplied_CrossOver_app": true
+}

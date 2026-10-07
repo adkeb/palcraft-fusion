@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "passed": true,
+  "checks": [
+    {
+      "name": "original_installed_source_unchanged",
+      "passed": true
+    },
+    {
+      "name": "source_compiles_without_running_main",
+      "passed": true
+    },
+    {
+      "name": "caller_environment_not_mutated",
+      "passed": true
+    },
+    {
+      "name": "owned_normal_dll_override_last_and_unique",
+      "passed": true
+    },
+    {
+      "name": "normal_SteamAppId_unique",
+      "passed": true
+    },
+    {
+      "name": "unrelated_CX_ENV_assignments_preserved",
+      "passed": true
+    },
+    {
+      "name": "root_bottle_proxy_and_unrelated_environment_preserved",
+      "passed": true
+    },
+    {
+      "name": "normal_debugmsg_preserved",
+      "passed": true
+    },
+    {
+      "name": "absent_CX_ENV_supported",
+      "passed": true
+    },
+    {
+      "name": "malformed_inherited_CX_ENV_fails_before_native_exec",
+      "passed": true
+    },
+    {
+      "name": "same_native_helper_and_owned_menu_route",
+      "passed": true
+    },
+    {
+      "name": "same_all_ShellLink_fields_and_host_arguments",
+      "passed": true
+    },
+    {
+      "name": "unsupported_Info_Command_key_removed",
+      "passed": true
+    },
+    {
+      "name": "official_vendor_order_verified",
+      "passed": true
+    },
+    {
+      "name": "official_parser_restores_override_after_delete",
+      "passed": true
+    },
+    {
+      "name": "official_parser_preserves_quoted_unknown_assignments",
+      "passed": true
+    }
+  ],
+  "official_vendor_parser_sha256": "763332e41530de8d3a0ad3b39f8322c8a73433e42d9501c504f4b3e3238d90a7",
+  "source_sha256": "5134d6bdb3936fabb9eeeb611b61ae51b5ebc65c5840b76856edea5a43f304da",
+  "actual_game_Wine_cxmenu_or_helper_started": false,
+  "installed_source_session_vendor_or_Saved_modified": false,
+  "actual_native_helper_inheritance_verified": false,
+  "actual_gameplay_or_42_cases_pass_claimed": false
+}

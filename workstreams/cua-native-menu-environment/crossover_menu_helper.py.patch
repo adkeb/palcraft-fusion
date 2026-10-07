@@ -1,0 +1,70 @@
+--- base/launcher/crossover_menu_helper.py
++++ source/launcher/crossover_menu_helper.py
+@@ -124,18 +124,38 @@
+     # The observed winewrapper ignores --enable-alt-loader. Start the genuine
+     # native Menu Helper, whose vendor Wine controller supplies its loader.
+     launch = [str(bundle / 'Contents/MacOS/Menu Helper')]
+-    # The official menu script accepts the same Wine options before its target.
+-    helper_command = shlex.join([str(menu_script), '--debugmsg', '-all', '--dll', 'dwmapi=n,b',
+-                                '--env', 'SteamAppId=1623730', '--workdir', prefix[-1]])
++    # The vendor helper resolves MenuPath through the official menu registry.
++    # Its generated Windows menu command does not carry extra Wine options.
+     return dict(root=root, vendor=vendor, bottle=bottle, home=home, bundle=bundle,
+                 wine=wine, cxmenu=cxmenu, menu=menu, owner=owner, description=description,
+                 link=bottle / 'drive_c/windows/Start Menu/PalCraft' / owner / 'PalCraft Game.lnk',
+                 link_windows='C:\\windows\\Start Menu\\PalCraft\\' + owner + '\\PalCraft Game.lnk',
+                 menu_script=menu_script, target=target, arguments=arguments, token=token,
+-                workdir=prefix[-1], launch=launch, helper_command=helper_command,
++                workdir=prefix[-1], launch=launch,
+                 bundle_id='com.codeweavers.CrossOverHelper.' +
+                     hashlib.md5(profile['bottle_name'].encode('utf-8')).hexdigest().upper() + '.' +
+                     hashlib.md5(menu.encode('utf-8')).hexdigest().upper())
++
++
++def native_environment(environment):
++    """Carry the validated normal Wine options through the vendor CX_ENV path."""
++    result = dict(environment)
++    try:
++        inherited = shlex.split(result.get('CX_ENV', ''))
++    except ValueError as exc:
++        raise MenuError('The inherited CX_ENV cannot be parsed') from exc
++    assignments = []
++    for field in inherited:
++        key, separator, _ = field.partition('=')
++        if not separator or not key or '\0' in field or '\r' in field or '\n' in field:
++            raise MenuError('The inherited CX_ENV contains an unsupported assignment')
++        if key not in ('SteamAppId', 'WINEDLLOVERRIDES'):
++            assignments.append(field)
++    # bin/wine clears WINEDLLOVERRIDES before applying its CX_ENV assignments.
++    assignments += ['SteamAppId=1623730', 'WINEDLLOVERRIDES=dwmapi=n,b']
++    result['CX_ENV'] = shlex.join(assignments)
++    result['CX_DEBUGMSG'] = '-all'
++    return result
+ 
+ 
+ def native_shortcut_request(spec):
+@@ -203,8 +223,7 @@
+                   CXHelperAppBottleName=profile['bottle_name'],
+                   CXHelperAppBottleTag='CrossOver-' + bottle_id + '/',
+                   CXOriginalMenuName=spec['description'],
+-                  CrossOverHelperMenuPath=spec['menu'],
+-                  CrossOverHelperCommand=spec['helper_command'])
++                  CrossOverHelperMenuPath=spec['menu'])
+     result['CFBundleDocumentTypes'] = [{'CFBundleTypeRole': 'Viewer',
+         'LSItemContentTypes': ['com.codeweavers.CrossOverHelper.MenuDummyType']}]
+     result['UTImportedTypeDeclarations'] = [{'UTTypeIdentifier': 'com.codeweavers.CrossOverHelper.MenuDummyType'}]
+@@ -365,10 +384,12 @@
+             if time.monotonic() >= deadline:
+                 raise
+             time.sleep(.05)
+-    prepare(spec, profile, os.environ.copy())
++    setup_environment = os.environ.copy()
++    launch_environment = native_environment(setup_environment)
++    prepare(spec, profile, setup_environment)
+     session_guard(spec)
+     # One native vendor app replacement; never also run the shortcut/cxmenu here.
+-    os.execv(spec['launch'][0], spec['launch'])
++    os.execve(spec['launch'][0], spec['launch'], launch_environment)
+ 
+ 
+ if __name__ == '__main__':
