@@ -1,0 +1,28 @@
+--- a/client/runtime/standalone_bootstrap.lua
++++ b/client/runtime/standalone_bootstrap.lua
+@@ -51,7 +51,11 @@
+    write(P.bridge..'lab-identity.json',{realm_mode='standalone',world_directory=proof.world_id,
+     server_session_id=proof.server_session_id,host_uid=proof.host_uid,process_epoch=proof.process_epoch,observed_unix=os.time()})
+   end
+-  local ok,e=pcall(dispatcher.tick,ms)
++  -- Native world loading or an unavailable owned save is a failed gate for
++  -- this callback, not a permanent failure of each existing native worker.
++  local ok,e
++  if proof then ok,e=pcall(dispatcher.tick,ms)
++  else ok,e=false,why or'Actual Standalone local realm unavailable'end
+   if not last_status or ms<last_status or ms-last_status>=1000 then
+    last_status=ms
+    write(P.bridge..'standalone-runtime-status.json',{mode='standalone',authority=proof~=nil,
+--- a/server/runtime/standalone_views.lua
++++ b/server/runtime/standalone_views.lua
+@@ -101,6 +101,10 @@
+  end
+  function api.release(t)
+   thread();owned(t)
++  -- The original client stop sets stopped only after shared cleanup succeeds.
++  -- Its old lease must retire through the existing abandon bookkeeping;
++  -- never call a native release on that stopped consumer.
++  if t.native and t.worker and t.worker.stopped then return api.abandon(t)end
+   if t.native then
+    local p=current()
+    assert(p and same_realm(p,t.realm)and realm:validate(p,t.worker.ctx.pc)==true

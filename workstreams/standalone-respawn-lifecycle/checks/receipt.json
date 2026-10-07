@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "kind": "targeted-source-lifecycle-fixture",
+  "invocation_count": 1,
+  "exit_code": 0,
+  "runner": "Existing Lua 5.4.8 interpreter, nice 19; actual unchanged Compose/server features/client-options modules with simulated IO/native objects",
+  "command_relative_to_workspace": "nice -n 19 work/palworld-live/research/lua-5.4.8/src/lua work/minecraft-fusion/coordination/normal-respawn-world-reconnect-delta/checks/check_lifecycle.lua work/minecraft-fusion/coordination/normal-respawn-world-reconnect-delta/base work/minecraft-fusion/coordination/normal-respawn-world-reconnect-delta/source work/minecraft-fusion/palcraft/runtime/deploy/mac-SP-final-10_6-401a4ae60eb4/source/server/json.lua",
+  "stdout": "{\"actual_save_or_ACK_or_recovery_proven\":false,\"cases\":[{\"name\":\"uninitialized_levels_or_temporary_saved_host_gate_resume_original_observer\",\"passed\":true},{\"name\":\"serious_permission_failure_never_reuses_prior_verified_gate_or_reports_ready\",\"passed\":true},{\"name\":\"successful_original_client_stop_abandons_old_lease_but_live_or_failed_stop_does_not\",\"passed\":true}],\"existing_source_modules_loaded\":true,\"fixture_only\":true,\"installed_files_game_RPC_or_queue_changed\":false,\"ok\":true,\"targeted_cases\":3}\n",
+  "result": {
+    "actual_save_or_ACK_or_recovery_proven": false,
+    "cases": [
+      {
+        "name": "uninitialized_levels_or_temporary_saved_host_gate_resume_original_observer",
+        "passed": true
+      },
+      {
+        "name": "serious_permission_failure_never_reuses_prior_verified_gate_or_reports_ready",
+        "passed": true
+      },
+      {
+        "name": "successful_original_client_stop_abandons_old_lease_but_live_or_failed_stop_does_not",
+        "passed": true
+      }
+    ],
+    "existing_source_modules_loaded": true,
+    "fixture_only": true,
+    "installed_files_game_RPC_or_queue_changed": false,
+    "ok": true,
+    "targeted_cases": 3
+  }
+}

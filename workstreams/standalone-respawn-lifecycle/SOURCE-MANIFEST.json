@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "kind": "normal-respawn-world-reconnect-next16-source-delta",
+  "source_only": true,
+  "base": "exact candidate14 payload; unchanged by candidate15 two-slot realm/HUD upgrade",
+  "files": [
+    {
+      "path": "client/runtime/standalone_bootstrap.lua",
+      "managed_target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/standalone_bootstrap.lua",
+      "base_sha256": "1307e72e514ace3fdc52e5229f353df30c2da843734c3a6ebb8610986dd95312",
+      "new_sha256": "f4c8210ff8fc2817163cf681425c04f88b052eadc3dcbaac4e2638af83a4fbb0",
+      "bytes": 4250
+    },
+    {
+      "path": "server/runtime/standalone_views.lua",
+      "managed_target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/runtime/standalone_views.lua",
+      "base_sha256": "f4a56c9ec5e19172539012fe0c0cf184b022d93226311ae978144ae453d64e63",
+      "new_sha256": "53d2f6edb67b705da4ab9f674b17b9e7dc055623e436c8bb2a319845f6359ae7",
+      "bytes": 7792
+    }
+  ],
+  "patch": {
+    "path": "respawn-lifecycle.patch",
+    "sha256": "fdcb74f090927cf32d2f72bd318b75acd7f1373121e50f222fbc9a0940b38f94"
+  },
+  "unchanged_lifecycle_dependencies": {
+    "server/standalone_service.lua": {
+      "sha256": "509460d7c2c7e616cb9cd9813bfabd4281c967e11ff03210dd62cf214c6a82a9",
+      "bytes": 4907,
+      "exact14_payload_equals_selected_original_source": true
+    },
+    "client/runtime/standalone_permissions.lua": {
+      "sha256": "187cd3bbd93376b29ad413101c1f24bc7bebcb8faa4b94c036d464e92d817c47",
+      "bytes": 5442,
+      "exact14_payload_equals_selected_original_source": true
+    },
+    "client/runtime/compose.lua": {
+      "sha256": "4a2b7293f31ded2935b082d06fb47ad2aded855dd4e727c0202d762cf8e2ac57",
+      "bytes": 6028,
+      "unchanged": true
+    },
+    "client/runtime/client_options.lua": {
+      "sha256": "00ab4dc62185ff0c12314817eae6f3452ecda83a3121b3c1d5137182e07f9b94",
+      "bytes": 22873,
+      "unchanged": true
+    },
+    "server/features.lua": {
+      "sha256": "ef9f89959684be238dafb3fc49748d37c3d46021eed175c14c9d465814caeaf0",
+      "bytes": 14891,
+      "unchanged": true
+    },
+    "server/main.lua": {
+      "sha256": "751cf61ecf1d300ab75bfe200ad9aaffa052ff0c9119827814a3bd92fd0b3422",
+      "bytes": 15700,
+      "unchanged": true
+    }
+  },
+  "changes": [
+    "A failed fresh realm/owned-save gate does not advance the external dispatcher during that callback; the next original timer callback revalidates before resuming existing workers",
+    "The original failed gate reason is published with authority=false and dispatcher_ok=false; original permission/native assertions remain unchanged",
+    "An owned server lease whose original client Worker.stop completed successfully retires via existing abandon bookkeeping; live owner release checks remain unchanged"
+  ],
+  "checks": {
+    "path": "checks/receipt.json",
+    "sha256": "caa2d893e90d851b29d036610648205a7894315ec43af601b87501854c7d47f2",
+    "fixture_sha256": "d41a77e7b73ec0b2ca74131f5e97f73c14837fbb18f50c94d02f4b36394fb09c",
+    "invocation_count": 1,
+    "cases": 3,
+    "passed": true,
+    "actual_game_recovery_or_FPS_proven": false
+  },
+  "new_reader_timer_service_autorestart_loop_or_protocol": false,
+  "save_command_SaveID_WAL_or_anti_replay_changed": false,
+  "auth_UID_SID_world_deadline750_or_ready_gate_weakened": false,
+  "actual_next16_respawn_ACK_save_or_complete_gameplay_acceptance_proven": false
+}
