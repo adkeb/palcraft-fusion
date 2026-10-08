@@ -1,0 +1,51 @@
+--- base/server/travel.lua
++++ source/server/travel.lua
+@@ -179,8 +179,20 @@
+ end
+ function Server:_start_prepare(tx,b)
+  tx._pc=b.pc;tx._needs_recover=nil;tx.started=self.now;tx.deadline=self.now+self.config.prepare_timeout_ms
+- tx._pawn_address=self.actor.snapshot(b.pc).pawn_address
+- tx._lock=self.actor.hold(b.pc,true,tx.recovering and tx.source.snapshot or nil)
++ local snapshot=self.actor.snapshot(b.pc);tx._pawn_address=snapshot.pawn_address
++ if tx.initial_native_home_from_pal_spawn then
++  -- Respawn setup may still relocate this same authority pawn after the initial intent snapshot.
++  local feet=self.P.copy(snapshot.position);feet.Z=feet.Z-snapshot.half_height
++  local bounds,why=self.registry:required(tx.mapping,self.P.to_mc(tx.mapping,feet))
++  if not bounds then return self:_cancel(tx,why)end
++  tx.target_pawn=self.P.copy(snapshot.position);tx.required_bounds=bounds;tx._already_arrived=true
++  if tx.initial_prepare_limit then
++   tx.deadline=math.min(tx.deadline,tx.initial_prepare_limit)
++   if self.now>=tx.deadline then return self:_cancel(tx,'target_prepare_timeout')end
++  end
++  self:_save() -- The refreshed native-home target is durable before its new prepare message.
++ end
++ tx._lock=self.actor.hold(b.pc,true,tx.recovering and not tx.initial_native_home_from_pal_spawn and tx.source.snapshot or nil)
+  if tx.mapping.auxiliary_pending and self.options.allow_aux_overworld~=true then
+   self:_cancel(tx,'auxiliary_overworld_pending_validation');return
+  end
+@@ -278,6 +290,25 @@
+  end
+  local safe,why=self.actor.safety(b.pc,tx.mapping,tx.target_pawn,b);if not safe then return self:_cancel(tx,why)end
+  assert(self.options.view.activate(tx._ticket)==true,'native_server_activation_failed')
++ if tx.initial_native_home_from_pal_spawn then
++  local snapshot=self.actor.snapshot(b.pc)
++  if snapshot.pawn_address~=tx._pawn_address then return self:_cancel(tx,'possession_changed')end
++  local feet=P.copy(snapshot.position);feet.Z=feet.Z-snapshot.half_height
++  local bounds,why=self.registry:required(tx.mapping,P.to_mc(tx.mapping,feet))
++  if not bounds then return self:_cancel(tx,why)end
++  local request=P.request(tx,'server');request.required_bounds=bounds;request.generation=tx._ticket.generation
++  local server_proof=self.options.view.readiness(tx._ticket)
++  local server_ready=P.ready(server_proof,request,'server')
++  local client_request=P.request(tx,'client');client_request.required_bounds=bounds
++  local client_ready=P.ready(tx.client_ready,client_request,'client')
++  if P.distance(snapshot.position,tx.target_pawn)>self.config.position_tolerance_cm or not server_ready or not client_ready then
++   if tx.initial_prepare_limit and self.now>=tx.initial_prepare_limit then return self:_cancel(tx,'target_prepare_timeout')end
++   tx.client_ready=nil;tx.server_ready=nil
++   return self:_resume(tx,b) -- New tx identity makes the original client discard its old prepared target/proof.
++  end
++  tx.target_pawn=P.copy(snapshot.position);tx.required_bounds=bounds;tx._already_arrived=true
++  tx.server_ready=P.copy(server_proof);self:_save()
++ end
+  tx.phase='moving';self:_save() -- Write-ahead record: an exception/false return can still follow a side effect.
+  local arrived=tx._already_arrived
+  if not arrived then

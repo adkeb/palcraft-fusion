@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "passed": true,
+  "tests": 1,
+  "cases": [
+    "same_pawn_late_spawn_reprepares_new_tx_durably_without_old_teleport_ACK_or_cap_extension"
+  ],
+  "native_home_rehold_captures_current_receiver_mode_not_source_snapshot": true,
+  "all_identity_native_actor_location_collision_camera_journal_data_synthetic": true,
+  "original_server_client_protocol_methods_loaded": true,
+  "actual_Game_RPC_teleport_Save_signature_or_ACK_proven": false,
+  "automatic_reprepare_does_not_extend_original_initial_limit": true,
+  "native750_50cm_client_ACK_and_auxiliary_paths_not_changed": true,
+  "actual_terminal_chunk": "a133ac",
+  "actual_exit_code": 0,
+  "previous_three_cases_terminal_chunk": "6117f2",
+  "previous_three_cases_receipt_sha256": "ae804f4a7256b94622e4b7a71aae4b994d56207f6b766fea4261927be6e96a77",
+  "only_late_drift_group_rerun_for_hold_condition": true,
+  "fixture_receiver_records_nil_restore_and_current_mode2_not_source1_no_claim_live_engine_mode": true,
+  "checker_sha256": "2bc2c49cd960ee9972df4b2df69b6432e9d21b0e706688146197c1294f2c874d"
+}

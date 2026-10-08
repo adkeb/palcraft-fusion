@@ -1,0 +1,11 @@
+--- cbc809/server/travel.lua
++++ source/server/travel.lua
+@@ -192,7 +192,7 @@
+   end
+   self:_save() -- The refreshed native-home target is durable before its new prepare message.
+  end
+- tx._lock=self.actor.hold(b.pc,true,tx.recovering and tx.source.snapshot or nil)
++ tx._lock=self.actor.hold(b.pc,true,tx.recovering and not tx.initial_native_home_from_pal_spawn and tx.source.snapshot or nil)
+  if tx.mapping.auxiliary_pending and self.options.allow_aux_overworld~=true then
+   self:_cancel(tx,'auxiliary_overworld_pending_validation');return
+  end

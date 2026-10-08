@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "source_only_no_patch": true,
+  "scheduler_sha256": "286e4f5ddf94333281922bd6261d338cc5262454933ee8666e495246a9fd2a75",
+  "prepare_view_first_region": "chunk_scheduler.lua381 initializes region.native_view only when creating the region. Reused native region retains first view.",
+  "per_ticket_view": "385 ticket.view uses each new request view; readiness top-level view uses this ticket.",
+  "nested_readiness_fence": "408 references region.native_view; geometry jobs also use region fence at249–252.",
+  "ready_contract": "Original protocol.ready94–104 checks top-level world/dim/view/region/generation and full coverage/pending/errors, not the nested resource fence.",
+  "no_claim_nested_field_alone_is_current_ACK_or_visual_acceptance": true,
+  "no_fake_fence_ready_or_schema_change": true
+}

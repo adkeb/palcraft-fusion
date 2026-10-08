@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "base_candidate": 36,
+  "files": [
+    {
+      "source": "source/server/travel.lua",
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel.lua",
+      "role": "standalone_component",
+      "base_sha256": "575d72fd71eaaf1ab2f7ee62a94a2706c1827c039e2f9f9058af1c074100cca6",
+      "source_sha256": "8cca090074e6effa6de879157945607cd0dce1d3b170fb02961d9c2d09d5fd71",
+      "bytes": 32402
+    }
+  ],
+  "source_changes": [
+    {
+      "source": "source/server/travel.lua",
+      "target": "BridgeLab/Pal/Binaries/Win64/ue4ss/Mods/PalLiveBridge/Scripts/travel.lua",
+      "role": "standalone_component",
+      "base_sha256": "575d72fd71eaaf1ab2f7ee62a94a2706c1827c039e2f9f9058af1c074100cca6",
+      "source_sha256": "8cca090074e6effa6de879157945607cd0dce1d3b170fb02961d9c2d09d5fd71",
+      "bytes": 32402
+    }
+  ],
+  "previous_source_sha256": "cbc809feb8e26c7000c13c6e0a3fa5d0b6fa55ec819813d26e008c11d4c2648c",
+  "one_line_followup": "native-home recovering hold receives nil restore_state; ordinary non-native recovering hold retains source.snapshot",
+  "whole_final_patch_against_original575_baseline": true,
+  "client_protocol_actor_nested_fence_and36_input_sources_unchanged": true
+}

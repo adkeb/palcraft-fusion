@@ -20,3 +20,5 @@ workstreams/current-mc10-10-source-build/packaged-resources/MANIFEST.MF whitespa
 # Keep diagnostic source pins byte-exact, including the MC source archive.
 workstreams/queued-centre-action-observation/** -text
 workstreams/queued-centre-action-observation/source.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+
+workstreams/native-home-current-spawn/** -text
