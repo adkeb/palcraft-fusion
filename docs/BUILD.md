@@ -1,10 +1,12 @@
 # 构建与资源生成
 
+仓库保留基础快照与后续源码增量。根目录下的某个旧组件不能单独代表当前整合候选；构建前先看 [当前状态](STATUS.md) 及所选 `workstreams` 的适用基线。候选 32 已在本机运行，全部当前构件的一次统一源码重建与另一用户的新环境验证仍待完成。
+
 ## Minecraft 模块
 
 Java 源码位于 `palcraft/mc`。使用 JDK 25 和对应的 Gradle/Fabric 依赖构建；游戏版本与依赖版本由项目的 Gradle 文件声明。
 
-当前源码版本为 `0.2.0-integration.10.7-respawn`，包含基于 10.6 的六文件复活同步候选。Java 编译通过不代表运行中的 Mixin 注入或正常复活流程已经验证。
+此基础快照版本为 `0.2.0-integration.10.7-respawn`，包含基于 10.6 的六文件复活同步增量。后续 [10.9 目标区域同步](../workstreams/target-ring-centre/README.md) 和 [在线性能设置](../workstreams/live-owned-power-profile/README.md) 保留自己的源与构建记录。当前实机整合使用 MC 10.10；公开实验组件包最新为 10.9。Java 编译通过不代表所有 Mixin 或玩法验收通过。
 
 ```sh
 cd palcraft/mc
@@ -36,7 +38,7 @@ cd mac/hud
 nice -n 19 swiftc -O -target arm64-apple-macosx13.0 hud_overlay.swift -lz -o hud-overlay-v5-public-macos13
 ```
 
-该次基础 HUD 构建的源码、二进制哈希与工具链记录见 [HUD 构建回执](evidence/HUD-v5-BUILD-macos13.json)。当前候选使用追加前台进程归属组的 [HUD 源码与构建入口](../workstreams/mac-owned-foreground-group/README.md)，并搭配 [启动阶段修复](../workstreams/mac-hud-normal-starting-phase/README.md)。请按对应增量的基线与哈希组合，基础 HUD v5 发布包不能代替这些新构件。实际前台 HUD 显示仍在验收。
+该次基础 HUD 构建的源码、二进制哈希与工具链记录见 [HUD 构建回执](evidence/HUD-v5-BUILD-macos13.json)。后续 [前台进程归属组](../workstreams/mac-owned-foreground-group/README.md)、[启动阶段](../workstreams/mac-hud-normal-starting-phase/README.md)、[在线性能设置](../workstreams/live-owned-power-profile/README.md) 与 [Mac 光标捕获](../workstreams/mac-owned-host-cursor-capture/README.md) 各自公开增量源码。候选 32 使用 HUD v8；实际 HUD 和背包像素已观察，连续鼠标回中仍未通过。请按对应基线组合，基础 v5 发布包不能代替当前构件。
 
 ## 资产生成
 
