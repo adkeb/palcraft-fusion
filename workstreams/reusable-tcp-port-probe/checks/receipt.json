@@ -1,0 +1,64 @@
+{
+  "source_sha256": "d29ab74bcd0d43d994fe70b9f8b17612ffe344c4d82bdbeeb7b9c31d1aca12e5",
+  "source_bytes": 73053,
+  "exit_code": 0,
+  "elapsed_seconds": 0.043672,
+  "stdout": "{\n  \"ok\": true,\n  \"cases\": 3,\n  \"platform\": \"Darwin\",\n  \"actual_ephemeral_socket_cases\": true,\n  \"synthetic_Game_session_data\": false,\n  \"application_ports_or_roles_probed\": false,\n  \"fixture_only\": true,\n  \"results\": [\n    {\n      \"case\": \"actual_ephemeral_TIME_WAIT_matches_reusable_listener_policy\",\n      \"local_port\": 52065,\n      \"peer_port\": 52066,\n      \"state\": \"TIME_WAIT\",\n      \"netstat_fixture_rows\": [\n        \"tcp4       0      0  127.0.0.1.52065        127.0.0.1.52066        TIME_WAIT\"\n      ],\n      \"old_bind_only_free\": false,\n      \"new_dual_address_reuse_bind_listen_free\": true\n    },\n    {\n      \"case\": \"loopback_and_wildcard_active_reusable_TCP_listeners_refused\",\n      \"listeners\": [\n        {\n          \"bind_host\": \"127.0.0.1\",\n          \"fixture_port\": 52067,\n          \"old_and_new_refuse_active_listener\": true\n        },\n        {\n          \"bind_host\": \"0.0.0.0\",\n          \"fixture_port\": 52068,\n          \"old_and_new_refuse_active_listener\": true\n        }\n      ]\n    },\n    {\n      \"case\": \"UDP_original_bind_exclusivity_preserved\",\n      \"sockets\": [\n        {\n          \"bind_host\": \"127.0.0.1\",\n          \"fixture_port\": 56160,\n          \"held_refused\": true,\n          \"closed_free\": true\n        },\n        {\n          \"bind_host\": \"0.0.0.0\",\n          \"fixture_port\": 57559,\n          \"held_refused\": true,\n          \"closed_free\": true\n        }\n      ]\n    }\n  ]\n}\n",
+  "stderr": "",
+  "actual_ephemeral_socket_tests": true,
+  "Game_application_ports_or_roles_touched": false,
+  "result": {
+    "ok": true,
+    "cases": 3,
+    "platform": "Darwin",
+    "actual_ephemeral_socket_cases": true,
+    "synthetic_Game_session_data": false,
+    "application_ports_or_roles_probed": false,
+    "fixture_only": true,
+    "results": [
+      {
+        "case": "actual_ephemeral_TIME_WAIT_matches_reusable_listener_policy",
+        "local_port": 52065,
+        "peer_port": 52066,
+        "state": "TIME_WAIT",
+        "netstat_fixture_rows": [
+          "tcp4       0      0  127.0.0.1.52065        127.0.0.1.52066        TIME_WAIT"
+        ],
+        "old_bind_only_free": false,
+        "new_dual_address_reuse_bind_listen_free": true
+      },
+      {
+        "case": "loopback_and_wildcard_active_reusable_TCP_listeners_refused",
+        "listeners": [
+          {
+            "bind_host": "127.0.0.1",
+            "fixture_port": 52067,
+            "old_and_new_refuse_active_listener": true
+          },
+          {
+            "bind_host": "0.0.0.0",
+            "fixture_port": 52068,
+            "old_and_new_refuse_active_listener": true
+          }
+        ]
+      },
+      {
+        "case": "UDP_original_bind_exclusivity_preserved",
+        "sockets": [
+          {
+            "bind_host": "127.0.0.1",
+            "fixture_port": 56160,
+            "held_refused": true,
+            "closed_free": true
+          },
+          {
+            "bind_host": "0.0.0.0",
+            "fixture_port": 57559,
+            "held_refused": true,
+            "closed_free": true
+          }
+        ]
+      }
+    ]
+  }
+}

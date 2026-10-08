@@ -1,0 +1,23 @@
+--- a/launcher/runtime.py
++++ b/launcher/runtime.py
+@@ -122,12 +122,17 @@
+ 
+ def _port_free(port, udp=False):
+     try:
+-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM if udp else socket.SOCK_STREAM) as sock:
+-            sock.bind(('127.0.0.1', port))
++        addresses = ('127.0.0.1',) if udp else ('127.0.0.1', '0.0.0.0')
++        for address in addresses:
++            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM if udp else socket.SOCK_STREAM) as sock:
++                if not udp:
++                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
++                sock.bind((address, port))
++                if not udp:
++                    sock.listen(1)
+         return True
+     except OSError:
+         return False
+-
+ 
+ def health(root, check_ports=False, require_models=True, launch_mode='full', profile=None):
+     root = Path(root).absolute()

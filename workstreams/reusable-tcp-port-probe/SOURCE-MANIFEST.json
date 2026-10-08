@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "74911fe24ed3bcf1c8c40647be1f887e44263a4aa121d62e52c23b4f3e545545",
+      "bytes": 1759
+    },
+    {
+      "path": "base/launcher/runtime.py",
+      "sha256": "1a52fcadfcf3bdf0859de0da6b452ae541b8cb8a36ef0717aa9182ef6ce001eb",
+      "bytes": 72774
+    },
+    {
+      "path": "base/mac/hud/hud_relay.py",
+      "sha256": "890826ded73867b88a64411f9d46a4ce9a603eca41d766e7998414644ffacfbf",
+      "bytes": 16961
+    },
+    {
+      "path": "checks/check_tcp_probe.py",
+      "sha256": "18f581f5c0e039f9a4cafc9f103010bfc4e756cba0ad409266ccff3bc9cb1220",
+      "bytes": 3353
+    },
+    {
+      "path": "checks/listener-diagnostic.json",
+      "sha256": "0342218fb650cef473a1649ab1210e3ea3f726d9a20b1d7d1ed36ef90939aa55",
+      "bytes": 950
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "e546062298c51591ad76016d855ff7ba0c1f5081dba437769813c33ac1643513",
+      "bytes": 3374
+    },
+    {
+      "path": "source/launcher/runtime.py",
+      "sha256": "d29ab74bcd0d43d994fe70b9f8b17612ffe344c4d82bdbeeb7b9c31d1aca12e5",
+      "bytes": 73053
+    },
+    {
+      "path": "source.patch",
+      "sha256": "ce9fb7d3d0ad489ac6aacaf77b581b9559d64a34d1e7e52e11e3d9a8627e663e",
+      "bytes": 895
+    }
+  ],
+  "production_slots": 1,
+  "base_runtime_sha256": "1a52fcadfcf3bdf0859de0da6b452ae541b8cb8a36ef0717aa9182ef6ce001eb",
+  "final_runtime_sha256": "d29ab74bcd0d43d994fe70b9f8b17612ffe344c4d82bdbeeb7b9c31d1aca12e5",
+  "public_source_paths_checked": true,
+  "real_socket_case_platform": "Darwin",
+  "actual_Game_or_application_ports_probed": false,
+  "runtime_applied": false
+}

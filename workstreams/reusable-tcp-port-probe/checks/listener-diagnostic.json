@@ -1,0 +1,45 @@
+{
+  "actual_ephemeral_sockets_only": true,
+  "rows": [
+    {
+      "held_host": "127.0.0.1",
+      "fixture_port": 51652,
+      "SO_REUSEADDR": 1,
+      "active_listen": true,
+      "probes": [
+        {
+          "probe_host": "127.0.0.1",
+          "bind": false,
+          "listen": false,
+          "errno": 48,
+          "error": "[Errno 48] Address already in use"
+        },
+        {
+          "probe_host": "0.0.0.0",
+          "bind": true,
+          "listen": true
+        }
+      ]
+    },
+    {
+      "held_host": "0.0.0.0",
+      "fixture_port": 51653,
+      "SO_REUSEADDR": 1,
+      "active_listen": true,
+      "probes": [
+        {
+          "probe_host": "127.0.0.1",
+          "bind": true,
+          "listen": true
+        },
+        {
+          "probe_host": "0.0.0.0",
+          "bind": false,
+          "listen": false,
+          "errno": 48,
+          "error": "[Errno 48] Address already in use"
+        }
+      ]
+    }
+  ]
+}
