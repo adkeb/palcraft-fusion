@@ -1,0 +1,11 @@
+{
+  "source_sha256": "6d4283b3f43978dd6bb33dea2c204c09364ed87da6123c327dc5477310347f34",
+  "source_bytes": 9697,
+  "AST_passed": true,
+  "exit_code": 0,
+  "elapsed_seconds": 0.038604,
+  "stdout": "{\"ok\": true, \"cases\": 1, \"synthetic_only\": true, \"original_generated_configuration_preserves_pair\": true, \"only_original_guest_width_height_values_changed\": 2, \"default_args_unchanged\": true, \"server_HUD_world_UUID_credential_frame_CWD_template_bytes_preserved\": true, \"optional_pair_and_integer_bounds_rejected_invalid\": true, \"actual_roles_or_framebuffer_or_HiDPI_1280x720_verified\": false}\n",
+  "stderr": "",
+  "synthetic_only": true,
+  "roles_not_started": true
+}

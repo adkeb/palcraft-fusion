@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "production_slots": 1,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "06d6590f71496f198f0481d4020ac52bfe506e2ee104fa8b6e50be337d3d494f",
+      "bytes": 1958
+    },
+    {
+      "path": "base/installer/standalone.py",
+      "sha256": "ef4e4acd2bb7086c456eb7d0aa39667b08b83835268bdf77de99706e429e0959",
+      "bytes": 20193
+    },
+    {
+      "path": "base/mac/scripts/prepare_launch.py",
+      "sha256": "d5d8d380baa69afbaf0aa9566d8f38ab6860964cb35c59e41f0d406d3e8bb62c",
+      "bytes": 8453
+    },
+    {
+      "path": "checks/check_window.py",
+      "sha256": "87c4c382e3c13ff738ddeddd491e7c9ee70b12cc42bd662571609dd8f3a53b71",
+      "bytes": 4547
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "5d9de8e0cb56b5f8a9aa98118485aa1f8c06e0c6fa20523711a8a018cd9fc99e",
+      "bytes": 684
+    },
+    {
+      "path": "source/mac/scripts/prepare_launch.py",
+      "sha256": "6d4283b3f43978dd6bb33dea2c204c09364ed87da6123c327dc5477310347f34",
+      "bytes": 9697
+    },
+    {
+      "path": "source.patch",
+      "sha256": "28251dc71ad39ed1168f01e395868d046bf3cede4485faad4bc43c072d841775",
+      "bytes": 2287
+    }
+  ],
+  "base_sha256": "d5d8d380baa69afbaf0aa9566d8f38ab6860964cb35c59e41f0d406d3e8bb62c",
+  "source_sha256": "6d4283b3f43978dd6bb33dea2c204c09364ed87da6123c327dc5477310347f34",
+  "synthetic_source_cases": 1,
+  "actual_framebuffer_or_1280x720_HiDPI_or_runtime_verified": false,
+  "public_source_path_cleanliness_checked": true
+}

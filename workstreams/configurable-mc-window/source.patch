@@ -1,0 +1,45 @@
+--- a/mac/scripts/prepare_launch.py
++++ b/mac/scripts/prepare_launch.py
+@@ -19,6 +19,16 @@
+     return result
+ 
+ 
++def with_mc_window(values, width, height):
++    result = list(values)
++    for flag, size in (('--width', width), ('--height', height)):
++        indexes = [index for index, value in enumerate(result) if value == flag]
++        if len(indexes) != 1 or indexes[0] + 1 >= len(result) or result[indexes[0] + 1].startswith('--'):
++            raise ValueError('MC window override requires one original value for ' + flag)
++        result[indexes[0] + 1] = str(size)
++    return result
++
++
+ def prepare_launch(config_path, performance_override=None):
+     if performance_override is not None:
+         if (not isinstance(performance_override, dict)
+@@ -27,6 +37,16 @@
+                        for key, maximum in (('mc_fps', 60), ('hud_fps', 120)))):
+             raise ValueError('Performance override requires only integer mc_fps (1..60) and hud_fps (1..120)')
+     cfg = json.loads(Path(config_path).read_text())
++    video = cfg['performance']
++    window_keys = ('mc_window_width', 'mc_window_height')
++    specified = [key in video for key in window_keys]
++    window = None
++    if any(specified):
++        if not all(specified) or any(type(video[key]) is not int or not minimum <= video[key] <= maximum
++                                    for key, minimum, maximum in (('mc_window_width', 320, 1920),
++                                                                  ('mc_window_height', 240, 1080))):
++            raise ValueError('MC window requires integer width 320..1920 and height 240..1080 together')
++        window = (video['mc_window_width'], video['mc_window_height'])
+     root = Path(cfg['software_root'])
+     plan = json.loads((root / 'setup/mac-dependency-plan.json').read_text())
+     uuid = cfg['guest_mc_uuid']
+@@ -87,6 +107,8 @@
+             main = cfg['hud_relay_script']
+         if role in overrides:
+             values = overrides[role]
++        if role == 'guest' and window is not None:
++            values = with_mc_window(values, *window)
+         if any('fabric.dli' in value or 'devlaunchinjector' in value or '.gradle' in value for value in values):
+             raise ValueError('Development route refused')
+         if role != 'hud':
