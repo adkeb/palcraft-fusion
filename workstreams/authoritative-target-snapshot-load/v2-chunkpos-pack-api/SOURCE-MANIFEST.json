@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "previous_HF_sha256": "ed5f90f9c15cba48b637f9898be9470c32f2c6ec62b3aa339f7538c62801af5a",
+  "source_changes": [
+    {
+      "source": "source/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java",
+      "base_sha256": "f4703bacb282c98504144519e85f8997bad9ab256a26ddc85e3d1e5481be8180",
+      "source_sha256": "bafb7d991cf76e52ebf76c7453b015439a1e2407bc4ae578298fe16ec89c2806",
+      "bytes": 46595
+    }
+  ],
+  "unchanged_source_pins": {
+    "client/runtime/client_options.lua": "cfed4fd484f67baf33079fc2120459d11c769fbc6e0285d5941c3f604d6595bb",
+    "mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java": "00799ffece2fb5849471393a31dca51a870f328b0d6e9eff1774885cec2fd449",
+    "mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java": "7bc02908e6e9844065b15b277efe0fd350f5ee0fcbdb2c5cff81c3175d5a2562",
+    "mc/src/main/resources/fabric.mod.json": "7bfa06bdbd44c6b3823c542bd479c954a5391f6a5bcfd5c6fe1d4fe1cd2afcd7"
+  },
+  "MC_full_source_archive": {
+    "source": "outputs/mc10_10-action-target-snapshot-pack-api-source.zip",
+    "sha256": "b2b6e4b40e631ac4c1d6c73203e1ee9771c3759c04e5d56df4c5da92fc7cbcee",
+    "bytes": 214979
+  },
+  "only_API_call_changed_no_feature_version_change": true,
+  "production_compile_pending_assembly": true
+}

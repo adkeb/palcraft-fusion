@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "inspection": "Local installed official Minecraft26.3 class metadata with javap; no Game execution",
+  "available_methods": [
+    "ServerChunkCache.addTicketAndLoadWithRadius(TicketType,ChunkPos,int): CompletableFuture<?>",
+    "ServerChunkCache.removeTicketWithRadius(TicketType,ChunkPos,int)",
+    "ServerChunkCache.getChunkNow(int,int):LevelChunk",
+    "ServerChunkCache.getDataStorage():SavedDataStorage",
+    "TicketStorage.getTickets(long):List<Ticket>",
+    "TicketType(long,int)",
+    "TicketType.NO_TIMEOUT=0, FLAG_LOADING=2, PLAYER_LOADING"
+  ],
+  "ticket_identity_note": "TicketStorage add/remove compares type by identity and level; each Snapshot keeps its own new transient type. It does not remove PLAYER_LOADING.",
+  "javap_readonly_tool_chunks": [
+    "870a84",
+    "d63563",
+    "03f394",
+    "55f5d7"
+  ],
+  "compiled_or_called_Game_API": false,
+  "ChunkPos_actual_api": "public static long pack(int,int)",
+  "actual_javap_terminal_chunk": "5e917c",
+  "previous_production_compile_terminal_chunk": "c2fb07",
+  "previous_production_compile_exit_code": 1,
+  "previous_missing_api": "ChunkPos.asLong(int,int)",
+  "no_production_compile_or_fixture_rerun_here": true
+}

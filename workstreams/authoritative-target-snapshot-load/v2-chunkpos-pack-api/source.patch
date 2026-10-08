@@ -1,0 +1,11 @@
+--- base/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
++++ source/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
+@@ -120,7 +120,7 @@
+         }
+         boolean playerOwnsChunk() {
+             if(!targetStillCurrent()||views.get(owner).waitingAck)return false;
+-            for(var ticket:level.getChunkSource().getDataStorage().computeIfAbsent(TicketStorage.TYPE).getTickets(ChunkPos.asLong(chunkX,chunkZ)))
++            for(var ticket:level.getChunkSource().getDataStorage().computeIfAbsent(TicketStorage.TYPE).getTickets(ChunkPos.pack(chunkX,chunkZ)))
+                 if(ticket.getType()==TicketType.PLAYER_LOADING&&ticket.getTicketLevel()<=33)return true;
+             return false;
+         }

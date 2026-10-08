@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "actual_assembly_terminal_chunk": "c2fb07",
+  "exit_code": 1,
+  "error": "WorldCompatibility.java123 ChunkPos.asLong(int,int) does not exist",
+  "actual_local_API_metadata_chunk": "5e917c",
+  "correct_api": "ChunkPos.pack(int,int)",
+  "production_JAR_was_not_created": true,
+  "source_API_case_previously_used_synthetic_stub_not_production_API_proof": true
+}
