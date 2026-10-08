@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "date_local": "2026-10-08",
+  "scope": "One actual physical F5 on/off and 6x80px in each direction. MC new-world ACK remained pending; native input/camera subset only, not full F03 or graphical MC gameplay acceptance.",
+  "synthetic": false,
+  "requested_motion_pixels": [
+    480,
+    -480
+  ],
+  "actual_cumulative_motion_pixels": [
+    480,
+    0
+  ],
+  "actual_yaw_change_degrees": [
+    48.0,
+    -48.0
+  ],
+  "wm_received_cumulative": [
+    5,
+    9
+  ],
+  "actual_wm_drop_counts": {
+    "mouse_wm_jump_drop": 0,
+    "mouse_wm_gate_drop": 0,
+    "mouse_wm_outside_drop": 0
+  },
+  "normal_form_off": true,
+  "hidden_weapons_after_off": 0,
+  "hidden_widgets_after_off": 0,
+  "before_inventory": [
+    {
+      "count": 3,
+      "item": "minecraft:torch",
+      "slot": 0
+    },
+    {
+      "count": 1,
+      "item": "minecraft:wooden_pickaxe",
+      "slot": 8
+    },
+    {
+      "count": 5,
+      "item": "minecraft:coal",
+      "slot": 10
+    }
+  ],
+  "after_inventory": [
+    {
+      "count": 3,
+      "item": "minecraft:torch",
+      "slot": 0
+    },
+    {
+      "count": 1,
+      "item": "minecraft:wooden_pickaxe",
+      "slot": 8
+    },
+    {
+      "count": 5,
+      "item": "minecraft:coal",
+      "slot": 10
+    }
+  ],
+  "MC_attack_use": {
+    "attack_down": false,
+    "use_down": false,
+    "attack_click_count": 0,
+    "use_click_count": 0
+  },
+  "actual_MC_framebuffer": [
+    1280,
+    720
+  ],
+  "full_original_42_accepted": false
+}
