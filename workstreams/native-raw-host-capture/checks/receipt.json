@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "ok": true,
+  "additional_actual_header_case_passed": 1,
+  "zero_motion_RAW_does_not_switch_authority": true,
+  "RAW_exclusive_motion_still_allows_physical_hostcapture": true,
+  "RAW_refuses_ordinary_motion_and_host_baseline": true,
+  "synthetic_window_scope_only": true,
+  "old_case_groups_rerun": false,
+  "actual_Game_GUI_cursor_Rpc_input_sourceRuntime_or_tests_operations": false,
+  "actual_all_RAW_packets_zero_or_infinite_mouse_pass_not_claimed": true,
+  "actual_terminal_chunk": "2bb1e8",
+  "actual_exit_code": 0
+}

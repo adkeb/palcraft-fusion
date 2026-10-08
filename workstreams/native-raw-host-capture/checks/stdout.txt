@@ -1,0 +1,1 @@
+zero-motion does not select RAW; RAW motion retains host capture but refuses ordinary delta/baseline: PASS (synthetic scope only)

@@ -27,7 +27,7 @@
 | `palcraft/tests` 及模块内 `tests` | 现有针对性测试与验证工具 |
 | `tools/legacy` | 历史作者工具；当前启动入口见安装说明 |
 
-最新控制与生命周期增量见 [Mac 光标捕获](workstreams/mac-owned-host-cursor-capture)、[权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown) 和 [在线性能设置](workstreams/live-owned-power-profile)。每项保留适用基线和验证范围。
+最新控制与生命周期增量见 [Mac 光标捕获](workstreams/mac-owned-host-cursor-capture)、[权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown) 和 [在线性能设置](workstreams/live-owned-power-profile)。每项保留适用基线和验证范围。 连续回中新增 [RAW 输入与物理捕获分离](workstreams/native-raw-host-capture)，原生组件编译与限定源码案例通过，实机结果仍待候选 33。
 
 ## 使用与资源
 
