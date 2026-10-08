@@ -1,0 +1,2 @@
+ordinary20x80 accumulates1600; armed center never cancels; request/observation and foreign scope distinguished: PASS
+actual native origin/window geometry maps client center; no fixed28px inference or fake observation; UI guards: PASS (synthetic)

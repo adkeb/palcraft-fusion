@@ -1,0 +1,200 @@
+--- base/mac/hud_overlay.swift
++++ source/mac/hud_overlay.swift
+@@ -39,10 +39,15 @@
+               let stamp = input["unix"] as? Double, now-stamp >= -0.25, now-stamp <= 0.25,
+               let gen = input["generation"] as? Int, gen >= 0,
+               let w = input["viewport_width"] as? Int, let h = input["viewport_height"] as? Int,
+-              w > 0, h > 0, let bounds = bounds, bounds.width > 0, bounds.height > title else { return nil }
++              w > 0, h > 0, let bounds = bounds, bounds.width > 0, bounds.height > 0,
++              input["mouse_win_geometry_valid"] as? Bool == true,
++              let wx=input["mouse_win_window_x"] as? Double, let wy=input["mouse_win_window_y"] as? Double,
++              let ww=input["mouse_win_window_width"] as? Double, let wh=input["mouse_win_window_height"] as? Double,
++              let ox=input["mouse_win_client_origin_x"] as? Double, let oy=input["mouse_win_client_origin_y"] as? Double,
++              ww > 0, wh > 0 else { return nil }
+         let x=w/2, y=h/2
+-        let point=CGPoint(x: bounds.minX + CGFloat(x)/CGFloat(w)*bounds.width,
+-                          y: bounds.minY + title + CGFloat(y)/CGFloat(h)*(bounds.height-title))
++        let point=CGPoint(x: bounds.minX + CGFloat((ox+Double(x)-wx)/ww)*bounds.width,
++                          y: bounds.minY + CGFloat((oy+Double(y)-wy)/wh)*bounds.height)
+         return MacHostMousePlan(point: point, x: x, y: y, width: w, height: h, generation: gen)
+     }
+     func observed(_ cursor: CGPoint) -> Bool {
+@@ -183,6 +188,7 @@
+     private var displayTimer: Timer?
+     private var displayFPS = 60.0
+     private var powerSeen: String?
++    private var pendingMouseWarp: (request: Double, plan: MacHostMousePlan, token: String, epoch: String)?
+     private let powerEnvironment: [String: String]
+     private var shown: DecodedHUD?
+     private var eligible = false, focused = false
+@@ -562,20 +568,34 @@
+             let buttons = [CGMouseButton.left, .right, .center].contains {
+                 CGEventSource.buttonState(.combinedSessionState, button: $0)
+             }
+-            if let plan=MacHostMousePlan.make(input: input, group: foregroundGroup, groupAlive: groupAlive,
++            let mousePlan=MacHostMousePlan.make(input: input, group: foregroundGroup, groupAlive: groupAlive,
+                     frontPID: front?.processIdentifier, focused: focused, cameraActive: render?["camera_active"] as? Bool == true,
+-                    renderAge: renderAge, now: unix, buttonsDown: buttons, bounds: bounds, title: titleHeight),
+-               let group=foregroundGroup, let cursor=CGEvent(source:nil)?.location,
+-               !plan.observed(cursor), CGWarpMouseCursorPosition(plan.point) == .success,
+-               let actual=CGEvent(source:nil)?.location, plan.observed(actual) {
+-                let result: [String: Any] = ["schema":1,"owner_token":group.token,"process_epoch":group.native_process_epoch,
+-                    "generation":plan.generation,"viewport_width":plan.width,"viewport_height":plan.height,
+-                    "client_center_x":plan.x,"client_center_y":plan.y,"global_x":actual.x,"global_y":actual.y,
+-                    "observed_unix":Date().timeIntervalSince1970]
+-                if let data=try? JSONSerialization.data(withJSONObject:result, options:.sortedKeys) {
+-                    try? data.write(to:root.appendingPathComponent("mac-mouse-host.json"), options:.atomic)
++                    renderAge: renderAge, now: unix, buttonsDown: buttons, bounds: bounds, title: titleHeight)
++            if let plan=mousePlan, let group=foregroundGroup, let cursor=CGEvent(source:nil)?.location {
++                func publish(_ phase: String, _ request: Double, _ observed: Double, _ point: CGPoint) {
++                    let result:[String:Any] = ["schema":2,"owner_token":group.token,"process_epoch":group.native_process_epoch,
++                        "generation":plan.generation,"viewport_width":plan.width,"viewport_height":plan.height,
++                        "client_target_x":plan.x,"client_target_y":plan.y,"global_x":point.x,"global_y":point.y,
++                        "observed_unix":observed,"request_unix":request,"phase":phase]
++                    if let data=try? JSONSerialization.data(withJSONObject:result, options:.sortedKeys) {
++                        try? data.write(to:root.appendingPathComponent("mac-mouse-host.json"), options:.atomic)
++                    }
+                 }
+-            }
++                if let pending=pendingMouseWarp {
++                    if unix-pending.request > 0.75 || pending.token != group.token || pending.epoch != group.native_process_epoch ||
++                       pending.plan.generation != plan.generation || pending.plan.point != plan.point { pendingMouseWarp=nil }
++                    else if let armed=input["mouse_host_armed_request"] as? Double, abs(armed-pending.request)<0.00001 {
++                        if CGWarpMouseCursorPosition(plan.point) == .success,
++                           let actual=CGEvent(source:nil)?.location, plan.observed(actual) {
++                            publish("observed",pending.request,Date().timeIntervalSince1970,actual)
++                        }
++                        pendingMouseWarp=nil
++                    }
++                } else if !plan.observed(cursor) {
++                    pendingMouseWarp=(unix,plan,group.token,group.native_process_epoch)
++                    publish("request",unix,0,cursor)
++                }
++            } else { pendingMouseWarp=nil }
+         }
+         if next != eligible {
+             eligible = next
+--- base/render/controls.cpp
++++ source/render/controls.cpp
+@@ -93,7 +93,8 @@
+    if(mode&&!ui&&live&&!actionsSuspended.load()&&GetTickCount64()>=mouseAfter){
+     RECT r{};if(GetClientRect(h,&r)){
+      {std::lock_guard<std::mutex> lock(mouseCompatLock);
+-      auto d=mouseCompat.move(reinterpret_cast<uintptr_t>(h),GET_X_LPARAM(l),GET_Y_LPARAM(l),r.right-r.left,r.bottom-r.top);
++      auto d=macMouseMode()==2?mouseCompat.host_move(reinterpret_cast<uintptr_t>(h),GET_X_LPARAM(l),GET_Y_LPARAM(l),r.right-r.left,r.bottom-r.top,unixNow()):
++        mouseCompat.move(reinterpret_cast<uintptr_t>(h),GET_X_LPARAM(l),GET_Y_LPARAM(l),r.right-r.left,r.bottom-r.top);
+       mouseX+=d.x;mouseY+=d.y;}
+      recenterMessageMouse(h,r);
+     }
+@@ -103,7 +104,7 @@
+   if(m==WM_KEYUP||m==WM_SYSKEYUP||m==WM_KEYDOWN||m==WM_SYSKEYDOWN||m==WM_CHAR)return 0;
+   if(m==WM_LBUTTONDOWN||m==WM_LBUTTONUP||m==WM_RBUTTONDOWN||m==WM_RBUTTONUP||m==WM_MBUTTONDOWN||m==WM_MBUTTONUP)return 0;
+   if(m==WM_INPUT){
+-   if(mode&&!ui&&live&&GetTickCount64()>=mouseAfter){RAWINPUT raw{};UINT size=sizeof raw;if(GetRawInputData(reinterpret_cast<HRAWINPUT>(l),RID_INPUT,&raw,&size,sizeof(RAWINPUTHEADER))!=UINT(-1)&&raw.header.dwType==RIM_TYPEMOUSE&&!(raw.data.mouse.usFlags&MOUSE_MOVE_ABSOLUTE)){
++   if(macMouseMode()!=2&&mode&&!ui&&live&&GetTickCount64()>=mouseAfter){RAWINPUT raw{};UINT size=sizeof raw;if(GetRawInputData(reinterpret_cast<HRAWINPUT>(l),RID_INPUT,&raw,&size,sizeof(RAWINPUTHEADER))!=UINT(-1)&&raw.header.dwType==RIM_TYPEMOUSE&&!(raw.data.mouse.usFlags&MOUSE_MOVE_ABSOLUTE)){
+     std::lock_guard<std::mutex> lock(mouseCompatLock);
+     if(mouseCompat.raw_motion(raw.data.mouse.lLastX,raw.data.mouse.lLastY)){mouseX+=raw.data.mouse.lLastX;mouseY+=raw.data.mouse.lLastY;}
+    }}
+@@ -135,8 +136,11 @@
+  // camera and movement consumers use the 8ms binary snapshot.
+  static ULONGLONG written=0;static uint32_t oldFlags=~uint32_t(0);
+  if(now-written<100&&oldFlags==s.flags)return;written=now;oldFlags=s.flags;
+- bool hostEligible=false;{std::lock_guard<std::mutex> lock(mouseCompatLock);hostEligible=mouseCompat.host_capture(macMouseMode()==2);}
+- char data[1152];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u,\"mouse_compatibility_mode\":\"%s\",\"mouse_owner_token\":\"%s\",\"mouse_native_epoch\":\"%s\",\"mouse_host_eligible\":%s}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height,macMouseMode()==2?"relative-host-warp-v1":(macMouseMode()==1?"relative-v1":"raw"),mouseOwnerToken(),mouseNativeEpoch(),hostEligible?"true":"false");
++ bool hostEligible=false;double armed=0;{std::lock_guard<std::mutex> lock(mouseCompatLock);hostEligible=mouseCompat.host_capture(macMouseMode()==2);armed=mouseCompat.hostRequest;}
++ RECT mouseWindow{},mouseClient{};POINT mouseOrigin{},mouseCursor{};
++ bool mouseGeometry=window&&GetWindowRect(window,&mouseWindow)&&GetClientRect(window,&mouseClient)&&ClientToScreen(window,&mouseOrigin);
++ bool mouseCursorObserved=mouseGeometry&&GetCursorPos(&mouseCursor)&&ScreenToClient(window,&mouseCursor);
++ char data[2048];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u,\"mouse_compatibility_mode\":\"%s\",\"mouse_owner_token\":\"%s\",\"mouse_native_epoch\":\"%s\",\"mouse_host_eligible\":%s,\"mouse_host_armed_request\":%.6f,\"mouse_win_geometry_valid\":%s,\"mouse_win_window_x\":%ld,\"mouse_win_window_y\":%ld,\"mouse_win_window_width\":%ld,\"mouse_win_window_height\":%ld,\"mouse_win_client_origin_x\":%ld,\"mouse_win_client_origin_y\":%ld,\"mouse_win_cursor_observed\":%s,\"mouse_win_cursor_x\":%ld,\"mouse_win_cursor_y\":%ld}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height,macMouseMode()==2?"relative-host-warp-v1":(macMouseMode()==1?"relative-v1":"raw"),mouseOwnerToken(),mouseNativeEpoch(),hostEligible?"true":"false",armed,mouseGeometry?"true":"false",mouseWindow.left,mouseWindow.top,mouseWindow.right-mouseWindow.left,mouseWindow.bottom-mouseWindow.top,mouseOrigin.x,mouseOrigin.y,mouseCursorObserved?"true":"false",mouseCursor.x,mouseCursor.y);
+  FILE*f=_wfopen(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),L"wb");if(f){fputs(data,f);fclose(f);if(MoveFileExW(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),palcraft_paths::bridge_file(L"input-state.json").c_str(),MOVEFILE_REPLACE_EXISTING))++jsonWrites;}
+ }
+ bool platformFocused(){
+@@ -220,9 +224,14 @@
+   if(tick-readAt>=25){readAt=tick;FILE*f=_wfopen(palcraft_paths::bridge_file(L"mac-mouse-host.json").c_str(),L"rb");
+    if(f){char data[2049]{};size_t n=std::fread(data,1,2048,f);const bool complete=std::fgetc(f)==EOF;std::fclose(f);
+     PalCraftHostMouseWarp seen;RECT r{};
+-    if(complete&&seen.parse(data,n)&&GetClientRect(window,&r)&&seen.matches(mouseOwnerToken(),mouseNativeEpoch(),generation,r.right-r.left,r.bottom-r.top,unixNow(),lastHostWarp)){
++    if(complete&&seen.parse(data,n)&&GetClientRect(window,&r)&&seen.matches(mouseOwnerToken(),mouseNativeEpoch(),generation,r.right-r.left,r.bottom-r.top,unixNow())){
+      std::lock_guard<std::mutex> lock(mouseCompatLock);
+-     if(mouseCompat.host_baseline(reinterpret_cast<uintptr_t>(window),seen.x,seen.y))lastHostWarp=seen.observed;
++     if(seen.is_request())mouseCompat.arm_host(reinterpret_cast<uintptr_t>(window),seen.x,seen.y,seen.requested);
++     else if(seen.actual_observed(unixNow())&&seen.requested==mouseCompat.hostRequest&&seen.observed>lastHostWarp){
++      POINT actual{};
++      if(GetCursorPos(&actual)&&ScreenToClient(window,&actual)&&actual.x==seen.x&&actual.y==seen.y&&
++         mouseCompat.host_baseline(reinterpret_cast<uintptr_t>(window),actual.x,actual.y))lastHostWarp=seen.observed;
++     }
+     }
+    }
+   }
+--- base/render/host_mouse_warp.h
++++ source/render/host_mouse_warp.h
+@@ -9,18 +9,21 @@
+ struct PalCraftHostMouseWarp {
+  int schema=0,x=0,y=0,width=0,height=0;
+  unsigned generation=0;
+- double globalX=0,globalY=0,observed=0;
+- char token[33]{},epoch[64]{};
++ double globalX=0,globalY=0,observed=0,requested=0;
++ char token[33]{},epoch[64]{},phase[9]{};
+  bool parse(const char* text,size_t bytes) {
+   if(bytes==0||bytes>2048||text[bytes]!=0)return false;
+   int end=-1;
+-  int count=std::sscanf(text,"{\"client_center_x\":%d,\"client_center_y\":%d,\"generation\":%u,\"global_x\":%lf,\"global_y\":%lf,\"observed_unix\":%lf,\"owner_token\":\"%32[0-9a-f]\",\"process_epoch\":\"%63[0-9:]\",\"schema\":%d,\"viewport_height\":%d,\"viewport_width\":%d}%n",
+-   &x,&y,&generation,&globalX,&globalY,&observed,token,epoch,&schema,&height,&width,&end);
+-  return count==11&&end==static_cast<int>(bytes)&&schema==1&&std::strlen(token)==32&&
+-   width>0&&width<=32768&&height>0&&height<=32768&&std::isfinite(globalX)&&std::isfinite(globalY)&&std::isfinite(observed);
++  int count=std::sscanf(text,"{\"client_target_x\":%d,\"client_target_y\":%d,\"generation\":%u,\"global_x\":%lf,\"global_y\":%lf,\"observed_unix\":%lf,\"owner_token\":\"%32[0-9a-f]\",\"phase\":\"%8[a-z]\",\"process_epoch\":\"%63[0-9:]\",\"request_unix\":%lf,\"schema\":%d,\"viewport_height\":%d,\"viewport_width\":%d}%n",
++   &x,&y,&generation,&globalX,&globalY,&observed,token,phase,epoch,&requested,&schema,&height,&width,&end);
++  return count==13&&end==static_cast<int>(bytes)&&schema==2&&std::strlen(token)==32&&
++   width>0&&width<=32768&&height>0&&height<=32768&&std::isfinite(globalX)&&std::isfinite(globalY)&&std::isfinite(observed)&&std::isfinite(requested)&&
++   (std::strcmp(phase,"request")==0||std::strcmp(phase,"observed")==0);
+  }
+- bool matches(const char* owner,const char* process,unsigned gen,int w,int h,double now,double previous)const {
++ bool matches(const char* owner,const char* process,unsigned gen,int w,int h,double now)const {
+   return std::strcmp(token,owner)==0&&std::strcmp(epoch,process)==0&&generation==gen&&width==w&&height==h&&
+-   x==w/2&&y==h/2&&observed>previous&&now-observed>=-.25&&now-observed<=.5;
++   x==w/2&&y==h/2&&now-requested>=-.25&&now-requested<1;
+  }
++ bool is_request()const{return std::strcmp(phase,"request")==0;}
++ bool actual_observed(double now)const{return std::strcmp(phase,"observed")==0&&observed>=requested&&now-observed>=-.25&&now-observed<=.5;}
+ };
+--- base/render/mouse_message_compat.h
++++ source/render/mouse_message_compat.h
+@@ -10,9 +10,11 @@
+  bool enabled=false,eligible=false,rawSeen=false,point=false,usedMessage=false;
+  bool warpPending=false;int warpX=0,warpY=0;uint64_t warpAt=0;
+  uintptr_t window=0;int generation=-1,lastX=0,lastY=0;
++ int hostX=0,hostY=0;double hostRequest=0;bool hostCentreArmed=false;
+  void scope(bool on,bool live,uintptr_t h,int gen) {
+   if(on!=enabled||live!=eligible||h!=window||gen!=generation) {
+    rawSeen=point=usedMessage=warpPending=false;
++   hostRequest=0;hostCentreArmed=false;
+   }
+   enabled=on;eligible=live;window=h;generation=gen;
+  }
+@@ -26,6 +28,17 @@
+  }
+  bool raw_motion(int x,int y){return (x!=0||y!=0)&&raw();}
+  bool host_capture(bool hostMode)const{return hostMode&&eligible;}
++ bool arm_host(uintptr_t h,int x,int y,double request) {
++  if(!eligible||h!=window||request<=hostRequest)return false;
++  hostX=x;hostY=y;hostRequest=request;hostCentreArmed=true;return true;
++ }
++ Delta host_move(uintptr_t h,int x,int y,int width,int height,double now) {
++  if(hostCentreArmed&&(now-hostRequest<0||now-hostRequest>=1))hostCentreArmed=false;
++  if(eligible&&h==window&&hostCentreArmed&&x==hostX&&y==hostY){
++   hostCentreArmed=false;lastX=x;lastY=y;point=true;return {}; // One armed center report only; other ordinary motion is not dropped.
++  }
++  return move(h,x,y,width,height);
++ }
+  Delta move(uintptr_t h,int x,int y,int width,int height) {
+   if(!enabled||!eligible||rawSeen||h!=window)return {};
+   if(warpPending){
+@@ -57,6 +70,6 @@
+  void cancel_warp(uintptr_t h){if(h==window){warpPending=point=false;}}
+  bool host_baseline(uintptr_t h,int x,int y) {
+   if(!enabled||!eligible||rawSeen||h!=window)return false;
+-  lastX=x;lastY=y;point=true;warpPending=false;return true;
++  lastX=x;lastY=y;point=true;warpPending=false;hostCentreArmed=false;return true;
+  }
+ };
