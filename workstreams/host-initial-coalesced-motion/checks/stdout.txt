@@ -1,0 +1,3 @@
+initial real-centre parameter/seq0 with no centre WM seeds before first80; oldseq0 cannot overwrite new WM: PASS
+owned host ordinary coalesced160 counts160; original legacy128 rule unchanged: PASS
+actual initialCapture allows one current-scope pointless setup only; established/reused/foreign generation refuse initial path: PASS (synthetic)

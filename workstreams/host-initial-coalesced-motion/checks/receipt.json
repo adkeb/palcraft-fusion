@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "ok": true,
+  "targeted_cases_passed": 2,
+  "initial_no_centre_WM_and_first80": true,
+  "coalesced160_host_only_legacy128_kept": true,
+  "HUD_initial_once_scope_rule_actual_function_checked": true,
+  "all_scope_coordinates_times_and_observations_synthetic": true,
+  "Game_GUI_RPC_actual_CG_or_Win_queries_or_runtime_operations": false,
+  "actual_F03_all_requested_pixels_proven": false,
+  "actual_handle": 89910,
+  "actual_terminal_chunk": "e5a5fb",
+  "actual_exit_code": 0
+}

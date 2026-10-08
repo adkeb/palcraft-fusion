@@ -28,3 +28,5 @@ workstreams/saved-home-shutdown-anchor/** -text
 workstreams/consumed-wm-cursor-warp/** -text
 
 workstreams/configurable-mc-window/** -text
+
+workstreams/host-initial-coalesced-motion/** -text

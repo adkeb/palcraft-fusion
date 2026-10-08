@@ -1,0 +1,119 @@
+--- base/mac/hud_overlay.swift
++++ source/mac/hud_overlay.swift
+@@ -50,6 +50,12 @@
+         let point=CGPoint(x: CGFloat((ox+Double(x)).rounded()),
+                           y: CGFloat((oy+Double(y)).rounded()))
+         return MacHostMousePlan(point: point, x: x, y: y, width: w, height: h, generation: gen)
++    }
++    func initialCapture(input: [String: Any], previousScope: Int?) -> Bool {
++        guard input["mouse_wm_point_established"] as? Bool == false,
++              input["mouse_wm_generation"] as? Int == generation,
++              let scope=input["mouse_wm_scope_serial"] as? Int, scope > 0 else { return false }
++        return previousScope != scope
+     }
+     // A worker cursor query or arm acknowledgement is not consumption by the owned window hook.
+     func consumed(input: [String: Any], cursor: CGPoint, afterSequence: Int = 0) -> Bool {
+@@ -201,7 +207,7 @@
+     private var displayFPS = 60.0
+     private var powerSeen: String?
+     private var pendingMouseWarp: (request: Double, plan: MacHostMousePlan, token: String, epoch: String)?
+-    private var lastMouseWarp: (token: String, epoch: String, generation: Int, sequence: Int)?
++    private var lastMouseWarp: (token: String, epoch: String, generation: Int, sequence: Int, scope: Int)?
+     private let powerEnvironment: [String: String]
+     private var shown: DecodedHUD?
+     private var eligible = false, focused = false
+@@ -595,20 +601,24 @@
+                     }
+                 }
+                 let previousSequence = lastMouseWarp.flatMap { $0.token==group.token && $0.epoch==group.native_process_epoch && $0.generation==plan.generation ? $0.sequence : nil } ?? 0
++                let previousScope = lastMouseWarp.flatMap { $0.token==group.token && $0.epoch==group.native_process_epoch && $0.generation==plan.generation ? $0.scope : nil }
++                let initialCapture=plan.initialCapture(input:input,previousScope:previousScope)
+                 if let pending=pendingMouseWarp {
+                     if unix-pending.request > 0.75 || pending.token != group.token || pending.epoch != group.native_process_epoch ||
+                        pending.plan.generation != plan.generation || pending.plan.point != plan.point { pendingMouseWarp=nil }
+                     else if let armed=input["mouse_host_armed_request"] as? Double, abs(armed-pending.request)<0.00001,
+-                            plan.consumed(input:input,cursor:cursor,afterSequence:previousSequence),
+-                            let matchedSequence=input["mouse_wm_sequence"] as? Int {
++                            (initialCapture || plan.consumed(input:input,cursor:cursor,afterSequence:previousSequence)),
++                            let sequence=input["mouse_wm_sequence"] as? Int,
++                            let scope=input["mouse_wm_scope_serial"] as? Int {
++                        let matchedSequence=initialCapture ? 0 : sequence
+                         if CGWarpMouseCursorPosition(plan.point) == .success,
+                            let actual=CGEvent(source:nil)?.location, plan.observed(actual) {
+                             publish("observed",pending.request,Date().timeIntervalSince1970,actual,matchedSequence)
+-                            lastMouseWarp=(group.token,group.native_process_epoch,plan.generation,matchedSequence)
++                            lastMouseWarp=(group.token,group.native_process_epoch,plan.generation,matchedSequence,scope)
+                         }
+                         pendingMouseWarp=nil
+                     }
+-                } else if !plan.observed(cursor) {
++                } else if initialCapture || !plan.observed(cursor) {
+                     pendingMouseWarp=(unix,plan,group.token,group.native_process_epoch)
+                     publish("request",unix,0,cursor,0)
+                 }
+--- base/render/controls.cpp
++++ source/render/controls.cpp
+@@ -136,13 +136,13 @@
+  // camera and movement consumers use the 8ms binary snapshot.
+  static ULONGLONG written=0;static uint32_t oldFlags=~uint32_t(0);
+  if(now-written<100&&oldFlags==s.flags)return;written=now;oldFlags=s.flags;
+- bool hostEligible=false,wmConsumed=false;double armed=0;int wmGeneration=-1;PalCraftMouseMessageCompat::WMObservation wm;
++ bool hostEligible=false,wmConsumed=false,wmPoint=false;uint64_t wmScope=0;double armed=0;int wmGeneration=-1;PalCraftMouseMessageCompat::WMObservation wm;
+  {std::lock_guard<std::mutex> lock(mouseCompatLock);hostEligible=mouseCompat.host_capture(macMouseMode()==2);armed=mouseCompat.hostRequest;
+-  wm=mouseCompat.wm;wmGeneration=mouseCompat.generation;wmConsumed=wm.consumed&&hostEligible&&mouseCompat.window==reinterpret_cast<uintptr_t>(window)&&wmGeneration==generation;}
++  wm=mouseCompat.wm;wmPoint=mouseCompat.point;wmScope=mouseCompat.scopeSerial;wmGeneration=mouseCompat.generation;wmConsumed=wm.consumed&&hostEligible&&mouseCompat.window==reinterpret_cast<uintptr_t>(window)&&wmGeneration==generation;}
+  RECT mouseWindow{},mouseClient{};POINT mouseOrigin{},mouseCursor{};
+  bool mouseGeometry=window&&GetWindowRect(window,&mouseWindow)&&GetClientRect(window,&mouseClient)&&ClientToScreen(window,&mouseOrigin);
+  bool mouseCursorObserved=mouseGeometry&&GetCursorPos(&mouseCursor)&&ScreenToClient(window,&mouseCursor);
+- char data[3072];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u,\"mouse_compatibility_mode\":\"%s\",\"mouse_owner_token\":\"%s\",\"mouse_native_epoch\":\"%s\",\"mouse_host_eligible\":%s,\"mouse_host_armed_request\":%.6f,\"mouse_win_geometry_valid\":%s,\"mouse_win_window_x\":%ld,\"mouse_win_window_y\":%ld,\"mouse_win_window_width\":%ld,\"mouse_win_window_height\":%ld,\"mouse_win_client_origin_x\":%ld,\"mouse_win_client_origin_y\":%ld,\"mouse_win_cursor_observed\":%s,\"mouse_win_cursor_x\":%ld,\"mouse_win_cursor_y\":%ld,\"mouse_wm_received\":%llu,\"mouse_wm_look\":%llu,\"mouse_wm_centre\":%llu,\"mouse_wm_seed\":%llu,\"mouse_wm_jump_drop\":%llu,\"mouse_wm_gate_drop\":%llu,\"mouse_wm_outside_drop\":%llu,\"mouse_wm_consumed\":%s,\"mouse_wm_client_x\":%d,\"mouse_wm_client_y\":%d,\"mouse_wm_sequence\":%llu,\"mouse_wm_tick_ms\":%llu,\"mouse_wm_generation\":%d,\"mouse_wm_last_reason\":\"%s\",\"mouse_readback_seeds\":%llu,\"mouse_readback_verifies\":%llu}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height,macMouseMode()==2?"relative-host-warp-v1":(macMouseMode()==1?"relative-v1":"raw"),mouseOwnerToken(),mouseNativeEpoch(),hostEligible?"true":"false",armed,mouseGeometry?"true":"false",mouseWindow.left,mouseWindow.top,mouseWindow.right-mouseWindow.left,mouseWindow.bottom-mouseWindow.top,mouseOrigin.x,mouseOrigin.y,mouseCursorObserved?"true":"false",mouseCursor.x,mouseCursor.y,static_cast<unsigned long long>(wm.received),static_cast<unsigned long long>(wm.look),static_cast<unsigned long long>(wm.centre),static_cast<unsigned long long>(wm.seed),static_cast<unsigned long long>(wm.jump),static_cast<unsigned long long>(wm.gate),static_cast<unsigned long long>(wm.outside),wmConsumed?"true":"false",wm.x,wm.y,static_cast<unsigned long long>(wm.sequence),static_cast<unsigned long long>(wm.tick),wmGeneration,wm.reason,static_cast<unsigned long long>(wm.readbackSeeds),static_cast<unsigned long long>(wm.readbackVerifies));
++ char data[3072];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u,\"mouse_compatibility_mode\":\"%s\",\"mouse_owner_token\":\"%s\",\"mouse_native_epoch\":\"%s\",\"mouse_host_eligible\":%s,\"mouse_host_armed_request\":%.6f,\"mouse_win_geometry_valid\":%s,\"mouse_win_window_x\":%ld,\"mouse_win_window_y\":%ld,\"mouse_win_window_width\":%ld,\"mouse_win_window_height\":%ld,\"mouse_win_client_origin_x\":%ld,\"mouse_win_client_origin_y\":%ld,\"mouse_win_cursor_observed\":%s,\"mouse_win_cursor_x\":%ld,\"mouse_win_cursor_y\":%ld,\"mouse_wm_received\":%llu,\"mouse_wm_look\":%llu,\"mouse_wm_centre\":%llu,\"mouse_wm_seed\":%llu,\"mouse_wm_jump_drop\":%llu,\"mouse_wm_gate_drop\":%llu,\"mouse_wm_outside_drop\":%llu,\"mouse_wm_consumed\":%s,\"mouse_wm_point_established\":%s,\"mouse_wm_scope_serial\":%llu,\"mouse_wm_client_x\":%d,\"mouse_wm_client_y\":%d,\"mouse_wm_sequence\":%llu,\"mouse_wm_tick_ms\":%llu,\"mouse_wm_generation\":%d,\"mouse_wm_last_reason\":\"%s\",\"mouse_readback_seeds\":%llu,\"mouse_readback_verifies\":%llu}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height,macMouseMode()==2?"relative-host-warp-v1":(macMouseMode()==1?"relative-v1":"raw"),mouseOwnerToken(),mouseNativeEpoch(),hostEligible?"true":"false",armed,mouseGeometry?"true":"false",mouseWindow.left,mouseWindow.top,mouseWindow.right-mouseWindow.left,mouseWindow.bottom-mouseWindow.top,mouseOrigin.x,mouseOrigin.y,mouseCursorObserved?"true":"false",mouseCursor.x,mouseCursor.y,static_cast<unsigned long long>(wm.received),static_cast<unsigned long long>(wm.look),static_cast<unsigned long long>(wm.centre),static_cast<unsigned long long>(wm.seed),static_cast<unsigned long long>(wm.jump),static_cast<unsigned long long>(wm.gate),static_cast<unsigned long long>(wm.outside),wmConsumed?"true":"false",wmPoint?"true":"false",static_cast<unsigned long long>(wmScope),wm.x,wm.y,static_cast<unsigned long long>(wm.sequence),static_cast<unsigned long long>(wm.tick),wmGeneration,wm.reason,static_cast<unsigned long long>(wm.readbackSeeds),static_cast<unsigned long long>(wm.readbackVerifies));
+  FILE*f=_wfopen(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),L"wb");if(f){fputs(data,f);fclose(f);if(MoveFileExW(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),palcraft_paths::bridge_file(L"input-state.json").c_str(),MOVEFILE_REPLACE_EXISTING))++jsonWrites;}
+ }
+ bool platformFocused(){
+--- base/render/mouse_message_compat.h
++++ source/render/mouse_message_compat.h
+@@ -10,12 +10,12 @@
+  bool enabled=false,eligible=false,rawSeen=false,point=false,usedMessage=false;
+  bool warpPending=false;int warpX=0,warpY=0;uint64_t warpAt=0;
+  uintptr_t window=0;int generation=-1,lastX=0,lastY=0;
+- int hostX=0,hostY=0;double hostRequest=0;bool hostCentreArmed=false;
++ int hostX=0,hostY=0;double hostRequest=0;bool hostCentreArmed=false;uint64_t scopeSerial=0;
+  struct WMObservation{uint64_t received=0,look=0,centre=0,seed=0,jump=0,gate=0,outside=0,readbackSeeds=0,readbackVerifies=0;
+   int x=0,y=0;uint64_t sequence=0,tick=0;bool consumed=false;const char*reason="none";}wm;
+  void scope(bool on,bool live,uintptr_t h,int gen) {
+   if(on!=enabled||live!=eligible||h!=window||gen!=generation) {
+-   rawSeen=point=usedMessage=warpPending=false;
++   ++scopeSerial;rawSeen=point=usedMessage=warpPending=false;
+    hostRequest=0;hostCentreArmed=false;wm.consumed=false;
+   }
+   enabled=on;eligible=live;window=h;generation=gen;
+@@ -43,17 +43,16 @@
+   if(hostCentreArmed&&x==hostX&&y==hostY){
+    hostCentreArmed=false;lastX=x;lastY=y;point=true;++wm.centre;wm.reason="centre";
+   }else{
+-   const bool hadPoint=point;const int dx=x-lastX,dy=y-lastY;
+-   d=move(h,x,y,width,height);
++   const bool hadPoint=point;
++   d=move(h,x,y,width,height,true);
+    if(x<0||y<0||x>=width||y>=height){++wm.outside;wm.reason="outside";}
+    else if(!hadPoint){++wm.seed;wm.reason="seed";}
+-   else if(std::abs(dx)>128||std::abs(dy)>128){++wm.jump;wm.reason="jump";}
+    else if(d.x||d.y){++wm.look;wm.reason="look";}else wm.reason="zero";
+   }
+   if(point&&x>=0&&y>=0&&x<width&&y<height){wm.x=x;wm.y=y;wm.sequence=wm.received;wm.tick=tick;wm.consumed=true;}
+   return d;
+  }
+- Delta move(uintptr_t h,int x,int y,int width,int height) {
++ Delta move(uintptr_t h,int x,int y,int width,int height,bool hostOrdinary=false) {
+   if(!enabled||!eligible||rawSeen||h!=window)return {};
+   if(warpPending){
+    if(x==warpX&&y==warpY){warpPending=false;lastX=x;lastY=y;point=true;}
+@@ -64,7 +63,7 @@
+   Delta d{x-lastX,y-lastY};lastX=x;lastY=y;
+   // Seed a new point after a warp/discontinuous jump instead of accumulating
+   // it. A normal small mouse stroke remains the original cumulative delta.
+-  if(std::abs(d.x)>128||std::abs(d.y)>128)return {};
++  if(!hostOrdinary&&(std::abs(d.x)>128||std::abs(d.y)>128))return {};
+   usedMessage|=d.x!=0||d.y!=0;
+   return d;
+  }
