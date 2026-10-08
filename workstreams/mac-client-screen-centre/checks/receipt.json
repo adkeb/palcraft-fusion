@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "ok": true,
+  "limited_actual_function_cases_passed": 1,
+  "actual_plan_extracted_from_production_source": true,
+  "integer_client_screen_centre_not_outer_rect_scaling": true,
+  "different_cursor_not_claimed_as_observed": true,
+  "all_scope_geometry_timestamp_and_cursor_data_synthetic": true,
+  "CGWarp_Game_GUI_RPC_input_or_runtime_writes": false,
+  "actual_infinite_look_verified": false,
+  "actual_handle": 77461,
+  "actual_terminal_chunk": "7f460c",
+  "actual_exit_code": 0
+}

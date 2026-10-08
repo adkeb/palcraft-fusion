@@ -1,0 +1,1 @@
+actual plan uses integer client-screen centre(756,476); clipped outer rectangles do not scale it; observed(756,474) is rejected: PASS (synthetic)

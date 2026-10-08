@@ -6,9 +6,9 @@
 
 ## 当前状态
 
-2026-10-08，实机开发环境为 macOS、CrossOver、Steam 离线单机与本地 Minecraft 后端。候选 32 已通过普通更新、原世界冷加载和首次自动世界同步，保留上一版正常合成与保存的物品。实机画面已出现 MC 炉子和工作台。
+2026-10-08，实机开发环境为 macOS、CrossOver、Steam 离线单机与本地 Minecraft 后端。候选 35 已通过普通更新、原世界冷加载和首次自动世界同步，保留之前正常合成与保存的物品。实机画面已出现 MC 炉子、工作台和火把。
 
-前一轮已实际完成 F5 切换、背包合成、正常保存与返回标题、客户端正常退出，以及本次运行内的四组件帧率调整。候选 33 已完成普通更新、首次自动世界同步与实机光标回中；持续转向仍被回中位移抵消，正在修输入处理。箱子、烧炼、兑换和其余玩法继续推进。上述结果是限定流程证据，完整 42 项要求尚未通过。
+已实际完成 F5 切换、背包合成、正常保存与返回标题、客户端正常退出，以及同一运行内的四组件帧率设置。候选 35 的光标回中已与原生客户区中心相符，持续转向仍有位移丢失和反向抵消；还观察到非预期的火把放置，正在修复鼠标事件顺序并记录真实输入来源。箱子、烧炼、兑换和其余玩法继续推进。上述结果是限定流程证据，完整 42 项要求尚未通过。
 
 查看 [当前状态和验收范围](docs/STATUS.md)、[构建说明](docs/BUILD.md) 和 [Standalone 安装源码说明](player-standalone/README.zh-CN.md)。[实验发布包](https://github.com/adkeb/palcraft-fusion/releases) 提供部分已公开组件；完整玩家版仍待完成。
 
@@ -29,7 +29,7 @@
 | `palcraft/tests` 及模块内 `tests` | 现有针对性测试与验证工具 |
 | `tools/legacy` | 历史作者工具；当前启动入口见安装说明 |
 
-最新控制与生命周期增量见 [Mac 光标捕获](workstreams/mac-owned-host-cursor-capture)、[权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown) 和 [在线性能设置](workstreams/live-owned-power-profile)。每项保留适用基线和验证范围。 新的 [普通鼠标与回中基准修正](workstreams/mac-ordinary-motion-warp-centre) 已编译，限定源码检查通过，候选 34 的真实转向效果待实测。 连续回中新增 [RAW 输入与物理捕获分离](workstreams/native-raw-host-capture)，原生组件编译与限定源码案例通过，实机结果仍待候选 33。
+最新控制增量包括 [RAW 输入与物理捕获分离](workstreams/native-raw-host-capture)、[普通鼠标与回中基准](workstreams/mac-ordinary-motion-warp-centre) 和 [客户区屏幕中心修正](workstreams/mac-client-screen-centre)。生命周期增量包括 [权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown)、[TCP 端口复用检测](workstreams/reusable-tcp-port-probe) 和 [在线性能设置](workstreams/live-owned-power-profile)。各项保留源码检查与实机结果的范围；当前转向尚未验收。
 
 ## 使用与资源
 

@@ -1,0 +1,20 @@
+--- base/mac/hud_overlay.swift
++++ source/mac/hud_overlay.swift
+@@ -41,13 +41,14 @@
+               let w = input["viewport_width"] as? Int, let h = input["viewport_height"] as? Int,
+               w > 0, h > 0, let bounds = bounds, bounds.width > 0, bounds.height > 0,
+               input["mouse_win_geometry_valid"] as? Bool == true,
+-              let wx=input["mouse_win_window_x"] as? Double, let wy=input["mouse_win_window_y"] as? Double,
++              input["mouse_win_window_x"] as? Double != nil, input["mouse_win_window_y"] as? Double != nil,
+               let ww=input["mouse_win_window_width"] as? Double, let wh=input["mouse_win_window_height"] as? Double,
+               let ox=input["mouse_win_client_origin_x"] as? Double, let oy=input["mouse_win_client_origin_y"] as? Double,
+               ww > 0, wh > 0 else { return nil }
+         let x=w/2, y=h/2
+-        let point=CGPoint(x: bounds.minX + CGFloat((ox+Double(x)-wx)/ww)*bounds.width,
+-                          y: bounds.minY + CGFloat((oy+Double(y)-wy)/wh)*bounds.height)
++        // CrossOver client screen coordinates share the CG screen space; CGWindow bounds exclude Win borders.
++        let point=CGPoint(x: CGFloat((ox+Double(x)).rounded()),
++                          y: CGFloat((oy+Double(y)).rounded()))
+         return MacHostMousePlan(point: point, x: x, y: y, width: w, height: h, generation: gen)
+     }
+     func observed(_ cursor: CGPoint) -> Bool {

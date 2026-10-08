@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "base_candidate": 34,
+  "files": [
+    {
+      "source": "HUD-v10-client-screen-center-Mac13-arm64",
+      "target": "PalCraft-Dev/player-tools/bin/hud-overlay-v4",
+      "role": "mac_hud",
+      "base_sha256": "f2171e19195295a0d7f41ea6f9a739891765bdf0fb90660c820115974a11a909",
+      "source_sha256": "608c326724db5d9bad89c6735cfcdd6ea18bb89d7ffafc4fd0fc34e9d9d2525e",
+      "bytes": 244488,
+      "implementation_version": "10-client-screen-center",
+      "HUD_source_sha256": "3bd081dd6e5d9e08c76e03e2ad08e738566c35db06d896af5bc64e76b230a84a",
+      "source_build_chain_tag": "arm64-apple-macosx13.0-source-build"
+    }
+  ],
+  "source_changes": [
+    {
+      "source": "source/mac/hud_overlay.swift",
+      "base_sha256": "987dd30b97bf764c194a9b5a1f0c0f06be4efd78a75c30d02545e47a8eac7ed0",
+      "source_sha256": "3bd081dd6e5d9e08c76e03e2ad08e738566c35db06d896af5bc64e76b230a84a",
+      "bytes": 35375
+    }
+  ],
+  "native_DLL_and_headers_helper_MC_every_other_source_unchanged": true,
+  "only_exact_mac_hud_binary_version_and_source_pins_change": true
+}
