@@ -1,0 +1,1 @@
+actual Snapshot/scan/cancel source:81 exact unloaded target tiles start<=1 per tick, keep8ms/cell/ops budgets; end/ACK retain; actual PLAYER_LOADING handoff then newtx releases only own tickets: PASS (synthetic)

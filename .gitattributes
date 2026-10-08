@@ -30,3 +30,5 @@ workstreams/consumed-wm-cursor-warp/** -text
 workstreams/configurable-mc-window/** -text
 
 workstreams/host-initial-coalesced-motion/** -text
+
+workstreams/authoritative-target-snapshot-load/** -text

@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "kind": "palcraft_guest",
+  "environment": "BridgeLab",
+  "identity": {
+    "world_id": "contract-world",
+    "pal_uid": "contract-pal-a",
+    "mc_uuid": "00000000-0000-0000-0000-000000000001",
+    "mc_name": "ContractGuestA"
+  },
+  "guest": {
+    "run_dir": "run-contract-registered-a",
+    "mc_args": ["--username", "ContractGuestA", "--uuid", "00000000-0000-0000-0000-000000000001"],
+    "jvm_args": ["--enable-native-access=ALL-UNNAMED", "-Xmx512m", "-Dpalcraft.sessions.mode=strict", "-Dpalcraft.noFrameExport=true"]
+  }
+}

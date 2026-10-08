@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "ok": true,
+  "aggregate_production_helper_case_passed": 1,
+  "actual_terminal_chunk": "3d6820",
+  "actual_exit_code": 0,
+  "production_Snapshot_scan_cancel_methods_extracted": true,
+  "exact81_unloaded_target_tiles_started_at_most1_per_tick": true,
+  "original8ms4096cells256ops_budget_kept": true,
+  "completed_and_ACK_alone_retain_target_resources": true,
+  "actual_player_loading_handoff_and_newtx_only_owned_ticket_release": true,
+  "all_API_ticket_chunk_player_world_identity_and_data_synthetic": true,
+  "Lua_dedup_one_line_source_review_only_not_extra_fixture": true,
+  "native_HUD_or_production_MC_compiled_or_Game_runtime_operations": false
+}

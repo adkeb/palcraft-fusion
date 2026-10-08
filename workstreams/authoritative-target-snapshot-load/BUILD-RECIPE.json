@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "assembly_is_only_production_builder": true,
+  "base_JAR_sha256": "b46dea196fb37f57e93512e8ee573d6ac56364c96bccd1d1290f0038f6cbc144",
+  "full_source_root": "source/mc",
+  "full_source_archive": "outputs/mc10_10-action-target-snapshot-source.zip",
+  "full_source_archive_sha256": "7565624153f48d873fea16242b6275dece6e2cb272a9b5156a5d89b032414b91",
+  "changed_production_java_units": [
+    "dev/rehan/passthrough/WorldCompatibility.java",
+    "dev/rehan/passthrough/BridgeServerFeatures.java",
+    "dev/rehan/passthrough/BridgeTravelGate.java"
+  ],
+  "JDK_release": 25,
+  "prior_validated_recipe_reference": "coordination/live-owned-power-profile-delta/outputs/java-build.json",
+  "flags": [
+    "-J-Xmx384m",
+    "-J-XX:ActiveProcessorCount=1",
+    "-J-XX:+UseSerialGC",
+    "--release",
+    "25",
+    "-proc:none",
+    "-encoding",
+    "UTF-8"
+  ],
+  "compile_against_original_b46_all_other_classes_not_prior_modified_class": true,
+  "replace_all_emitted_classes_for_changed_units_and_fabric_version_preserve_unrelated_entries": true,
+  "production_compile_performed_here": false
+}

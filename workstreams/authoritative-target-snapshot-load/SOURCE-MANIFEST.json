@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "base_candidate": 39,
+  "files": [
+    {
+      "source": "source/client/runtime/client_options.lua",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/ue4ss/Mods/PalCraftClient/Scripts/runtime/client_options.lua",
+      "role": "standalone_component",
+      "base_sha256": "2716a3639dc24631bfd526621ea71fead15b7977dba6dca8bb895e14f337d799",
+      "source_sha256": "cfed4fd484f67baf33079fc2120459d11c769fbc6e0285d5941c3f604d6595bb",
+      "bytes": 23021
+    }
+  ],
+  "source_changes": [
+    {
+      "source": "source/client/runtime/client_options.lua",
+      "base_sha256": "2716a3639dc24631bfd526621ea71fead15b7977dba6dca8bb895e14f337d799",
+      "source_sha256": "cfed4fd484f67baf33079fc2120459d11c769fbc6e0285d5941c3f604d6595bb",
+      "bytes": 23021
+    },
+    {
+      "source": "source/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java",
+      "base_sha256": "a0d9f92ccac84b2e16aeaba765b58a04d810d9627b27d920d4aea9d355c89698",
+      "source_sha256": "00799ffece2fb5849471393a31dca51a870f328b0d6e9eff1774885cec2fd449",
+      "bytes": 6054
+    },
+    {
+      "source": "source/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java",
+      "base_sha256": "d44ac669bdb4e6c6e4ea88fd535fb392eb669b613b1899787838a087605d98df",
+      "source_sha256": "7bc02908e6e9844065b15b277efe0fd350f5ee0fcbdb2c5cff81c3175d5a2562",
+      "bytes": 14460
+    },
+    {
+      "source": "source/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java",
+      "base_sha256": "4c49001de5a938f3ae8f7db8bd1c743ac4f487d927cebd0a178b0a8d5470e17e",
+      "source_sha256": "f4703bacb282c98504144519e85f8997bad9ab256a26ddc85e3d1e5481be8180",
+      "bytes": 46597
+    },
+    {
+      "source": "source/mc/src/main/resources/fabric.mod.json",
+      "base_sha256": "2b2f9361972bf790ec41eec02569889233d829968a2c757b7d3a5eb7afbc6917",
+      "source_sha256": "7bfa06bdbd44c6b3823c542bd479c954a5391f6a5bcfd5c6fe1d4fe1cd2afcd7",
+      "bytes": 1007
+    }
+  ],
+  "production_source_slots": 4,
+  "fabric_metadata_change_only_version": "0.2.0-integration.10.10-live-owned-performance+action-observation.target-snapshot-load",
+  "MC_full_source_archive": {
+    "source": "outputs/mc10_10-action-target-snapshot-source.zip",
+    "sha256": "7565624153f48d873fea16242b6275dece6e2cb272a9b5156a5d89b032414b91",
+    "bytes": 214979
+  },
+  "MC_base_sha256": "b46dea196fb37f57e93512e8ee573d6ac56364c96bccd1d1290f0038f6cbc144",
+  "MC_compiled_payload_pending_assembly": true,
+  "no_native_HUD_runtime_saved_or_other_source_changes": true
+}

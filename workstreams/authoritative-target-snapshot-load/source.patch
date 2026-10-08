@@ -1,0 +1,250 @@
+--- base/client/runtime/client_options.lua
++++ source/client/runtime/client_options.lua
+@@ -230,7 +230,7 @@
+      -- Hello/auto sync covers 32 blocks. Request the real target ring once per
+      -- authenticated tuple before scene readiness starts the travel feature.
+      -- Issuing this request never asserts snapshot coverage or native readiness.
+-     local key=b.mc_epoch..'/'..b.session_id..'/'..b.generation..'/'..v.world_session..'/'..v.dim..'/'..v.view
++     local key=b.mc_epoch..'/'..b.session_id..'/'..b.generation..'/'..v.world_session..'/'..v.dim..'/'..v.view..'/'..row.tx..'/'..table.concat(row.required_bounds,',')
+      if self.snapshot_requested_tuple~=key then
+       local bounds=row.required_bounds
+       local x,z=math.floor((bounds[1]+bounds[4]-1)/2),math.floor((bounds[3]+bounds[6]-1)/2)
+--- base/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
++++ source/mc/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java
+@@ -54,7 +54,7 @@
+             int radius = Math.clamp(query.has("r") ? query.get("r").getAsInt() : 32, 1, 64);
+             String requestId = query.has("request_id") ? query.get("request_id").getAsString() : null;
+             if (query.has("required_bounds"))
+-                WorldCompatibility.syncFor(player, radius, requestId, BridgeTravelGate.snapshotBounds(server, player, query));
++                WorldCompatibility.syncFor(player, radius, requestId, BridgeTravelGate.snapshotBounds(server, player, query), query);
+             else WorldBridge.syncFor(player, radius, requestId);
+         });
+         BridgeNetwork.registerOperation("world", "inspect", (server, player, query, reply) -> WorldBridge.inspect(reply));
+--- base/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java
++++ source/mc/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java
+@@ -126,8 +126,13 @@
+         TravelAckValidator.Binding binding=binding(player);if(binding==null){reject("missing_authenticated_player");return;}
+         if(phase.equals("rebase_required")){consumeRebase(player,row,binding);return;}
+         String reason=TravelAckValidator.rejectBinding(row,binding);if(reason!=null){reject(reason);return;}
+-        if(phase.equals("prepare"))snapshotPrepares.put(player.getUUID(),row.deepCopy());
+-        else snapshotPrepares.remove(player.getUUID());
++        if(phase.equals("prepare")){
++            WorldCompatibility.cancelOtherTargetSnapshots(player.getUUID(),row.get("tx").getAsString());
++            snapshotPrepares.put(player.getUUID(),row.deepCopy());
++        } else {
++            snapshotPrepares.remove(player.getUUID());
++            if(phase.equals("error")||phase.equals("recovery_required"))WorldCompatibility.cancelTargetSnapshots(player.getUUID(),row.get("tx").getAsString());
++        }
+         if(phase.equals("error")&&row.has("needs_mc_rollback")&&row.get("needs_mc_rollback").getAsBoolean()){
+             // Restore coordinates in the wire record are diagnostic only; MC restores its internally captured source.
+             JsonObject rollback=WorldCompatibility.rollbackView(player,binding.worldSession(),binding.view());
+--- base/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
++++ source/mc/src/main/java/dev/rehan/passthrough/WorldCompatibility.java
+@@ -19,6 +19,9 @@
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.server.level.ServerPlayer;
++import net.minecraft.server.level.TicketType;
++import net.minecraft.world.level.ChunkPos;
++import net.minecraft.world.level.TicketStorage;
+ import net.minecraft.world.entity.Entity;
+ import net.minecraft.world.level.BlockGetter;
+ import net.minecraft.world.level.block.Block;
+@@ -46,6 +49,7 @@
+     private static final Set<WorldDeltaBuffer.Position> moving = new HashSet<>();
+     private static final Set<String> resyncRequired = new HashSet<>();
+     private static final ArrayDeque<Snapshot> snapshots = new ArrayDeque<>();
++    private static final ArrayDeque<Snapshot> retainedTargetSnapshots = new ArrayDeque<>();
+     private static final Map<UUID, View> views = new HashMap<>();
+     private static final Map<UUID, Long> viewGenerations = new HashMap<>();
+     private static final Map<UUID, Restore> teleportSources = new HashMap<>();
+@@ -97,6 +101,29 @@
+         int x, y, z;
+         boolean begun;
+         String requestId;
++        JsonObject targetRequest;
++        TicketType loadTicket;
++        void acquireTargetChunk() {
++            if (loadTicket != null) return;
++            loadTicket = new TicketType(TicketType.NO_TIMEOUT, TicketType.FLAG_LOADING);
++            level.getChunkSource().addTicketAndLoadWithRadius(loadTicket, new ChunkPos(chunkX,chunkZ), 0);
++        }
++        void releaseTargetChunk() {
++            if (loadTicket == null) return;
++            level.getChunkSource().removeTicketWithRadius(loadTicket,new ChunkPos(chunkX,chunkZ),0);loadTicket=null;
++        }
++        boolean targetStillCurrent() {
++            ServerPlayer player=server==null?null:server.getPlayerList().getPlayer(owner);
++            if(player==null||worlds.get(dimension)!=level||!session.equals(targetRequest.get("world_session").getAsString()))return false;
++            View view=views.get(owner);
++            return view!=null&&view.identity==player&&view.dimension.equals(dimension)&&view.generation==targetRequest.get("view").getAsLong();
++        }
++        boolean playerOwnsChunk() {
++            if(!targetStillCurrent()||views.get(owner).waitingAck)return false;
++            for(var ticket:level.getChunkSource().getDataStorage().computeIfAbsent(TicketStorage.TYPE).getTickets(ChunkPos.asLong(chunkX,chunkZ)))
++                if(ticket.getType()==TicketType.PLAYER_LOADING&&ticket.getTicketLevel()<=33)return true;
++            return false;
++        }
+         Snapshot(ServerLevel level, UUID owner, int cx, int cz, int minX, int minY, int minZ,
+                  int maxX, int maxY, int maxZ) {
+             this.id = session + ":" + (++snapshotSequence);
+@@ -141,7 +168,7 @@
+         initialize();
+         server = authority; session = UUID.randomUUID().toString(); sequence = 0;
+         snapshotSequence = 0; emittedOps = 0; autoSyncTicks = 0;
+-        changes.clear(); worlds.clear(); moving.clear(); snapshots.clear(); views.clear(); portals.clear(); resyncRequired.clear();
++        releaseAllTargetChunks();changes.clear(); worlds.clear(); moving.clear(); snapshots.clear(); views.clear(); portals.clear(); resyncRequired.clear();
+         viewGenerations.clear(); teleportSources.clear(); teleportDepth.clear(); teleportSucceeded.clear(); rollbackSources.clear(); rollingBack.clear();
+         discoverWorlds();
+     }
+@@ -149,7 +176,7 @@
+     public static void detach() {
+         if (server != null) for (String dimension : new ArrayList<>(worlds.keySet()))
+             emitLifecycle(dimension, lifecycle("world_unload"));
+-        server = null; changes.clear(); worlds.clear(); moving.clear(); snapshots.clear(); views.clear(); portals.clear(); resyncRequired.clear();
++        server = null; releaseAllTargetChunks();changes.clear(); worlds.clear(); moving.clear(); snapshots.clear(); views.clear(); portals.clear(); resyncRequired.clear();
+         viewGenerations.clear(); teleportSources.clear(); teleportDepth.clear(); teleportSucceeded.clear(); rollbackSources.clear(); rollingBack.clear();
+     }
+ 
+@@ -179,6 +206,7 @@
+             changes.removeIf(pos -> pos.dimension().equals(removed));
+             moving.removeIf(pos -> pos.dimension().equals(removed));
+             snapshots.removeIf(job -> removeSnapshot(job,job.dimension.equals(removed)));
++            retainedTargetSnapshots.removeIf(job -> removeSnapshot(job,job.dimension.equals(removed)));
+         }
+     }
+ 
+@@ -323,8 +351,20 @@
+     }
+ 
+     private static boolean removeSnapshot(Snapshot job, boolean remove) {
+-        if (remove && job.requestId != null) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
++        if (remove) {job.releaseTargetChunk();if(job.requestId!=null||job.targetRequest!=null)emitLifecycle(job.dimension,job.event("snapshot_cancel"));}
+         return remove;
++    }
++    private static void releaseAllTargetChunks() {
++        for(Snapshot job:snapshots)job.releaseTargetChunk();
++        for(Snapshot job:retainedTargetSnapshots)job.releaseTargetChunk();retainedTargetSnapshots.clear();
++    }
++    public static void cancelTargetSnapshots(UUID owner,String tx) {
++        snapshots.removeIf(job->removeSnapshot(job,job.owner.equals(owner)&&job.targetRequest!=null&&tx.equals(job.targetRequest.get("tx").getAsString())));
++        retainedTargetSnapshots.removeIf(job->removeSnapshot(job,job.owner.equals(owner)&&tx.equals(job.targetRequest.get("tx").getAsString())));
++    }
++    public static void cancelOtherTargetSnapshots(UUID owner,String currentTx) {
++        snapshots.removeIf(job->removeSnapshot(job,job.owner.equals(owner)&&job.targetRequest!=null&&!currentTx.equals(job.targetRequest.get("tx").getAsString())));
++        retainedTargetSnapshots.removeIf(job->removeSnapshot(job,job.owner.equals(owner)&&!currentTx.equals(job.targetRequest.get("tx").getAsString())));
+     }
+     private static void cancelSnapshots(UUID owner) {
+         var iterator = snapshots.iterator();
+@@ -332,8 +372,9 @@
+             Snapshot job = iterator.next();
+             if (!job.owner.equals(owner)) continue;
+             if (job.begun || job.requestId != null) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
+-            iterator.remove();
+-        }
++            job.releaseTargetChunk();iterator.remove();
++        }
++        retainedTargetSnapshots.removeIf(job->removeSnapshot(job,job.owner.equals(owner)));
+     }
+ 
+     public static void syncFor(ServerPlayer player, int requestedRadius) { syncFor(player,requestedRadius,null); }
+@@ -341,6 +382,9 @@
+         syncFor(player,requestedRadius,requestId,null);
+     }
+     public static void syncFor(ServerPlayer player, int requestedRadius, String requestId, int[] requestedBounds) {
++        syncFor(player,requestedRadius,requestId,requestedBounds,null);
++    }
++    public static void syncFor(ServerPlayer player, int requestedRadius, String requestId, int[] requestedBounds,JsonObject targetRequest) {
+         if (requestId != null && !UUID.fromString(requestId).toString().equals(requestId)) throw new IllegalArgumentException("Invalid request_id");
+         if (server == null || player.level().getServer() != server) return;
+         ServerLevel level = player.level(); String dimension = dimension(level);
+@@ -362,16 +406,16 @@
+         }
+         int accepted = 0;
+         for (int cx = minX >> 4; cx <= (maxX-1) >> 4; cx++) for (int cz = minZ >> 4; cz <= (maxZ-1) >> 4; cz++) {
+-            if (level.getChunkSource().getChunkNow(cx, cz) == null) continue;
++            if (level.getChunkSource().getChunkNow(cx, cz) == null && targetRequest == null) continue;
+             if (enqueueSnapshot(level, player.getUUID(), cx, cz, Math.max(minX,cx*16), minY, Math.max(minZ,cz*16),
+-                                Math.min(maxX,cx*16+16), maxY, Math.min(maxZ,cz*16+16),requestId)) accepted++;
++                                Math.min(maxX,cx*16+16), maxY, Math.min(maxZ,cz*16+16),requestId,targetRequest)) accepted++;
+         }
+         resyncRequired.remove(dimension);
+         JsonObject event = lifecycle("sync_requested"); event.addProperty("player", player.getUUID().toString());
+         event.addProperty("radius", radius); event.addProperty("chunks", accepted);
+         if (requestId != null) event.addProperty("request_id", requestId);
+         event.addProperty("vertical_below", 24); event.addProperty("vertical_above", 40);
+-        event.addProperty("loaded_only", true); emitLifecycle(dimension, event);
++        event.addProperty("loaded_only", targetRequest == null); emitLifecycle(dimension, event);
+     }
+ 
+     private static boolean enqueueSnapshot(ServerLevel level, UUID owner, int cx, int cz, int minX, int minY, int minZ,
+@@ -380,30 +424,45 @@
+     }
+     private static boolean enqueueSnapshot(ServerLevel level, UUID owner, int cx, int cz, int minX, int minY, int minZ,
+                                            int maxX, int maxY, int maxZ, String requestId) {
++        return enqueueSnapshot(level,owner,cx,cz,minX,minY,minZ,maxX,maxY,maxZ,requestId,null);
++    }
++    private static boolean enqueueSnapshot(ServerLevel level,UUID owner,int cx,int cz,int minX,int minY,int minZ,
++                                           int maxX,int maxY,int maxZ,String requestId,JsonObject targetRequest) {
+         if (minY >= maxY) return false;
+         for (Snapshot queued : snapshots) if (queued.owner.equals(owner) && queued.dimension.equals(dimension(level))
+                 && queued.chunkX == cx && queued.chunkZ == cz && queued.minX == minX && queued.minY == minY
+                 && queued.minZ == minZ && queued.maxX == maxX && queued.maxY == maxY && queued.maxZ == maxZ) return true;
+-        if (snapshots.size() >= MAX_SNAPSHOT_JOBS) {
++        if (snapshots.size()+retainedTargetSnapshots.size() >= MAX_SNAPSHOT_JOBS) {
+             JsonObject event = lifecycle("resync_required"); event.addProperty("player", owner.toString());
+             event.addProperty("reason", "snapshot_capacity");
+             if (requestId != null) event.addProperty("request_id", requestId);
+             emitLifecycle(dimension(level), event); return false;
+         }
+         Snapshot job=new Snapshot(level, owner, cx, cz, minX, minY, minZ, maxX, maxY, maxZ);job.requestId=requestId;
+-        snapshots.addLast(job); return true;
++        job.targetRequest=targetRequest==null?null:targetRequest.deepCopy();snapshots.addLast(job); return true;
+     }
+ 
+     private static void scanSnapshots() {
+-        int cells = 0, operations = 0;
++        int cells = 0, operations = 0, loadStarts=0;
+         long deadline = System.nanoTime() + 8_000_000L;
++        var retained=retainedTargetSnapshots.iterator();
++        while(retained.hasNext()&&System.nanoTime()<deadline){Snapshot job=retained.next();
++            if(!job.targetStillCurrent()||job.playerOwnsChunk()){job.releaseTargetChunk();retained.remove();}
++        }
+         while (!snapshots.isEmpty() && cells < SNAPSHOT_CELLS_PER_TICK && operations < SNAPSHOT_OPS_PER_TICK
+                 && System.nanoTime() < deadline) {
+             Snapshot job = snapshots.removeFirst();
++            if(job.targetRequest!=null){
++                if(!job.targetStillCurrent()){removeSnapshot(job,true);continue;}
++                ServerPlayer player=server.getPlayerList().getPlayer(job.owner);
++                try{BridgeTravelGate.snapshotBounds(server,player,job.targetRequest);}catch(IllegalArgumentException stale){removeSnapshot(job,true);continue;}
++                if(job.loadTicket==null){if(loadStarts>=1){snapshots.addFirst(job);break;}job.acquireTargetChunk();loadStarts++;}
++            }
+             LevelChunk chunk = job.level.getChunkSource().getChunkNow(job.chunkX, job.chunkZ);
++            if(chunk==null&&job.targetRequest!=null&&worlds.get(job.dimension)==job.level){snapshots.addLast(job);break;}
+             if (chunk == null || worlds.get(job.dimension) != job.level) {
+                 if (job.begun || job.requestId != null) emitLifecycle(job.dimension, job.event("snapshot_cancel"));
+-                continue;
++                job.releaseTargetChunk();continue;
+             }
+             if (!job.begun) { job.begun = true; emitLifecycle(job.dimension, job.event("snapshot_begin")); }
+             JsonArray batch = new JsonArray();
+@@ -416,7 +475,7 @@
+                 if (chunk.getBlockState(pos).is(Blocks.MOVING_PISTON)) moving.add(position(job.level, pos));
+             }
+             if (!batch.isEmpty()) emitOps(job.dimension, batch,job.requestId);
+-            if (job.complete()) emitLifecycle(job.dimension, job.event("snapshot_end"));
++            if (job.complete()) {emitLifecycle(job.dimension,job.event("snapshot_end"));if(job.targetRequest!=null)retainedTargetSnapshots.addLast(job);}
+             else snapshots.addLast(job);
+         }
+     }
+--- base/mc/src/main/resources/fabric.mod.json
++++ source/mc/src/main/resources/fabric.mod.json
+@@ -1,7 +1,7 @@
+ {
+   "schemaVersion": 1,
+   "id": "passthrough",
+-  "version": "0.2.0-integration.10.10-live-owned-performance+action-observation",
++  "version": "0.2.0-integration.10.10-live-owned-performance+action-observation.target-snapshot-load",
+   "name": "PalCraft MC Bridge",
+   "description": "Runs alongside another game: its camera drives Minecraft's, its collision becomes invisible blocks, and Minecraft's picture (colour + depth) is handed back to be composited into the host game.",
+   "authors": [
