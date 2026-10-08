@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "ok": true,
+  "actual_function_groups_passed": 2,
+  "actual_header_two_queued_orders_and_human_return": true,
+  "actual_HUD_consumption_and_original_scope_UI_guards": true,
+  "all_scope_identity_time_coordinates_and_payload_synthetic": true,
+  "128_750_epoch_auth_ready_not_relaxed": true,
+  "Game_GUI_RPC_input_or_runtime_writes": false,
+  "actual_F03_complete_or_missing_step_cause_proven": false
+}

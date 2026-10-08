@@ -1,0 +1,118 @@
+--- base/mac/hud_overlay.swift
++++ source/mac/hud_overlay.swift
+@@ -50,6 +50,17 @@
+         let point=CGPoint(x: CGFloat((ox+Double(x)).rounded()),
+                           y: CGFloat((oy+Double(y)).rounded()))
+         return MacHostMousePlan(point: point, x: x, y: y, width: w, height: h, generation: gen)
++    }
++    // A worker cursor query or arm acknowledgement is not consumption by the owned window hook.
++    func consumed(input: [String: Any], cursor: CGPoint) -> Bool {
++        guard !observed(cursor), input["mouse_wm_consumed"] as? Bool == true,
++              input["mouse_wm_generation"] as? Int == generation,
++              let seq=input["mouse_wm_sequence"] as? Int, seq > 0,
++              input["mouse_win_cursor_observed"] as? Bool == true,
++              let wx=input["mouse_win_cursor_x"] as? Int, let wy=input["mouse_win_cursor_y"] as? Int,
++              input["mouse_wm_client_x"] as? Int == wx, input["mouse_wm_client_y"] as? Int == wy,
++              let ox=input["mouse_win_client_origin_x"] as? Double, let oy=input["mouse_win_client_origin_y"] as? Double else { return false }
++        return abs(cursor.x-CGFloat(ox+Double(wx))) <= 0.5 && abs(cursor.y-CGFloat(oy+Double(wy))) <= 0.5
+     }
+     func observed(_ cursor: CGPoint) -> Bool {
+         cursor.x.isFinite && cursor.y.isFinite && abs(cursor.x-point.x) <= 0.5 && abs(cursor.y-point.y) <= 0.5
+@@ -585,7 +596,8 @@
+                 if let pending=pendingMouseWarp {
+                     if unix-pending.request > 0.75 || pending.token != group.token || pending.epoch != group.native_process_epoch ||
+                        pending.plan.generation != plan.generation || pending.plan.point != plan.point { pendingMouseWarp=nil }
+-                    else if let armed=input["mouse_host_armed_request"] as? Double, abs(armed-pending.request)<0.00001 {
++                    else if let armed=input["mouse_host_armed_request"] as? Double, abs(armed-pending.request)<0.00001,
++                            plan.consumed(input:input,cursor:cursor) {
+                         if CGWarpMouseCursorPosition(plan.point) == .success,
+                            let actual=CGEvent(source:nil)?.location, plan.observed(actual) {
+                             publish("observed",pending.request,Date().timeIntervalSince1970,actual)
+--- base/render/controls.cpp
++++ source/render/controls.cpp
+@@ -93,12 +93,12 @@
+    if(mode&&!ui&&live&&!actionsSuspended.load()&&GetTickCount64()>=mouseAfter){
+     RECT r{};if(GetClientRect(h,&r)){
+      {std::lock_guard<std::mutex> lock(mouseCompatLock);
+-      auto d=macMouseMode()==2?mouseCompat.host_move(reinterpret_cast<uintptr_t>(h),GET_X_LPARAM(l),GET_Y_LPARAM(l),r.right-r.left,r.bottom-r.top,unixNow()):
++      auto d=macMouseMode()==2?mouseCompat.host_move(reinterpret_cast<uintptr_t>(h),GET_X_LPARAM(l),GET_Y_LPARAM(l),r.right-r.left,r.bottom-r.top,unixNow(),GetTickCount64()):
+         mouseCompat.move(reinterpret_cast<uintptr_t>(h),GET_X_LPARAM(l),GET_Y_LPARAM(l),r.right-r.left,r.bottom-r.top);
+       mouseX+=d.x;mouseY+=d.y;}
+      recenterMessageMouse(h,r);
+-    }
+-   }
++    }else if(macMouseMode()==2){std::lock_guard<std::mutex> lock(mouseCompatLock);mouseCompat.host_rejected();}
++   }else if(macMouseMode()==2){std::lock_guard<std::mutex> lock(mouseCompatLock);mouseCompat.host_rejected();}
+    return 0;
+   }
+   if(m==WM_KEYUP||m==WM_SYSKEYUP||m==WM_KEYDOWN||m==WM_SYSKEYDOWN||m==WM_CHAR)return 0;
+@@ -136,11 +136,13 @@
+  // camera and movement consumers use the 8ms binary snapshot.
+  static ULONGLONG written=0;static uint32_t oldFlags=~uint32_t(0);
+  if(now-written<100&&oldFlags==s.flags)return;written=now;oldFlags=s.flags;
+- bool hostEligible=false;double armed=0;{std::lock_guard<std::mutex> lock(mouseCompatLock);hostEligible=mouseCompat.host_capture(macMouseMode()==2);armed=mouseCompat.hostRequest;}
++ bool hostEligible=false,wmConsumed=false;double armed=0;int wmGeneration=-1;PalCraftMouseMessageCompat::WMObservation wm;
++ {std::lock_guard<std::mutex> lock(mouseCompatLock);hostEligible=mouseCompat.host_capture(macMouseMode()==2);armed=mouseCompat.hostRequest;
++  wm=mouseCompat.wm;wmGeneration=mouseCompat.generation;wmConsumed=wm.consumed&&hostEligible&&mouseCompat.window==reinterpret_cast<uintptr_t>(window)&&wmGeneration==generation;}
+  RECT mouseWindow{},mouseClient{};POINT mouseOrigin{},mouseCursor{};
+  bool mouseGeometry=window&&GetWindowRect(window,&mouseWindow)&&GetClientRect(window,&mouseClient)&&ClientToScreen(window,&mouseOrigin);
+  bool mouseCursorObserved=mouseGeometry&&GetCursorPos(&mouseCursor)&&ScreenToClient(window,&mouseCursor);
+- char data[2048];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u,\"mouse_compatibility_mode\":\"%s\",\"mouse_owner_token\":\"%s\",\"mouse_native_epoch\":\"%s\",\"mouse_host_eligible\":%s,\"mouse_host_armed_request\":%.6f,\"mouse_win_geometry_valid\":%s,\"mouse_win_window_x\":%ld,\"mouse_win_window_y\":%ld,\"mouse_win_window_width\":%ld,\"mouse_win_window_height\":%ld,\"mouse_win_client_origin_x\":%ld,\"mouse_win_client_origin_y\":%ld,\"mouse_win_cursor_observed\":%s,\"mouse_win_cursor_x\":%ld,\"mouse_win_cursor_y\":%ld}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height,macMouseMode()==2?"relative-host-warp-v1":(macMouseMode()==1?"relative-v1":"raw"),mouseOwnerToken(),mouseNativeEpoch(),hostEligible?"true":"false",armed,mouseGeometry?"true":"false",mouseWindow.left,mouseWindow.top,mouseWindow.right-mouseWindow.left,mouseWindow.bottom-mouseWindow.top,mouseOrigin.x,mouseOrigin.y,mouseCursorObserved?"true":"false",mouseCursor.x,mouseCursor.y);
++ char data[3072];std::snprintf(data,sizeof data,"{\"menu\":%s,\"build\":%s,\"focus\":%s,\"unix\":%.6f,\"forward\":%d,\"strafe\":%d,\"jump\":%s,\"sneak\":%s,\"sprint\":%s,\"mouse_x\":%lld,\"mouse_y\":%lld,\"generation\":%u,\"tick_ms\":%llu,\"viewport_width\":%u,\"viewport_height\":%u,\"mouse_compatibility_mode\":\"%s\",\"mouse_owner_token\":\"%s\",\"mouse_native_epoch\":\"%s\",\"mouse_host_eligible\":%s,\"mouse_host_armed_request\":%.6f,\"mouse_win_geometry_valid\":%s,\"mouse_win_window_x\":%ld,\"mouse_win_window_y\":%ld,\"mouse_win_window_width\":%ld,\"mouse_win_window_height\":%ld,\"mouse_win_client_origin_x\":%ld,\"mouse_win_client_origin_y\":%ld,\"mouse_win_cursor_observed\":%s,\"mouse_win_cursor_x\":%ld,\"mouse_win_cursor_y\":%ld,\"mouse_wm_received\":%llu,\"mouse_wm_look\":%llu,\"mouse_wm_centre\":%llu,\"mouse_wm_seed\":%llu,\"mouse_wm_jump_drop\":%llu,\"mouse_wm_gate_drop\":%llu,\"mouse_wm_outside_drop\":%llu,\"mouse_wm_consumed\":%s,\"mouse_wm_client_x\":%d,\"mouse_wm_client_y\":%d,\"mouse_wm_sequence\":%llu,\"mouse_wm_tick_ms\":%llu,\"mouse_wm_generation\":%d,\"mouse_wm_last_reason\":\"%s\",\"mouse_readback_seeds\":%llu,\"mouse_readback_verifies\":%llu}",menu?"true":"false",build?"true":"false",focused?"true":"false",s.unix_time,s.forward,s.strafe,(s.flags&PalCraftJump)?"true":"false",(s.flags&PalCraftSneak)?"true":"false",(s.flags&PalCraftSprint)?"true":"false",static_cast<long long>(s.mouse_x),static_cast<long long>(s.mouse_y),s.generation,static_cast<unsigned long long>(s.tick_ms),s.viewport_width,s.viewport_height,macMouseMode()==2?"relative-host-warp-v1":(macMouseMode()==1?"relative-v1":"raw"),mouseOwnerToken(),mouseNativeEpoch(),hostEligible?"true":"false",armed,mouseGeometry?"true":"false",mouseWindow.left,mouseWindow.top,mouseWindow.right-mouseWindow.left,mouseWindow.bottom-mouseWindow.top,mouseOrigin.x,mouseOrigin.y,mouseCursorObserved?"true":"false",mouseCursor.x,mouseCursor.y,static_cast<unsigned long long>(wm.received),static_cast<unsigned long long>(wm.look),static_cast<unsigned long long>(wm.centre),static_cast<unsigned long long>(wm.seed),static_cast<unsigned long long>(wm.jump),static_cast<unsigned long long>(wm.gate),static_cast<unsigned long long>(wm.outside),wmConsumed?"true":"false",wm.x,wm.y,static_cast<unsigned long long>(wm.sequence),static_cast<unsigned long long>(wm.tick),wmGeneration,wm.reason,static_cast<unsigned long long>(wm.readbackSeeds),static_cast<unsigned long long>(wm.readbackVerifies));
+  FILE*f=_wfopen(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),L"wb");if(f){fputs(data,f);fclose(f);if(MoveFileExW(palcraft_paths::bridge_file(L"input-state.tmp").c_str(),palcraft_paths::bridge_file(L"input-state.json").c_str(),MOVEFILE_REPLACE_EXISTING))++jsonWrites;}
+ }
+ bool platformFocused(){
+--- base/render/mouse_message_compat.h
++++ source/render/mouse_message_compat.h
+@@ -11,10 +11,12 @@
+  bool warpPending=false;int warpX=0,warpY=0;uint64_t warpAt=0;
+  uintptr_t window=0;int generation=-1,lastX=0,lastY=0;
+  int hostX=0,hostY=0;double hostRequest=0;bool hostCentreArmed=false;
++ struct WMObservation{uint64_t received=0,look=0,centre=0,seed=0,jump=0,gate=0,outside=0,readbackSeeds=0,readbackVerifies=0;
++  int x=0,y=0;uint64_t sequence=0,tick=0;bool consumed=false;const char*reason="none";}wm;
+  void scope(bool on,bool live,uintptr_t h,int gen) {
+   if(on!=enabled||live!=eligible||h!=window||gen!=generation) {
+    rawSeen=point=usedMessage=warpPending=false;
+-   hostRequest=0;hostCentreArmed=false;
++   hostRequest=0;hostCentreArmed=false;wm.consumed=false;
+   }
+   enabled=on;eligible=live;window=h;generation=gen;
+  }
+@@ -32,12 +34,24 @@
+   if(!eligible||h!=window||request<=hostRequest)return false;
+   hostX=x;hostY=y;hostRequest=request;hostCentreArmed=true;return true;
+  }
+- Delta host_move(uintptr_t h,int x,int y,int width,int height,double now) {
++ void host_rejected(){++wm.received;++wm.gate;wm.consumed=false;wm.reason="gate";}
++ Delta host_move(uintptr_t h,int x,int y,int width,int height,double now,uint64_t tick=0) {
++  ++wm.received;wm.consumed=false;
++  if(!enabled||!eligible||rawSeen||h!=window){++wm.gate;wm.reason="gate";return {};}
+   if(hostCentreArmed&&(now-hostRequest<0||now-hostRequest>=1))hostCentreArmed=false;
+-  if(eligible&&h==window&&hostCentreArmed&&x==hostX&&y==hostY){
+-   hostCentreArmed=false;lastX=x;lastY=y;point=true;return {}; // One armed center report only; other ordinary motion is not dropped.
++  Delta d{};
++  if(hostCentreArmed&&x==hostX&&y==hostY){
++   hostCentreArmed=false;lastX=x;lastY=y;point=true;++wm.centre;wm.reason="centre";
++  }else{
++   const bool hadPoint=point;const int dx=x-lastX,dy=y-lastY;
++   d=move(h,x,y,width,height);
++   if(x<0||y<0||x>=width||y>=height){++wm.outside;wm.reason="outside";}
++   else if(!hadPoint){++wm.seed;wm.reason="seed";}
++   else if(std::abs(dx)>128||std::abs(dy)>128){++wm.jump;wm.reason="jump";}
++   else if(d.x||d.y){++wm.look;wm.reason="look";}else wm.reason="zero";
+   }
+-  return move(h,x,y,width,height);
++  if(point&&x>=0&&y>=0&&x<width&&y<height){wm.x=x;wm.y=y;wm.sequence=wm.received;wm.tick=tick;wm.consumed=true;}
++  return d;
+  }
+  Delta move(uintptr_t h,int x,int y,int width,int height) {
+   if(!enabled||!eligible||rawSeen||h!=window)return {};
+@@ -70,6 +84,7 @@
+  void cancel_warp(uintptr_t h){if(h==window){warpPending=point=false;}}
+  bool host_baseline(uintptr_t h,int x,int y) {
+   if(!enabled||!eligible||rawSeen||h!=window)return false;
+-  lastX=x;lastY=y;point=true;warpPending=false;return true; // Only the queued centre WM report consumes hostCentreArmed.
++  if(point){++wm.readbackVerifies;return true;} // A cursor query must never overwrite a consumed WM baseline.
++  lastX=x;lastY=y;point=true;warpPending=false;++wm.readbackSeeds;return true;
+  }
+ };

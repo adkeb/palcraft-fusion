@@ -24,3 +24,5 @@ workstreams/queued-centre-action-observation/source.patch whitespace=-blank-at-e
 workstreams/native-home-current-spawn/** -text
 
 workstreams/saved-home-shutdown-anchor/** -text
+
+workstreams/consumed-wm-cursor-warp/** -text

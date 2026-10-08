@@ -1,0 +1,2 @@
+two queued orders: late centre verification never overwrites newer WM baseline; human return counts;128 and scope/gate diagnostics preserved: PASS
+actual HUD plan requires same-scope consumed WM/actual Win/current CG offcentre match; unconsumed/foreign-gen/centre/focus/menu/buttons refuse warp: PASS (synthetic)

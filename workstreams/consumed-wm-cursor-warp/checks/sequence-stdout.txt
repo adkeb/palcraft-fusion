@@ -1,0 +1,2 @@
+same prewarp WMseq and real centre may rebase without centreWM; newer WMseq is never overwritten; one-shot/human return retained: PASS
+actual HUD plan requires same-scope consumed WM/actual Win/current CG offcentre match; unconsumed/foreign-gen/centre/focus/menu/buttons refuse warp: PASS (synthetic)

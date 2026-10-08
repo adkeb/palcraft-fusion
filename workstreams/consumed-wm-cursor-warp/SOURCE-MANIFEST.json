@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "base_candidate": "37b",
+  "files": [
+    {
+      "source": "PalCraftRender-v16-Mac-WM-consumed-v7.dll",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/PalCraftRender-v16-portable-operator.dll",
+      "role": "native_render",
+      "base_sha256": "0718a880709f03154879e46525083b64426dcba12e3fa9b1f343fd0393fa2bf1",
+      "source_sha256": "f2a8aa37d2c0c8c979116d7c039523ddb58c27e9754dff6f1309bbb3bbb8c0dd",
+      "bytes": 493056
+    },
+    {
+      "source": "HUD-v11-consumed-WM-warp-Mac13-arm64",
+      "target": "PalCraft-Dev/player-tools/bin/hud-overlay-v4",
+      "role": "mac_hud",
+      "base_sha256": "608c326724db5d9bad89c6735cfcdd6ea18bb89d7ffafc4fd0fc34e9d9d2525e",
+      "source_sha256": "07f18acdb7431012ab793cef09631f3f1dcd6d4c8bd3251a2dc40b241050bdd7",
+      "bytes": 245096,
+      "implementation_version": "11-consumed-wm-warp",
+      "HUD_source_sha256": "53926eb1b810de4fa66bc5d596bc6bc7d896b917f87c37f2f7c36f0e8c39cd0c",
+      "source_build_chain_tag": "arm64-apple-macosx13.0-source-build"
+    }
+  ],
+  "source_changes": [
+    {
+      "source": "source/mac/hud_overlay.swift",
+      "base_sha256": "3bd081dd6e5d9e08c76e03e2ad08e738566c35db06d896af5bc64e76b230a84a",
+      "source_sha256": "53926eb1b810de4fa66bc5d596bc6bc7d896b917f87c37f2f7c36f0e8c39cd0c",
+      "bytes": 36953
+    },
+    {
+      "source": "source/render/controls.cpp",
+      "base_sha256": "1c65235c639aec245a59948169294961c745e61b56a03673e69c60d0160983c2",
+      "source_sha256": "95cb5487943132435f9919e77874abd7519193611c5d2ef4d0c5258f9793c962",
+      "bytes": 24110
+    },
+    {
+      "source": "source/render/host_mouse_warp.h",
+      "base_sha256": "f493017a334e0fc4ed21ed323771509fc549e2c1079255b94165739926f13d9c",
+      "source_sha256": "399bf43a1d5efac08bba152fceaae7d1eaf496e8607bd1436e69c3c4083fdf27",
+      "bytes": 1884
+    },
+    {
+      "source": "source/render/mouse_message_compat.h",
+      "base_sha256": "f841b14e75268b2894633e2b95d8244293ae1917f0db2e002261b674f0d07d7b",
+      "source_sha256": "df95b3a6a56e13a2e67561cb58827e0204d77a8855fee28ad64b31e45f26e2be",
+      "bytes": 4417
+    }
+  ],
+  "native_source_pins": {
+    "launcher/windows_paths.hpp": "275db22fc6617ec1fbee10a581f83831e001c00a03ebb20cef491b69fcb58504",
+    "render/controls.h": "9e3b8ba5911f13a60ef6c6be44f70b757ff95cf45e803367d974367fc5bf59ef",
+    "render/controls.cpp": "95cb5487943132435f9919e77874abd7519193611c5d2ef4d0c5258f9793c962",
+    "render/input_transport.h": "0b40df23c3c6904bee40ad15ed4c2c9da0d3d63198bd70a9b681f06d50a11306",
+    "render/ws.cpp": "5498383e2ffc76798957a27b468be45371a8c3b37a3ecb017be3a1831902c2f7",
+    "render/ws.h": "0082ca2024b3d25b10f9c7110592e6aad5e050d52ba435ae0be8e5a436b497e8",
+    "render/compositor.h": "8a65d27bc601fe2f7d31b0b7cbbc505a71fa229a9522c74ae712a8853f62eb95",
+    "render/palcraft.cpp": "2017fbb7248e5304f5f1499ae86b98bf33594eea7e06008805310bfe6e8d08de",
+    "render/form_requests.h": "caeef016b8fc59f9e97d6fd3a12fe9fd7a3a9eb6d3d73b6a24e069357b5750a1",
+    "render/compositor.cpp": "2c7b33dc51136f218bb99f5e5548d90ba7d24664c7f872d99f718822fe742fb1",
+    "render/sdk/reshade_api.hpp": "8d83ec8a620c48da7a20d975bd27b3345b24d3f0d5b78ae4c4fe633d61b804eb",
+    "render/sdk/reshade_events.hpp": "2717f56e2bd89af6d708c9c316353d6581c5a41d4526629fadba51d13be57a89",
+    "render/sdk/reshade_api_device.hpp": "a716c44b6fbb064dbbb0826687728f21aa71ed45e13564e4dc1cdf36da5bdfa0",
+    "render/sdk/reshade_overlay.hpp": "ed914b12fbc41ed038287b0163c0bc934772afcff2c22392044c6008adc5ae79",
+    "render/sdk/reshade_api_resource.hpp": "32cdafe6d783813f3ac72ad43e426638d8d0fef56bcb558fad218a14cfb75ee3",
+    "render/sdk/reshade_api_format.hpp": "68caa17fef712043e810ab88770c15af009aa3c7693e5c115ddc324f2d0809a7",
+    "render/sdk/reshade.hpp": "cf3cd150920ea310b4b1e2e4f11ab8d7221a9fc18755f4891a026563311b524c",
+    "render/sdk/reshade_api_pipeline.hpp": "5bda8e07260c2c60f0fd18a78b11782aed8f69e5d24b5757874614caafdf416f",
+    "render/mouse_message_compat.h": "df95b3a6a56e13a2e67561cb58827e0204d77a8855fee28ad64b31e45f26e2be",
+    "render/host_mouse_warp.h": "399bf43a1d5efac08bba152fceaae7d1eaf496e8607bd1436e69c3c4083fdf27"
+  },
+  "three_reused_current_object_pins": {
+    "palcraft.obj": "3de33e5ea9f5d1884247addfd1d1e922d430c5a93bd8ee4e0dfdce86c4f79223",
+    "ws.obj": "90efcb84518e2e6ab81bb26bfc06b661fcd6f95b378cc812345f1c7713b98b30",
+    "compositor.obj": "0ac863fe5173c4f3029c0c6429bf12b424dc4000ad7192a77f70b7d98c9e4641"
+  },
+  "MC_b46d_helper284_runtime_and_other_sources_unchanged": true,
+  "only_native_and_HUD_exact_metadata_pins_change": true
+}

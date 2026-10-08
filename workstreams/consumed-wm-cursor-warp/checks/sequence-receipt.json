@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "ok": true,
+  "additional_native_sequence_fixture_passed": true,
+  "actual_HUD_sequence_reuse_refused_and_guards_passed": true,
+  "original_two_queue_groups_preserved": "pre-sequence-review/checks/receipt.json",
+  "all_scope_coordinates_times_metadata_payload_synthetic": true,
+  "no_centre_WM_fixture_does_not_fake_input_or_pose": true,
+  "Game_GUI_RPC_or_runtime_operations": false,
+  "actual_F03_or_each_missing_step_cause_proven": false,
+  "actual_handle": 77305,
+  "actual_terminal_chunk": "ee5192",
+  "actual_exit_code": 0,
+  "pre_sequence_two_groups_handle": 22037,
+  "pre_sequence_two_groups_terminal": "5b7c10",
+  "pre_sequence_two_groups_receipt_sha256": "f99d726fb3a903f02bb9c1baeccf4aded5d65e76dad76cf41837375b0a1b5e6c"
+}

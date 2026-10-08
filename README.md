@@ -29,7 +29,7 @@
 | `palcraft/tests` 及模块内 `tests` | 现有针对性测试与验证工具 |
 | `tools/legacy` | 历史作者工具；当前启动入口见安装说明 |
 
-最新控制增量包括 [RAW 输入与物理捕获分离](workstreams/native-raw-host-capture)、[普通鼠标与回中基准](workstreams/mac-ordinary-motion-warp-centre) 和 [客户区屏幕中心修正](workstreams/mac-client-screen-centre)。生命周期增量包括 [权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown)、[TCP 端口复用检测](workstreams/reusable-tcp-port-probe) 和 [在线性能设置](workstreams/live-owned-power-profile)。各项保留源码检查与实机结果的范围；当前转向尚未验收。 [回中消息顺序与输入来源记录](workstreams/queued-centre-action-observation) 已完成编译和实机首轮，位移丢失仍待修复。 [复活落点的当前坐标修正](workstreams/native-home-current-spawn) 已完成源码检查，实机复活尚未验收。 [已保存场景的缺失锚点清理](workstreams/saved-home-shutdown-anchor) 已随落点修正安装，后续复活和正常退出仍需实测。
+最新控制增量包括 [RAW 输入与物理捕获分离](workstreams/native-raw-host-capture)、[普通鼠标与回中基准](workstreams/mac-ordinary-motion-warp-centre) 和 [客户区屏幕中心修正](workstreams/mac-client-screen-centre)。生命周期增量包括 [权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown)、[TCP 端口复用检测](workstreams/reusable-tcp-port-probe) 和 [在线性能设置](workstreams/live-owned-power-profile)。各项保留源码检查与实机结果的范围；当前转向尚未验收。 [真实鼠标事件消费与回中序号修正](workstreams/consumed-wm-cursor-warp) 已编译，准备实测。 [回中消息顺序与输入来源记录](workstreams/queued-centre-action-observation) 已完成编译和实机首轮，位移丢失仍待修复。 [复活落点的当前坐标修正](workstreams/native-home-current-spawn) 已完成源码检查，实机复活尚未验收。 [已保存场景的缺失锚点清理](workstreams/saved-home-shutdown-anchor) 已随落点修正安装，后续复活和正常退出仍需实测。
 
 ## 使用与资源
 
