@@ -11,3 +11,8 @@
 
 player-standalone/full-mc-source/** -text
 player-standalone/full-mc-source/packaged-resources/MANIFEST.MF whitespace=cr-at-eol,-blank-at-eof
+
+# Preserve byte-pinned current build sources and resources across Git checkouts.
+workstreams/current-mc10-10-source-build/** -text
+workstreams/current-native33-source-build/** -text
+workstreams/current-mc10-10-source-build/packaged-resources/MANIFEST.MF whitespace=cr-at-eol,-blank-at-eof
