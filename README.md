@@ -6,9 +6,9 @@
 
 ## 当前状态
 
-2026-10-08，实机开发环境为 macOS、CrossOver、Steam 离线单机与本地 Minecraft 后端。候选 35 已通过普通更新、原世界冷加载和首次自动世界同步，保留之前正常合成与保存的物品。实机画面已出现 MC 炉子、工作台和火把。
+2026-10-08，实机开发环境为 macOS、CrossOver、Steam 离线单机与本地 Minecraft 后端。候选 37b 已通过普通更新、原世界冷加载和首次自动世界同步，保留之前正常合成与保存的物品。实机画面已出现 MC 炉子、工作台和火把。
 
-已实际完成 F5 切换、背包合成、正常保存与返回标题、客户端正常退出，以及同一运行内的四组件帧率设置。候选 35 的光标回中已与原生客户区中心相符，持续转向仍有位移丢失和反向抵消；还观察到非预期的火把放置，正在修复鼠标事件顺序并记录真实输入来源。箱子、烧炼、兑换和其余玩法继续推进。上述结果是限定流程证据，完整 42 项要求尚未通过。
+已实际完成 F5 切换、背包合成、正常保存与返回标题、客户端正常退出，以及同一运行内的四组件帧率设置。候选 37b 的双向实机转动已有响应，但仍会丢失部分位移，持续转向尚未验收。本轮真实按键、发送计数与 MC 状态记录齐全，没有意外放置或物品消耗；前一轮异常放置的来源仍未证实。箱子、烧炼、兑换和其余玩法继续推进。上述结果是限定流程证据，完整 42 项要求尚未通过。
 
 查看 [当前状态和验收范围](docs/STATUS.md)、[构建说明](docs/BUILD.md) 和 [Standalone 安装源码说明](player-standalone/README.zh-CN.md)。[实验发布包](https://github.com/adkeb/palcraft-fusion/releases) 提供部分已公开组件；完整玩家版仍待完成。
 
@@ -29,7 +29,7 @@
 | `palcraft/tests` 及模块内 `tests` | 现有针对性测试与验证工具 |
 | `tools/legacy` | 历史作者工具；当前启动入口见安装说明 |
 
-最新控制增量包括 [RAW 输入与物理捕获分离](workstreams/native-raw-host-capture)、[普通鼠标与回中基准](workstreams/mac-ordinary-motion-warp-centre) 和 [客户区屏幕中心修正](workstreams/mac-client-screen-centre)。生命周期增量包括 [权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown)、[TCP 端口复用检测](workstreams/reusable-tcp-port-probe) 和 [在线性能设置](workstreams/live-owned-power-profile)。各项保留源码检查与实机结果的范围；当前转向尚未验收。 [回中消息顺序与输入来源记录](workstreams/queued-centre-action-observation) 已完成编译和针对性检查，正在安装实测。 [复活落点的当前坐标修正](workstreams/native-home-current-spawn) 已完成源码检查，实机复活尚未验收。 [已保存场景的缺失锚点清理](workstreams/saved-home-shutdown-anchor) 已完成针对性源码检查，将与落点修正一起实测。
+最新控制增量包括 [RAW 输入与物理捕获分离](workstreams/native-raw-host-capture)、[普通鼠标与回中基准](workstreams/mac-ordinary-motion-warp-centre) 和 [客户区屏幕中心修正](workstreams/mac-client-screen-centre)。生命周期增量包括 [权威快照晚接入补齐](workstreams/late-authoritative-snapshot-native-catchup)、[正常已保存世界关闭](workstreams/normal-saved-world-shutdown)、[TCP 端口复用检测](workstreams/reusable-tcp-port-probe) 和 [在线性能设置](workstreams/live-owned-power-profile)。各项保留源码检查与实机结果的范围；当前转向尚未验收。 [回中消息顺序与输入来源记录](workstreams/queued-centre-action-observation) 已完成编译和实机首轮，位移丢失仍待修复。 [复活落点的当前坐标修正](workstreams/native-home-current-spawn) 已完成源码检查，实机复活尚未验收。 [已保存场景的缺失锚点清理](workstreams/saved-home-shutdown-anchor) 已随落点修正安装，后续复活和正常退出仍需实测。
 
 ## 使用与资源
 
