@@ -16,3 +16,7 @@ player-standalone/full-mc-source/packaged-resources/MANIFEST.MF whitespace=cr-at
 workstreams/current-mc10-10-source-build/** -text
 workstreams/current-native33-source-build/** -text
 workstreams/current-mc10-10-source-build/packaged-resources/MANIFEST.MF whitespace=cr-at-eol,-blank-at-eof
+
+# Keep diagnostic source pins byte-exact, including the MC source archive.
+workstreams/queued-centre-action-observation/** -text
+workstreams/queued-centre-action-observation/source.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab

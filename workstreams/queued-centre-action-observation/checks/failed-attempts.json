@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "first_fixture_terminal_chunk": "f4a650",
+  "first_fixture_exit_code": 1,
+  "test_only_issue": "Generated C++ cout string used newline instead of escaped newline; replaced test output with std::endl. Production not changed.",
+  "same_limited_cases_after_fix_terminal_chunk": "bef3e4",
+  "same_limited_cases_after_fix_exit_code": 0,
+  "MC_initial_outer_tool_terminal_chunk": "88be48",
+  "MC_javac_exit_code": 0,
+  "MC_post_compile_zip_check_exit_code": 1,
+  "MC_failure": "Original reader ZipInfo header_offset mutated by output writestr; fresh source reader reopened for preservation check. No javac repetition or existing Game/package modification."
+}

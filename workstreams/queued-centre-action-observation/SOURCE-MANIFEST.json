@@ -1,0 +1,90 @@
+{
+  "schema": 1,
+  "base_candidate": 35,
+  "files": [
+    {
+      "source": "PalCraftRender-v16-portable-operator-Mac-mouse-action-observer-v6.dll",
+      "target": "PalCraft-Client/Pal/Binaries/Win64/PalCraftRender-v16-portable-operator.dll",
+      "role": "native_render",
+      "base_sha256": "806d489f433392fbcc3c5a38c1a74ffd70b6faed751234ebe065215fcfa7ca45",
+      "source_sha256": "0718a880709f03154879e46525083b64426dcba12e3fa9b1f343fd0393fa2bf1",
+      "bytes": 490496
+    },
+    {
+      "source": "outputs/passthrough-0.2.0-integration.10.10-action-observation.jar",
+      "target": "PalCraft-Dev/minecraft-mods/passthrough-0.2.0-integration.10.6-mac.jar",
+      "role": "minecraft_mod",
+      "base_sha256": "80490b0d35ca66ec777ff8ba606f63f644bce62cc09cf17b4b9703d990e5edc0",
+      "source_sha256": "b46dea196fb37f57e93512e8ee573d6ac56364c96bccd1d1290f0038f6cbc144",
+      "bytes": 555021,
+      "implementation_version": "0.2.0-integration.10.10-live-owned-performance+action-observation",
+      "base_MC10_10_all_other_classes_preserved": true
+    }
+  ],
+  "source_changes": [
+    {
+      "source": "source/mc/src/client/java/dev/rehan/passthrough/client/HostLink.java",
+      "base_sha256": "95b24c596c2dadf3d83d5348a111e35873cc681304deab7f46d888deef0a25bf",
+      "source_sha256": "f2e2704d7d7c53b03694a8c19d1435f6c2bad2b129e79ab6afb685a7d6cf6d4c",
+      "bytes": 20362
+    },
+    {
+      "source": "source/mc/src/main/resources/fabric.mod.json",
+      "base_sha256": "b9d01d60f20a6d0deef31e826499788dd8c3ec871e14726cf05e5d485de71432",
+      "source_sha256": "2b2f9361972bf790ec41eec02569889233d829968a2c757b7d3a5eb7afbc6917",
+      "bytes": 986
+    },
+    {
+      "source": "source/render/controls.cpp",
+      "base_sha256": "9f3f5c4bcb897cceb9fb3a076ce8e94cc13ec89db121818e198b626b69c14f79",
+      "source_sha256": "1c65235c639aec245a59948169294961c745e61b56a03673e69c60d0160983c2",
+      "bytes": 22627
+    },
+    {
+      "source": "source/render/mouse_message_compat.h",
+      "base_sha256": "ee051fb61593b2e06760e01a89b197f97733e6e50786e1173d9d76598f947e03",
+      "source_sha256": "f841b14e75268b2894633e2b95d8244293ae1917f0db2e002261b674f0d07d7b",
+      "bytes": 3436
+    },
+    {
+      "source": "source/render/palcraft.cpp",
+      "base_sha256": "02e6f61b7754c53b18bb1eec69161b1999c20f777ca4a09a4d3e7e2480821cc4",
+      "source_sha256": "2017fbb7248e5304f5f1499ae86b98bf33594eea7e06008805310bfe6e8d08de",
+      "bytes": 14665
+    }
+  ],
+  "native_source_pins": {
+    "launcher/windows_paths.hpp": "275db22fc6617ec1fbee10a581f83831e001c00a03ebb20cef491b69fcb58504",
+    "render/controls.h": "9e3b8ba5911f13a60ef6c6be44f70b757ff95cf45e803367d974367fc5bf59ef",
+    "render/controls.cpp": "1c65235c639aec245a59948169294961c745e61b56a03673e69c60d0160983c2",
+    "render/input_transport.h": "0b40df23c3c6904bee40ad15ed4c2c9da0d3d63198bd70a9b681f06d50a11306",
+    "render/ws.cpp": "5498383e2ffc76798957a27b468be45371a8c3b37a3ecb017be3a1831902c2f7",
+    "render/ws.h": "0082ca2024b3d25b10f9c7110592e6aad5e050d52ba435ae0be8e5a436b497e8",
+    "render/compositor.h": "8a65d27bc601fe2f7d31b0b7cbbc505a71fa229a9522c74ae712a8853f62eb95",
+    "render/palcraft.cpp": "2017fbb7248e5304f5f1499ae86b98bf33594eea7e06008805310bfe6e8d08de",
+    "render/form_requests.h": "caeef016b8fc59f9e97d6fd3a12fe9fd7a3a9eb6d3d73b6a24e069357b5750a1",
+    "render/compositor.cpp": "2c7b33dc51136f218bb99f5e5548d90ba7d24664c7f872d99f718822fe742fb1",
+    "render/sdk/reshade_api.hpp": "8d83ec8a620c48da7a20d975bd27b3345b24d3f0d5b78ae4c4fe633d61b804eb",
+    "render/sdk/reshade_events.hpp": "2717f56e2bd89af6d708c9c316353d6581c5a41d4526629fadba51d13be57a89",
+    "render/sdk/reshade_api_device.hpp": "a716c44b6fbb064dbbb0826687728f21aa71ed45e13564e4dc1cdf36da5bdfa0",
+    "render/sdk/reshade_overlay.hpp": "ed914b12fbc41ed038287b0163c0bc934772afcff2c22392044c6008adc5ae79",
+    "render/sdk/reshade_api_resource.hpp": "32cdafe6d783813f3ac72ad43e426638d8d0fef56bcb558fad218a14cfb75ee3",
+    "render/sdk/reshade_api_format.hpp": "68caa17fef712043e810ab88770c15af009aa3c7693e5c115ddc324f2d0809a7",
+    "render/sdk/reshade.hpp": "cf3cd150920ea310b4b1e2e4f11ab8d7221a9fc18755f4891a026563311b524c",
+    "render/sdk/reshade_api_pipeline.hpp": "5bda8e07260c2c60f0fd18a78b11782aed8f69e5d24b5757874614caafdf416f",
+    "render/mouse_message_compat.h": "f841b14e75268b2894633e2b95d8244293ae1917f0db2e002261b674f0d07d7b",
+    "render/host_mouse_warp.h": "f493017a334e0fc4ed21ed323771509fc549e2c1079255b94165739926f13d9c"
+  },
+  "unchanged_ws_compositor_object_pins": {
+    "ws.obj": "90efcb84518e2e6ab81bb26bfc06b661fcd6f95b378cc812345f1c7713b98b30",
+    "compositor.obj": "0ac863fe5173c4f3029c0c6429bf12b424dc4000ad7192a77f70b7d98c9e4641"
+  },
+  "MC_full_source_archive": {
+    "source": "outputs/mc10_10-action-observation-source.zip",
+    "sha256": "ca88701bae01ee8776c9f788eba40b528d4f3805a17bf2ecda46cb197a62f1d3",
+    "bytes": 213979
+  },
+  "MC_only_HostLink_compiled_and_fabric_version_identifies_new_artifact": true,
+  "MC_unrelated_entries_preserved": 171,
+  "HUD35_helper_runtime_mapping_750_8ms_security_and_actions_unchanged": true
+}

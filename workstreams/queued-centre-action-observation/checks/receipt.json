@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "ok": true,
+  "actual_header_queued_order_cases_passed": 2,
+  "diagnostic_command_classifier_case_passed": 1,
+  "case_scope_identity_timestamp_coordinates_payload_synthetic": true,
+  "Game_GUI_RPC_or_runtime_operations": false,
+  "actual_negative_navigation_all1600_capture_or_torch_input_cause_verified": false,
+  "actual_terminal_chunk": "bef3e4",
+  "actual_exit_code": 0,
+  "failed_attempts_record": "checks/failed-attempts.json",
+  "failed_attempts_record_sha256": "e22b1a2e48286e18e237f5e2ccc557bab108ffb02081d8dced0cbab2375ce50d"
+}

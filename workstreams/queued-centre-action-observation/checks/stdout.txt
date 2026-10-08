@@ -1,0 +1,3 @@
+motion first, actual cursor readback then late centre WM: no reverse look; human return to centre counts: PASS
+actual cursor readback first then pending negative motion/late centre WM: no cancellation; human return counts: PASS
+original command classification returns only whitelist hint; no payload or fake applied acknowledgement: PASS
