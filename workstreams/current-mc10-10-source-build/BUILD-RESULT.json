@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "component_prerelease": true,
+  "source_build_verified_on_current_local_Mac_existing_legal_dependencies": true,
+  "target_version": "0.2.0-integration.10.10-live-owned-performance",
+  "jar_sha256": "80490b0d35ca66ec777ff8ba606f63f644bce62cc09cf17b4b9703d990e5edc0",
+  "jar_bytes": 554883,
+  "production_java_sources": 100,
+  "generated_project_classes_per_profile": {
+    "default": 168,
+    "g": 168
+  },
+  "total_fresh_project_class_files": 336,
+  "selected_project_classes": 168,
+  "runtime_entries": 173,
+  "old_project_class_byte_reuse": 0,
+  "old_application_jar_on_classpath": false,
+  "compile_helper_or_dependency_overlay_in_runtime": false,
+  "historical_debug_profiles_and_three_explicit_LNT_mappings_preserved": true,
+  "complete_current_10_10_hash_match": true,
+  "other_user_new_environment_verified": false,
+  "Game_server_GUI_or_full_goal42_verified": false
+}

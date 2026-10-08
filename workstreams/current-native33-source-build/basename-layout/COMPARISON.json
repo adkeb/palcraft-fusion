@@ -1,0 +1,184 @@
+{
+  "schema": 1,
+  "whole_file_byte_identical": false,
+  "reference_sha256": "080ed40595ef8f828b5438025a4fb0f47e6ee303c5c8cc41c1ce612877a0d106",
+  "candidate_sha256": "10fe967f272c5e201c96d9273e0838e735c6dac33aa3dca1afbc6e77afb1ee7a",
+  "reference_bytes": 485888,
+  "candidate_bytes": 485888,
+  "PE_format_and_machine_equal": true,
+  "seven_exports_equal": true,
+  "import_modules_equal": true,
+  "PE_reference": {
+    "format": "PE32+ DLL",
+    "machine": "AMD64",
+    "exports": [
+      "DESCRIPTION",
+      "NAME",
+      "palcraft_commit_camera",
+      "palcraft_form_off",
+      "palcraft_form_on",
+      "palcraft_resume_actions",
+      "palcraft_suspend_actions"
+    ],
+    "imports": [
+      "WS2_32.dll",
+      "USER32.dll",
+      "api-ms-win-crt-private-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll",
+      "api-ms-win-crt-time-l1-1-0.dll",
+      "KERNEL32.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-convert-l1-1-0.dll",
+      "api-ms-win-crt-locale-l1-1-0.dll"
+    ]
+  },
+  "PE_candidate": {
+    "format": "PE32+ DLL",
+    "machine": "AMD64",
+    "exports": [
+      "DESCRIPTION",
+      "NAME",
+      "palcraft_commit_camera",
+      "palcraft_form_off",
+      "palcraft_form_on",
+      "palcraft_resume_actions",
+      "palcraft_suspend_actions"
+    ],
+    "imports": [
+      "WS2_32.dll",
+      "USER32.dll",
+      "api-ms-win-crt-private-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll",
+      "api-ms-win-crt-time-l1-1-0.dll",
+      "KERNEL32.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-convert-l1-1-0.dll",
+      "api-ms-win-crt-locale-l1-1-0.dll"
+    ]
+  },
+  "sections": {
+    ".buildid": {
+      "equal_raw_bytes": false,
+      "reference": {
+        "virtual_size": 117,
+        "virtual_address": 466944,
+        "raw_size": 512,
+        "raw_sha256": "e9b5282da643dcce23758c6a03e5f439ab0def436a79557c3449665157e339cc"
+      },
+      "candidate": {
+        "virtual_size": 117,
+        "virtual_address": 466944,
+        "raw_size": 512,
+        "raw_sha256": "3b97ee4479ebbbd56913161ed519520d56a71534db61a0fc6e56eb0c88702755"
+      }
+    },
+    ".data": {
+      "equal_raw_bytes": true,
+      "reference": {
+        "virtual_size": 10368,
+        "virtual_address": 471040,
+        "raw_size": 1024,
+        "raw_sha256": "3b5ab69df50cb73624cc08af322e18a4ff6c284f86760c2e0a2f54ea83883fa7"
+      },
+      "candidate": {
+        "virtual_size": 10368,
+        "virtual_address": 471040,
+        "raw_size": 1024,
+        "raw_sha256": "3b5ab69df50cb73624cc08af322e18a4ff6c284f86760c2e0a2f54ea83883fa7"
+      }
+    },
+    ".pdata": {
+      "equal_raw_bytes": true,
+      "reference": {
+        "virtual_size": 18288,
+        "virtual_address": 483328,
+        "raw_size": 18432,
+        "raw_sha256": "028e5b7c4fd47fe8eb298d24cd12611ffc8abadd49c6990a6566db9fd40c3646"
+      },
+      "candidate": {
+        "virtual_size": 18288,
+        "virtual_address": 483328,
+        "raw_size": 18432,
+        "raw_sha256": "028e5b7c4fd47fe8eb298d24cd12611ffc8abadd49c6990a6566db9fd40c3646"
+      }
+    },
+    ".rdata": {
+      "equal_raw_bytes": true,
+      "reference": {
+        "virtual_size": 89768,
+        "virtual_address": 376832,
+        "raw_size": 90112,
+        "raw_sha256": "aa4fe18b7166949d08e09f2291ca151662c27d6fca4580e32834a0ed59694c4d"
+      },
+      "candidate": {
+        "virtual_size": 89768,
+        "virtual_address": 376832,
+        "raw_size": 90112,
+        "raw_sha256": "aa4fe18b7166949d08e09f2291ca151662c27d6fca4580e32834a0ed59694c4d"
+      }
+    },
+    ".reloc": {
+      "equal_raw_bytes": true,
+      "reference": {
+        "virtual_size": 3976,
+        "virtual_address": 507904,
+        "raw_size": 4096,
+        "raw_sha256": "54c272ec3b146d5db432f371928557db9ddcd6ebf8038ca3c26bb36b335e6d7b"
+      },
+      "candidate": {
+        "virtual_size": 3976,
+        "virtual_address": 507904,
+        "raw_size": 4096,
+        "raw_sha256": "54c272ec3b146d5db432f371928557db9ddcd6ebf8038ca3c26bb36b335e6d7b"
+      }
+    },
+    ".text": {
+      "equal_raw_bytes": true,
+      "reference": {
+        "virtual_size": 369814,
+        "virtual_address": 4096,
+        "raw_size": 370176,
+        "raw_sha256": "dea1ea7e48a646740afc34e4f60ec7b1f13e59c1023af46469b00c469181017b"
+      },
+      "candidate": {
+        "virtual_size": 369814,
+        "virtual_address": 4096,
+        "raw_size": 370176,
+        "raw_sha256": "dea1ea7e48a646740afc34e4f60ec7b1f13e59c1023af46469b00c469181017b"
+      }
+    },
+    ".tls": {
+      "equal_raw_bytes": true,
+      "reference": {
+        "virtual_size": 32,
+        "virtual_address": 503808,
+        "raw_size": 512,
+        "raw_sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      },
+      "candidate": {
+        "virtual_size": 32,
+        "virtual_address": 503808,
+        "raw_size": 512,
+        "raw_sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560"
+      }
+    }
+  },
+  "code_section_raw_byte_identical": true,
+  "coff_timestamp": {
+    "reference": 1791421143,
+    "candidate": 1791423415
+  },
+  "optional_checksum": {
+    "reference": 0,
+    "candidate": 0
+  },
+  "build_id_section_equal": false,
+  "differing_sections": [
+    ".buildid"
+  ],
+  "runtime_behaviour_or_other_fresh_environment_not_verified": true
+}

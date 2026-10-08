@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "link_only": true,
+  "four_fresh_object_pins": {
+    "palcraft.obj": "1721e19ca61c8901354554fc1ac1013c553ec812b3799f1f46a56355e7f8125e",
+    "controls.obj": "7bb4b382f49f6150b13bad1698807772f3283ce3ef06315c98aa4c099204231a",
+    "ws.obj": "90efcb84518e2e6ab81bb26bfc06b661fcd6f95b378cc812345f1c7713b98b30",
+    "compositor.obj": "0ac863fe5173c4f3029c0c6429bf12b424dc4000ad7192a77f70b7d98c9e4641"
+  },
+  "old_project_objects_used": false,
+  "elapsed_seconds": 0.175,
+  "exit_code": 0,
+  "basename": "PalCraftRender-v16-portable-operator-Mac-raw-host-capture-v3.dll",
+  "basename_bytes": 64,
+  "no_compilation_system_clock_Game_or_original080_change": true,
+  "output_sha256": "10fe967f272c5e201c96d9273e0838e735c6dac33aa3dca1afbc6e77afb1ee7a",
+  "output_bytes": 485888,
+  "actual_terminal_chunk": "628e35",
+  "fresh_object_source_build_handoff_sha256": "08e9c26455eebddb8dc374279443319bac1d3b9ccd6015dbd7b601979bb3f2e3",
+  "same_order_and_flags_as_original_fresh_link": true,
+  "compilation_repeated": false
+}

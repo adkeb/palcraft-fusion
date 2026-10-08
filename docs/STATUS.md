@@ -17,7 +17,7 @@
 
 ## 当前阻断和接下来要完成的流程
 
-连续普通鼠标转向仍会在窗口边缘停止。候选 32 的 [Mac 光标捕获](../workstreams/mac-owned-host-cursor-capture) 已真实安装，但此次持续回中未通过，正在定位原生鼠标源选择与 HUD 回中条件；限定源码检查不代替实际结果。 新的 [原生捕获修复](../workstreams/native-raw-host-capture) 保留唯一鼠标运动来源，并让实际光标回中继续工作；编译已通过，当前候选 33 正准备普通更新和实测。
+连续普通鼠标转向仍会在窗口边缘停止。候选 32 的 [Mac 光标捕获](../workstreams/mac-owned-host-cursor-capture) 已真实安装，但此次持续回中未通过，正在定位原生鼠标源选择与 HUD 回中条件；限定源码检查不代替实际结果。 新的 [原生捕获修复](../workstreams/native-raw-host-capture) 保留唯一鼠标运动来源，并让实际光标回中继续工作；候选 33 已完成普通更新和正常启动，继续离线世界接入与实测。
 
 接着完成原生箱子的正常存取与重开，工作台合成、炉子燃料与烧炼，真实采掘与掉落，以及 Pal↔MC 材料兑换。每个流程使用已有材料、真实界面和原权威路径，库存与世界变化必须对应。
 
@@ -42,8 +42,10 @@
 
 ## 构建与交付
 
-源码与增量配方已公开。MC 基础的 [完整 100 生产源构建](../player-standalone/full-mc-source/BUILD.zh-CN.md) 与六源增量已在本机产生新的 class 并重现相同 10.7 成品；没有复用旧项目 class。后续 Java、Lua、Swift 和原生增量在各 `workstreams` 中保留自己的基线与配方。另一用户的全新环境、全项目 Gradle 和当前全部构件统一重建尚未完成验证。
+当前 [MC 10.10 完整源构建](../workstreams/current-mc10-10-source-build) 已实际编译全部 100 个生产源，两个 profile 共生成 336 个新 class，选用 168 个，173 条目的最终 JAR 与现用版本精确匹配；旧项目 class 复用为 0。初轮相对路径错误已修正，失败记录与随后完整成功结果分别保留。
 
-[实验发布包](https://github.com/adkeb/palcraft-fusion/releases) 当前提供部分组件，最新公开 MC 组件包为 [10.9](https://github.com/adkeb/palcraft-fusion/releases/tag/v0.2.0-integration.10.9-center-source)。这些组件包不等同于候选 32 的完整玩家安装包。
+[当前原生组件的全源构建](../workstreams/current-native33-source-build) 已从四个编译单元产生四个新对象。一次使用相同输出文件名的链接跟进确认 `.text` 与除 `.buildid` 外所有段一致；时间戳/build-id 仍不同，整文件不相同，新产物未安装。其他 Java、Lua、Swift 增量保留各自配方；另一用户的全新环境、全项目 Gradle 和当前全部构件的一次统一重建尚未验证。
+
+[实验发布包](https://github.com/adkeb/palcraft-fusion/releases) 当前提供部分组件，最新公开 MC 组件包为 [10.10](https://github.com/adkeb/palcraft-fusion/releases/tag/v0.2.0-integration.10.10-live-performance)，含当前组件、完整生产源和独立构建入口。这些组件包不等同于完整玩家安装包。
 
 详细历史问题、修复与退出事实保留于 [开发记录](history/2026-10-07-development-record.md)。正常退出和异常退出的结果分别记录，没有把异常恢复视作正常退出成功。

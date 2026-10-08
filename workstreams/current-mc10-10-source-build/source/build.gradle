@@ -1,0 +1,178 @@
+plugins {
+	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+repositories {
+	mavenCentral()
+}
+
+def guestManifestPath = providers.gradleProperty('palcraftGuestManifest').orNull
+def guestManifest = null
+if (guestManifestPath != null) {
+	def manifestFile = file(guestManifestPath)
+	if (!manifestFile.isFile()) throw new GradleException('Registered guest manifest does not exist')
+	guestManifest = new groovy.json.JsonSlurper().parse(manifestFile)
+	if (guestManifest.schema != 1 || guestManifest.kind != 'palcraft_guest' || guestManifest.environment != 'BridgeLab') {
+		throw new GradleException('Expected a BridgeLab palcraft_guest schema 1 manifest')
+	}
+	def guest = guestManifest.guest
+	if (!(guest?.run_dir instanceof String) || guest.run_dir.isBlank()
+		|| !(guest.mc_args instanceof List) || !(guest.jvm_args instanceof List)
+		|| !guest.mc_args.every { it instanceof String } || !guest.jvm_args.every { it instanceof String }) {
+		throw new GradleException('Registered guest manifest has invalid launch fields')
+	}
+	if (guest.mc_args.count('--username') != 1 || guest.mc_args.count('--uuid') != 1
+		|| guest.mc_args[guest.mc_args.indexOf('--username') + 1] != guestManifest.identity.mc_name
+		|| guest.mc_args[guest.mc_args.indexOf('--uuid') + 1] != guestManifest.identity.mc_uuid) {
+		throw new GradleException('Registered guest launch identity differs from its enrolled manifest')
+	}
+}
+
+loom {
+	splitEnvironmentSourceSets()
+	mods {
+		"passthrough" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+	runs {
+		// dev client: a fixed window size so the camera/projection maths is easy to check
+		client {
+			programArgs "--width", "1920", "--height", "1080", "--username", "PalCraft", "--uuid", "11111111-1111-1111-1111-111111111111"
+			vmArgs "--enable-native-access=ALL-UNNAMED"
+		}
+        sharedServer {
+            server()
+            runDir "run-shared"
+            programArgs "nogui"
+            vmArgs "-Xmx2G", "-Dpalcraft.shared=true"
+        }
+        sharedPeer {
+            client()
+            runDir "run-peer"
+            programArgs "--width", "640", "--height", "360", "--username", "PalCraftPeer", "--uuid", "3f7fe9d6-68ef-3812-b0a0-28bd2d5b4f41"
+            vmArgs "--enable-native-access=ALL-UNNAMED", "-Xmx1G", "-Dpalcraft.hidden=true", "-Dpalcraft.maxFps=15", "-Dpalcraft.noFrameExport=true", "-Dpalcraft.server=127.0.0.1:25567", "-Dpassthrough.port=25601"
+        }
+        backgroundCheck {
+            client()
+            runDir "run-background-check"
+            programArgs "--width", "640", "--height", "360", "--username", "PalCraftCheck", "--uuid", "b3d1c39c-611f-3f28-a559-27167a2f60b0"
+            vmArgs "--enable-native-access=ALL-UNNAMED", "-Xmx1G", "-Dpalcraft.hidden=true", "-Dpalcraft.maxFps=10", "-Dpalcraft.noFrameExport=true", "-Dpalcraft.world=background-check", "-Dpassthrough.port=25600"
+        }
+		if (guestManifest != null) {
+			registeredGuest {
+				client()
+				runDir guestManifest.guest.run_dir
+				programArgs((['--width', '1920', '--height', '1080'] + guestManifest.guest.mc_args) as String[])
+				vmArgs(guestManifest.guest.jvm_args as String[])
+			}
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	// WebSocket server the host game's script connects to (FiveM NUI can only speak WebSocket/HTTP)
+	implementation "org.java-websocket:Java-WebSocket:1.6.0"
+	include "org.java-websocket:Java-WebSocket:1.6.0"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+	filesMatching("fabric.mod.json") { expand "version": version }
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 25
+	it.options.encoding = 'UTF-8'
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+	preserveFileTimestamps = false
+	reproducibleFileOrder = true
+}
+
+sourceSets {
+	contractTest {
+		java.srcDir 'src/contractTest/java'
+		compileClasspath = sourceSets.main.output + sourceSets.main.compileClasspath
+		runtimeClasspath = output + compileClasspath
+	}
+}
+
+tasks.register('bridgeContractTest', JavaExec) {
+	group = 'verification'
+	description = 'Checks feature ownership and trusted travel completion proofs without starting Minecraft.'
+	dependsOn tasks.named('contractTestClasses')
+	classpath = sourceSets.contractTest.runtimeClasspath
+	mainClass = 'dev.rehan.passthrough.FeatureRegistryContract'
+	maxHeapSize = '256m'
+}
+
+tasks.named('check') { dependsOn tasks.named('bridgeContractTest') }
+
+tasks.register('sessionContractTest', JavaExec) {
+	group = 'verification'
+	description = 'Runs production session admission and routing regressions without starting Minecraft.'
+	dependsOn tasks.named('testClasses')
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'dev.rehan.passthrough.session.SessionProtocolTest'
+	maxHeapSize = '256m'
+}
+// This source is a pure main entry point, executed by sessionContractTest.
+tasks.named('test') { exclude '**/SessionProtocolTest.class' }
+tasks.named('check') { dependsOn tasks.named('sessionContractTest') }
+
+tasks.register('rebaseContractTest', JavaExec) {
+	group = 'verification'
+	description = 'Runs next-view binding/bounds/legacy-event cases without starting Minecraft.'
+	dependsOn tasks.named('contractTestClasses')
+	classpath = sourceSets.contractTest.runtimeClasspath
+	mainClass = 'dev.rehan.passthrough.TravelRebaseContract'
+	maxHeapSize = '256m'
+}
+
+tasks.register('exchangeV3ContractTest', JavaExec) {
+	group = 'verification'
+	description = 'Runs the owner V3 import/export persistence cases, without the old crash matrix.'
+	dependsOn tasks.named('contractTestClasses')
+	classpath = sourceSets.contractTest.runtimeClasspath
+	mainClass = 'dev.rehan.passthrough.ExchangeRecoveryCrashTest'
+	args 'v3', layout.buildDirectory.dir('reports/exchange-v3-directed').get().asFile.absolutePath
+	maxHeapSize = '256m'
+}
+
+tasks.register('worldPoseScopeContractTest', JavaExec) {
+	group = 'verification'
+	description = 'Checks production epoch, mapping commit floor and world scope without the old session matrix.'
+	dependsOn tasks.named('contractTestClasses')
+	classpath = sourceSets.contractTest.runtimeClasspath
+	mainClass = 'dev.rehan.passthrough.session.WorldPoseScopeContract'
+	maxHeapSize = '256m'
+}
+
+if (guestManifest != null) {
+	tasks.register('registeredGuestManifestCheck') {
+		group = 'verification'
+		description = 'Verifies manifest launch wiring without starting a guest.'
+		doLast {
+			def run = loom.runs.getByName('registeredGuest')
+			def args = run.programArgs
+			assert args.count('--username') == 1 && args.count('--uuid') == 1
+			assert args[args.indexOf('--username') + 1] == guestManifest.identity.mc_name
+			assert args[args.indexOf('--uuid') + 1] == guestManifest.identity.mc_uuid
+			assert file(run.runDir).canonicalPath == file(guestManifest.guest.run_dir).canonicalPath
+			assert run.vmArgs.containsAll(guestManifest.guest.jvm_args)
+			logger.lifecycle('RegisteredGuestManifestCheck: PASS (exact identity, isolated run directory, manifest JVM arguments)')
+		}
+	}
+}
+
+java {
+	sourceCompatibility = JavaVersion.VERSION_25
+	targetCompatibility = JavaVersion.VERSION_25
+}

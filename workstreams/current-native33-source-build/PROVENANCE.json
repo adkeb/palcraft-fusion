@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "source_is_complete_matching_current_33_native_pins": true,
+  "missing_or_different_current_native_sources": [],
+  "link_input_order_both": [
+    "palcraft.obj",
+    "controls.obj",
+    "ws.obj",
+    "compositor.obj"
+  ],
+  "compile_flag_family": [
+    "-target x86_64-windows-gnu",
+    "-std=c++17",
+    "-O2",
+    "-DNOMINMAX",
+    "-Wall",
+    "-Wextra",
+    "-Wno-unknown-attributes",
+    "-fno-lto",
+    "-I SOURCE_ROOT/render/sdk"
+  ],
+  "link_flags_both": [
+    "-target x86_64-windows-gnu",
+    "-shared",
+    "-fno-lto",
+    "-lws2_32",
+    "-luser32",
+    "-ld3d11",
+    "-ldxgi"
+  ],
+  "original_project_object_sources": {
+    "palcraft": {
+      "object_sha256": "728bb22ea47f9eec362fee0ecd72c57c8cb460720a920d1510294e5ec3565584",
+      "source_sha256": "02e6f61b7754c53b18bb1eec69161b1999c20f777ca4a09a4d3e7e2480821cc4",
+      "source_complete": true,
+      "actual_immutable_compile_argv_saved": true,
+      "flag_family_matches_fresh": true
+    },
+    "controls": {
+      "object_sha256": "08f5c9cdb6e4b3c123c4ea66fc899629b8c352ae75c36a53884bb6eb3efdd520",
+      "source_sha256": "ef805d88e1efe28cd2c4723fea4bf944b4a51a088a0416c76d719be70b1c6bb4",
+      "source_complete": true,
+      "actual_immutable_compile_argv_saved": true,
+      "flag_family_matches_fresh": true
+    },
+    "ws": {
+      "object_sha256": "523d4accc335d4157fe6f30b8fbb2c68e0d6f6f121372ba6dbc46092c58e46d0",
+      "source_sha256": "5498383e2ffc76798957a27b468be45371a8c3b37a3ecb017be3a1831902c2f7",
+      "origin": "frozen capture-scope-v16-paired",
+      "source_complete_and_byte_same": true,
+      "historical_compile_argv_saved": false,
+      "old_flags_strict_equivalence_not_proven": true
+    },
+    "compositor": {
+      "object_sha256": "6007169693b39e5abb832dcc69af1ea5e518015ad0c485514f920d5c4b4ed816",
+      "source_sha256": "2c7b33dc51136f218bb99f5e5548d90ba7d24664c7f872d99f718822fe742fb1",
+      "origin": "frozen capture-scope-v16-paired",
+      "source_complete_and_byte_same": true,
+      "historical_compile_argv_saved": false,
+      "old_flags_strict_equivalence_not_proven": true
+    }
+  },
+  "all_old_and_fresh_objects_are_native_AMD64_COFF_not_LLVM_bitcode": true,
+  "source_missing_change_not_found": true,
+  "text_difference_not_proven_only_relocation_or_layout": true,
+  "fresh_all_four_compiler_calls_completed_once": true,
+  "project_object_reuse": false,
+  "second_user_environment_not_verified": true
+}

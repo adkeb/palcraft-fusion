@@ -12,6 +12,8 @@
 
 查看 [当前状态和验收范围](docs/STATUS.md)、[构建说明](docs/BUILD.md) 和 [Standalone 安装源码说明](player-standalone/README.zh-CN.md)。[实验发布包](https://github.com/adkeb/palcraft-fusion/releases) 提供部分已公开组件；完整玩家版仍待完成。
 
+当前 MC 10.10 已通过 [全部生产源重建](workstreams/current-mc10-10-source-build)，输出与现用包精确匹配；原生输入组件也提供 [四个编译单元的完整源码构建](workstreams/current-native33-source-build)。两项均无需旧项目编译产物，具体工具链和验证边界见构建说明。
+
 ## 源码地图
 
 | 目录 | 内容 |

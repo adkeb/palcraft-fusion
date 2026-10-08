@@ -4,9 +4,11 @@
 
 ## Minecraft 模块
 
+当前 10.10 提供 [完整生产源的一次构建入口](../workstreams/current-mc10-10-source-build/README.md)。它直接编译全部 100 个生产 Java 源，两个历史 debug profile 各生成 168 个新 class，选用 168 个并按原元数据组成 173 条目的 JAR；本机实际输出 SHA-256 与现用 10.10 一致，旧项目 class 复用为 0。入口不接受旧项目 JAR 或预编译输出，合法 JDK、Minecraft/Fabric 和 WebSocket 依赖仍由用户提供。下面的 10.6–10.7 入口保留用于历史重建。
+
 Java 源码位于 `palcraft/mc`。使用 JDK 25 和对应的 Gradle/Fabric 依赖构建；游戏版本与依赖版本由项目的 Gradle 文件声明。
 
-此基础快照版本为 `0.2.0-integration.10.7-respawn`，包含基于 10.6 的六文件复活同步增量。后续 [10.9 目标区域同步](../workstreams/target-ring-centre/README.md) 和 [在线性能设置](../workstreams/live-owned-power-profile/README.md) 保留自己的源与构建记录。当前实机整合使用 MC 10.10；公开实验组件包最新为 10.9。Java 编译通过不代表所有 Mixin 或玩法验收通过。
+此基础快照版本为 `0.2.0-integration.10.7-respawn`，包含基于 10.6 的六文件复活同步增量。后续 [10.9 目标区域同步](../workstreams/target-ring-centre/README.md) 和 [在线性能设置](../workstreams/live-owned-power-profile/README.md) 保留自己的源与构建记录。当前实机整合与最新公开实验组件包使用 MC 10.10。Java 编译通过不代表所有 Mixin 或玩法验收通过。
 
 ```sh
 cd palcraft/mc
@@ -22,6 +24,8 @@ gradle build
 Gradle wrapper 的依赖 JAR、Minecraft/Fabric 库和游戏客户端不作为本仓库源码附件提供，使用官方依赖流程取得。
 
 ## 原生桥接
+
+当前输入组件提供 [四个编译单元的完整源码入口](../workstreams/current-native33-source-build/README.md)，接受自己的 source-root、Zig 与输出路径。四个项目对象已在本机全部新编，无旧对象输入；使用相同 DLL 输出文件名再链接后，`.text` 和除 `.buildid` 外所有段与候选 33 参考产物一致。时间戳与 build-id 不同，整文件哈希不同；不把代码段一致扩展为整文件一致或新构件已在游戏中运行。
 
 `palcraft/native`、`palcraft/render` 和 `palcraft/ue4ss-utf8-shim` 包含作者源码；原生模块按对应构建脚本使用 Windows 工具链或 Mac 上的跨编译工具链。匹配目标游戏版本与 ABI 后再安装，不能将某次地址/签名验证扩展为所有版本兼容。
 

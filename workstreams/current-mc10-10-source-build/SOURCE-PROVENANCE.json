@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "source_layers": [
+    {
+      "name": "Public MC10.6 full production",
+      "production_java_sources": 100,
+      "full_recipe_sha256": "15e1766039772d40a7e16780e8ab5c36c9ae1029a1b043b8f83cfaf0f7d29e6d"
+    },
+    {
+      "name": "Public MC10.7 six production sources",
+      "recipe_sha256": "ac06681995013b7c758499050eeb2167ba8c214a5b5614bc236ef6e4429278b8",
+      "compile_sources": {
+        "src/client/java/dev/rehan/passthrough/client/ClientPalLife.java": "010e1b8e8858611213f7ca33370d8ee70b1d03e05b8679a4df61167891e43f96",
+        "src/main/java/dev/rehan/passthrough/PalEntityBridge.java": "edf99b4c241101dfb52f7cb08d3b08db687088b8c3ff9e0f2447cc7179700e3b",
+        "src/main/java/dev/rehan/passthrough/mixin/PalAvatarRespawnMixin.java": "f76abdb18e6e192ff81c9c458074f202aa7a66adf323d7d4c9897a0e94d7a8ed",
+        "src/main/java/dev/rehan/passthrough/mixin/ServerPlayerMixin.java": "0497345a416368d3f4164d3e728e442fbe12f7aaac514d948baa49ab4e99809d",
+        "src/main/java/dev/rehan/passthrough/session/BridgeSessions.java": "f5eb0cc0d20447f288f685926840cd634417a48e9581628ea3ae291f63d34a74",
+        "src/main/java/dev/rehan/passthrough/BridgeNetwork.java": "ac36bbff764d34fa2d56f47dd2fb775aabe2f94ad6519833c4bdc83c8b33ae79"
+      }
+    },
+    {
+      "name": "Public MC10.9 target ring centre",
+      "recipe_sha256": "0704a2bc76c74ded590229b10877bb21996bd4ab7ea9d79ddb651aef8cf7170c",
+      "compile_sources": {
+        "src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java": "a0d9f92ccac84b2e16aeaba765b58a04d810d9627b27d920d4aea9d355c89698",
+        "src/main/java/dev/rehan/passthrough/BridgeTravelGate.java": "d44ac669bdb4e6c6e4ea88fd535fb392eb669b613b1899787838a087605d98df",
+        "src/main/java/dev/rehan/passthrough/WorldCompatibility.java": "4c49001de5a938f3ae8f7db8bd1c743ac4f487d927cebd0a178b0a8d5470e17e"
+      }
+    },
+    {
+      "name": "Public MC10.10 live owned performance",
+      "full_source_archive_sha256": "18495b7434a157c339cbf056c60e60be0495d4c2baeb7472e9feb9a58a9ae93f",
+      "compile_sources": {
+        "src/client/java/dev/rehan/passthrough/client/PassthroughClient.java": "7b517d1213e4d1e477639991df3a1a6bc6147253357607e7f5049f7343d1f4ee"
+      }
+    }
+  ],
+  "PlayFeedback_source_unchanged_from_public_baseline": true,
+  "historical_class_profile_counts": {
+    "g": 140,
+    "default": 28
+  },
+  "explicit_historical_LNT_mapping": {
+    "dev/rehan/passthrough/client/HostState$FramePose.class": {
+      "profile": "g",
+      "LineNumberTable_line_delta": -1,
+      "reason": "Original incremental10.6 kept this10.5 HostState nested record, with declaration one source line earlier."
+    },
+    "dev/rehan/passthrough/client/HostState$Sample.class": {
+      "profile": "g",
+      "LineNumberTable_line_delta": -1,
+      "reason": "Original incremental10.6 kept this10.5 HostState nested record, with declaration one source line earlier."
+    },
+    "dev/rehan/passthrough/client/HostState$WorldView.class": {
+      "profile": "g",
+      "LineNumberTable_line_delta": -1,
+      "reason": "Original incremental10.6 kept this10.5 HostState nested record, with declaration one source line earlier."
+    }
+  },
+  "incremental_class_provenance": {
+    "dev/rehan/passthrough/BridgeNetwork$Operation.class": "MC10.7",
+    "dev/rehan/passthrough/BridgeNetwork$Request.class": "MC10.7",
+    "dev/rehan/passthrough/BridgeNetwork.class": "MC10.7",
+    "dev/rehan/passthrough/PalEntityBridge$HostEntity.class": "MC10.7",
+    "dev/rehan/passthrough/PalEntityBridge.class": "MC10.7",
+    "dev/rehan/passthrough/client/ClientPalLife.class": "MC10.7",
+    "dev/rehan/passthrough/mixin/PalAvatarRespawnMixin.class": "MC10.7",
+    "dev/rehan/passthrough/mixin/ServerPlayerMixin.class": "MC10.7",
+    "dev/rehan/passthrough/session/BridgeSessions$Config.class": "MC10.7",
+    "dev/rehan/passthrough/session/BridgeSessions$Presence.class": "MC10.7",
+    "dev/rehan/passthrough/session/BridgeSessions.class": "MC10.7",
+    "dev/rehan/passthrough/BridgeServerFeatures.class": "MC10.9",
+    "dev/rehan/passthrough/BridgeTravelGate$ListKeys.class": "MC10.9",
+    "dev/rehan/passthrough/BridgeTravelGate.class": "MC10.9",
+    "dev/rehan/passthrough/WorldCompatibility$LoadedView.class": "MC10.9",
+    "dev/rehan/passthrough/WorldCompatibility$PortalContact.class": "MC10.9",
+    "dev/rehan/passthrough/WorldCompatibility$Restore.class": "MC10.9",
+    "dev/rehan/passthrough/WorldCompatibility$Snapshot.class": "MC10.9",
+    "dev/rehan/passthrough/WorldCompatibility$View.class": "MC10.9",
+    "dev/rehan/passthrough/WorldCompatibility.class": "MC10.9",
+    "dev/rehan/passthrough/client/PassthroughClient.class": "MC10.10"
+  },
+  "reference_application_jar_read_only_for_expected_hashes_and_own_resource_metadata": true,
+  "application_class_bytes_copied_or_accepted_by_builder": false,
+  "source_java_count": 100,
+  "runtime_project_class_count": 168,
+  "packaged_own_resource_version": "0.2.0-integration.10.10-live-owned-performance",
+  "legal_third_party_dependencies_supplied_by_user_not_in_public_source": true
+}

@@ -1,0 +1,447 @@
+{
+  "schema": 1,
+  "scope": "Original three unchanged HostState nested record classes only; adjust u16 source line debug entries, never Code/ABI bytes.",
+  "classes": {
+    "dev/rehan/passthrough/client/HostState$FramePose.class": {
+      "profile": "g",
+      "delta": -1,
+      "reason": "Original incremental10.6 kept this10.5 HostState nested record, with declaration one source line earlier.",
+      "methods": [
+        {
+          "method": "<init>",
+          "descriptor": "(Ldev/rehan/passthrough/client/HostState$SessionPose;Ldev/rehan/passthrough/client/HostState$Sample;)V",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                46
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "toString",
+          "descriptor": "()Ljava/lang/String;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                46
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "hashCode",
+          "descriptor": "()I",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                46
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "equals",
+          "descriptor": "(Ljava/lang/Object;)Z",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                46
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "owner",
+          "descriptor": "()Ldev/rehan/passthrough/client/HostState$SessionPose;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                46
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "sample",
+          "descriptor": "()Ldev/rehan/passthrough/client/HostState$Sample;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                46
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "dev/rehan/passthrough/client/HostState$Sample.class": {
+      "profile": "g",
+      "delta": -1,
+      "reason": "Original incremental10.6 kept this10.5 HostState nested record, with declaration one source line earlier.",
+      "methods": [
+        {
+          "method": "<init>",
+          "descriptor": "(Ldev/rehan/passthrough/client/HostState$Pose;Ldev/rehan/passthrough/session/WorldPoseScope;Ldev/rehan/passthrough/session/SessionHandle;)V",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                43
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "toString",
+          "descriptor": "()Ljava/lang/String;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                43
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "hashCode",
+          "descriptor": "()I",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                43
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "equals",
+          "descriptor": "(Ljava/lang/Object;)Z",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                43
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "pose",
+          "descriptor": "()Ldev/rehan/passthrough/client/HostState$Pose;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                43
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "worldScope",
+          "descriptor": "()Ldev/rehan/passthrough/session/WorldPoseScope;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                43
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "session",
+          "descriptor": "()Ldev/rehan/passthrough/session/SessionHandle;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                43
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ]
+        }
+      ]
+    },
+    "dev/rehan/passthrough/client/HostState$WorldView.class": {
+      "profile": "g",
+      "delta": -1,
+      "reason": "Original incremental10.6 kept this10.5 HostState nested record, with declaration one source line earlier.",
+      "methods": [
+        {
+          "method": "<init>",
+          "descriptor": "(Ljava/lang/String;Ljava/lang/String;JZ)V",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "toString",
+          "descriptor": "()Ljava/lang/String;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "hashCode",
+          "descriptor": "()I",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "equals",
+          "descriptor": "(Ljava/lang/Object;)Z",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "session",
+          "descriptor": "()Ljava/lang/String;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "dimension",
+          "descriptor": "()Ljava/lang/String;",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "generation",
+          "descriptor": "()J",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        },
+        {
+          "method": "waitingAck",
+          "descriptor": "()Z",
+          "target_LineNumberTables": [
+            [
+              [
+                0,
+                44
+              ]
+            ]
+          ],
+          "fresh_g_line_numbers": [
+            [
+              [
+                0,
+                45
+              ]
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}

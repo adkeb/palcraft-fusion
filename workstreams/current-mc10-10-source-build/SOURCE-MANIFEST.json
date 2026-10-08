@@ -1,0 +1,660 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "target_version": "0.2.0-integration.10.10-live-owned-performance",
+  "files": [
+    {
+      "path": "BUILD-RESULT.json",
+      "sha256": "5b579665610fbbb727846845611fc0f545e9762ac499c1f9768bad2f3dbd0122",
+      "bytes": 895
+    },
+    {
+      "path": "FabricCompileInterfaces.java",
+      "sha256": "a88c73c171151698bcc7885354c98eb5c16b874201796302df9eb560b2952f9b",
+      "bytes": 1501
+    },
+    {
+      "path": "HISTORICAL-LNT.json",
+      "sha256": "714f20a95f15928a8cffb01cab00b59da0bd20d56c7d0b8fdfca65f154efbf12",
+      "bytes": 9566
+    },
+    {
+      "path": "README.md",
+      "sha256": "a6a15c033281575c94ab21f576ed6f8c0651af035c6cfd8b873b1a1c76cf0948",
+      "bytes": 2649
+    },
+    {
+      "path": "SOURCE-PROVENANCE.json",
+      "sha256": "e6f702ca274e161d4dc4341f46f6718728643bbf27be6b64919ed29c8c9d104f",
+      "bytes": 5070
+    },
+    {
+      "path": "build-recipe.json",
+      "sha256": "eac9f20e3904cedfb2189b3b6c7c59fa259e618860df8bf4b99f5bec620790fa",
+      "bytes": 158372
+    },
+    {
+      "path": "build_mc_10_10.py",
+      "sha256": "b8adabdfe7a61afb4bd473c804b6e5a79faa5fa8b4945a0c2ee8da021f0570d2",
+      "bytes": 13533
+    },
+    {
+      "path": "packaged-resources/MANIFEST.MF",
+      "sha256": "322f6132a88b4c2bfd2135d3fe848be5448a701d2bdc29d7b49d18f876434bf2",
+      "bytes": 5820
+    },
+    {
+      "path": "packaged-resources/fabric.mod.json",
+      "sha256": "6651f6221f7869a02d13d77276b2053368cf804f00098509bc160d312ce28b6c",
+      "bytes": 967
+    },
+    {
+      "path": "packaged-resources/passthrough.client.mixins.json",
+      "sha256": "48f3646b1af37e45a8c79355e32967c00123a8df5c84204cd9d249514d9150e1",
+      "bytes": 760
+    },
+    {
+      "path": "packaged-resources/passthrough.mixins.json",
+      "sha256": "9f7d6064f8a0cfcdb30211236c5c0d6645cb1f9004b00015cbe3b1b15560e64c",
+      "bytes": 630
+    },
+    {
+      "path": "source/.gitignore",
+      "sha256": "9b882677e94970e95db955c6b15b32ae5f82b808bffe703d421fd9d767d5c11a",
+      "bytes": 237
+    },
+    {
+      "path": "source/build.gradle",
+      "sha256": "108c637dd2584053c57452e50f7adddf29a4a070dea787b08cb6ca932c1381d7",
+      "bytes": 7243
+    },
+    {
+      "path": "source/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "d01b41913834fb3cb14e71f69a08898e6a47e663b08f5c9b8c7e0772c38889d2",
+      "bytes": 281
+    },
+    {
+      "path": "source/gradle.properties",
+      "sha256": "71becd10c06294e3498f48281aaf5c42bad1ed402b5e19919425fb5dc1741a31",
+      "bytes": 308
+    },
+    {
+      "path": "source/gradlew",
+      "sha256": "a5a5c199ba02189ae8c46a334223371a20599d9c298ef65e7540ede4a3f72d59",
+      "bytes": 8656
+    },
+    {
+      "path": "source/gradlew.bat",
+      "sha256": "59328c7a17f673b1a63040bfb380a0c749e5d6df3406f7f18641060314cd9aa1",
+      "bytes": 2766
+    },
+    {
+      "path": "source/settings.gradle",
+      "sha256": "03160d16cb5076e53de05c46ae55c76cedfac994ec7e7d4529700c9e54c43d4d",
+      "bytes": 178
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/ClientBridge.java",
+      "sha256": "b4ac72052a027402d340e86c066f3eea22817ea2fc14e12d471d06eac5321780",
+      "bytes": 17903
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/ClientInput.java",
+      "sha256": "ed697fec7254090c3275e6ff1f06a60bc378645313482a5cb21e0541f24b57a1",
+      "bytes": 8495
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/ClientPalLife.java",
+      "sha256": "010e1b8e8858611213f7ca33370d8ee70b1d03e05b8679a4df61167891e43f96",
+      "bytes": 2018
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/EntityCaptureExporter.java",
+      "sha256": "b3d7a5e784ee12aa0eaf0897f81762f925568a710f12b468ec3560679e3d617c",
+      "bytes": 12571
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/ExchangeScreen.java",
+      "sha256": "ed19e2d55d160f485b4578ddf0702c27fa95d0fb212b26bc6d6822e51e7bff40",
+      "bytes": 3227
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/FrameExporter.java",
+      "sha256": "d60d8e799ee39bbf24b5deee0b68d8ad94a237e806633887c143e42b5bb620ef",
+      "bytes": 10313
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/GuestSession.java",
+      "sha256": "3715f531194f153ced8e42f1d63dac1743ea8ec129ce692a00321d48dadf0b6c",
+      "bytes": 5254
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/GuideProjection.java",
+      "sha256": "054175bb6de325a30350f7dbff88f6a78cbd1452f13c4f4ad1671ac43fde8381",
+      "bytes": 3800
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/HostLink.java",
+      "sha256": "95b24c596c2dadf3d83d5348a111e35873cc681304deab7f46d888deef0a25bf",
+      "bytes": 19941
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/HostState.java",
+      "sha256": "c08cc30b6fec7c96b05ee38034cbcee7b734fec8a9606584cf6aab7f4b355616",
+      "bytes": 13564
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/PassthroughClient.java",
+      "sha256": "7b517d1213e4d1e477639991df3a1a6bc6147253357607e7f5049f7343d1f4ee",
+      "bytes": 13233
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/PlacementGuide.java",
+      "sha256": "3cd36e4c6c2f7c60317dd9058832f731515d33f4c49adf94d84c2f9493732993",
+      "bytes": 6342
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/PlayFeedback.java",
+      "sha256": "5c7630fe5eda22251b650e4a8fb5d78c113118b545b3d56c9e91f07717493675",
+      "bytes": 5669
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/PlayerSync.java",
+      "sha256": "cf677c726db847c79e0cc5b9a836f6cbd8265a67b39bd1bff6c2f14b1cbe0768",
+      "bytes": 5442
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/SharedMemory.java",
+      "sha256": "2f3053b2f3b8a83e0065649a0b9126e777f52d7cf4b85b5a1cb9ded6566eb0c5",
+      "bytes": 4181
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/material/MaterialTintFeature.java",
+      "sha256": "42951867a3701ae4b0350386a03b0066741f4253cec4dc42c1d3105460893052",
+      "bytes": 5425
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/AbstractClientPlayerMixin.java",
+      "sha256": "6e719f989f35072910f299f3434022913c6f752e7a75ef05f689cc8e1d5da651",
+      "bytes": 1153
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/AvatarRendererMixin.java",
+      "sha256": "8ce5d33b5a84efc52f9416c59f3b282d19b7dfc7c354854c816094687ac33c99",
+      "bytes": 1508
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/BlockItemPlacementAccessor.java",
+      "sha256": "8f2cd2be86e548843fde84eef9a5f15fc6190a6652dd77811c13c178dec5759c",
+      "bytes": 560
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/CameraMixin.java",
+      "sha256": "7023d68e2e94ceb83b4ec5639143a256781a32c6835ce4870c8d5ff4adecb9e0",
+      "bytes": 3504
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/ClientLevelMixin.java",
+      "sha256": "f2abbeac117201578ce62aaf67b310564c7c64e62094dc201fe40e6f8f06d39b",
+      "bytes": 1062
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/EntityCaptureRenderMixin.java",
+      "sha256": "e4ead4b4c913d675b9725f8c4855fa4e30a4f84cf6f73138a3646cba39634990",
+      "bytes": 1124
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/EntityCaptureResourceMixin.java",
+      "sha256": "c47532da5b9b30ac50f1475c7fc03eb119e3caf80577a009fd043da451f09d20",
+      "bytes": 618
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/EntityPickMixin.java",
+      "sha256": "8bfb32741c5af7c04678c6659c69bf1bf53bec01eb9dcaa39402a6a668ee2ff8",
+      "bytes": 1832
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/FogRendererMixin.java",
+      "sha256": "03b0ec6583b21776c539f2857b20032379c368bd955cc3a88a6dabb1d9710a3f",
+      "bytes": 1191
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/GameRendererMixin.java",
+      "sha256": "d187c580a9103ecbf319162565729698ec87b5125f9c2db419529136666effc1",
+      "bytes": 2217
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/GlCommandEncoderMixin.java",
+      "sha256": "351329bcd785bb323d63267c01ddc23cbd37f5673ba7dd9f63f6158c94ee9aa7",
+      "bytes": 1595
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/KeyMappingAccessor.java",
+      "sha256": "bd35f1231aa96eb7cc914abc6379c2da9956cd276dc98ee0aa284cd9727224f4",
+      "bytes": 376
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/LivingEntityMixin.java",
+      "sha256": "1bcd394a40225b5a437bbfd0c0b0340dad40d6a59c16994398ed7c57eda3d51c",
+      "bytes": 995
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/LocalPlayerMixin.java",
+      "sha256": "7f67e7c3a1626491d9297a96d906ac0902626954314e1245dffd17d315c7c0ad",
+      "bytes": 844
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/MinecraftInputMixin.java",
+      "sha256": "617ea6156c8fcf9286b0b016b00533efde1980ea8c9769f1b876c23f835ba1d2",
+      "bytes": 742
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/MiningAccessor.java",
+      "sha256": "a3f3fb75b4ff9c5dd2024cd78c652a2ea8da5e44e432e7678bf6599380eb680b",
+      "bytes": 330
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/PlayHudMixin.java",
+      "sha256": "3fa9959d08561e9bcb67526f32e38fb6f3e7cbd69d25b9f7d5e006682cfae10b",
+      "bytes": 1136
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/PlayOverlayMixin.java",
+      "sha256": "448dd45a015c5174b7174a171f5755f0265353e3a6628a35960ac3631b3f6370",
+      "bytes": 702
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/SignFontAccessor.java",
+      "sha256": "94cdf1fb3dd4f7b120340d710f528f076340506d6030bc02d1ea7ce9b0ee63e8",
+      "bytes": 453
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/SignLightmapReadbackMixin.java",
+      "sha256": "0bb11f0d50eac30a173640f488c628478987231537ba737753513b6e41060d98",
+      "bytes": 1351
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/SignTextGameRendererMixin.java",
+      "sha256": "1bc56e2a396a7d38131bc006ceeff9b652c4534b2dcd2a4514813e83410e37b2",
+      "bytes": 1132
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/mixin/ToastManagerMixin.java",
+      "sha256": "8c373ed80d9dc6b5522f19280bd099bb059e45bde55a849b000be465856dd814",
+      "bytes": 739
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/signtext/SignGlyphCapture.java",
+      "sha256": "4248009d6e6895842e89654973b6656f858e9ddcb0070f4c4cf980d60839101f",
+      "bytes": 7771
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/signtext/SignGlyphRaster.java",
+      "sha256": "d58a7b928ad18ac5bfa32842c51fbb07a5318673052dfee7b6359f137f7261a8",
+      "bytes": 7757
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/signtext/SignTextExporter.java",
+      "sha256": "7f54b90d9b15e5f18792eebf432ce8e42541e133bd280308c54417f1e64047d4",
+      "bytes": 32256
+    },
+    {
+      "path": "source/src/client/java/dev/rehan/passthrough/client/visual/VanillaEntityCapture.java",
+      "sha256": "6cd6d4cefd4ba043db28446c05febe25d383f862527c3eac08345ac30f945fe2",
+      "bytes": 8528
+    },
+    {
+      "path": "source/src/client/resources/passthrough.client.mixins.json",
+      "sha256": "48f3646b1af37e45a8c79355e32967c00123a8df5c84204cd9d249514d9150e1",
+      "bytes": 760
+    },
+    {
+      "path": "source/src/contractTest/java/dev/rehan/passthrough/ExchangeRecoveryCrashTest.java",
+      "sha256": "d113f160868ad476cd14fb2a49405c0f3f057dfd3a9faedc9ba8c9c211d9add3",
+      "bytes": 16912
+    },
+    {
+      "path": "source/src/contractTest/java/dev/rehan/passthrough/FeatureRegistryContract.java",
+      "sha256": "5f0964b0c36b112ce8520210fbee546d4252054e912421d07168f1aa4011a5ee",
+      "bytes": 2014
+    },
+    {
+      "path": "source/src/contractTest/java/dev/rehan/passthrough/TravelAckContract.java",
+      "sha256": "107ca9a1d09d025b0279b2d3fe76a77c86dd661c097c4aaf586215a9b9065731",
+      "bytes": 5408
+    },
+    {
+      "path": "source/src/contractTest/java/dev/rehan/passthrough/TravelRebaseContract.java",
+      "sha256": "f7e19f1984222ac9815eefbc901e574729446361b807115dd1d3a9f3d8cff8c0",
+      "bytes": 4007
+    },
+    {
+      "path": "source/src/contractTest/java/dev/rehan/passthrough/session/WorldPoseScopeContract.java",
+      "sha256": "b2febe06c9ff086cb7d6c9ae2817c8a8a9749a8864ae304517ba834c5398595d",
+      "bytes": 2629
+    },
+    {
+      "path": "source/src/contractTest/resources/registered-guest-fixture-b.json",
+      "sha256": "ff6344ea23ac6127a15c63dcd5cd8c7ee6df9ea6d7da7bf4812485ea2a09f53e",
+      "bytes": 547
+    },
+    {
+      "path": "source/src/contractTest/resources/registered-guest-fixture.json",
+      "sha256": "45c486ab7ebff7530aa074a2bbdfa664f4322bd76836e515a992c2a37d4f002f",
+      "bytes": 547
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/BridgeEventPolicy.java",
+      "sha256": "1af79649256aff99319d6236c10dec52ff349069cec3485f87130a80bd48cbbc",
+      "bytes": 792
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/BridgeNetwork.java",
+      "sha256": "ac36bbff764d34fa2d56f47dd2fb775aabe2f94ad6519833c4bdc83c8b33ae79",
+      "bytes": 6818
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/BridgePayload.java",
+      "sha256": "3cfe0e99897423276b711358d11a72d5d7ccb8ccb7374cc45e80b1a2e164be8c",
+      "bytes": 1044
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/BridgeServerFeatures.java",
+      "sha256": "a0d9f92ccac84b2e16aeaba765b58a04d810d9627b27d920d4aea9d355c89698",
+      "bytes": 6047
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/BridgeTravelGate.java",
+      "sha256": "d44ac669bdb4e6c6e4ea88fd535fb392eb669b613b1899787838a087605d98df",
+      "bytes": 14155
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/CompleteLineJournal.java",
+      "sha256": "02f94a97526ca7914687ec0cf3c028bd81e1845031b74b89d1d1f739bc0c1c80",
+      "bytes": 3763
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/DeferredEntityCleanup.java",
+      "sha256": "676359344f98c3e1ed2ed8f092ea37864dbc54eb9dd0ba5a7464d3b5c4ce86fc",
+      "bytes": 1036
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/EntityCombatLab.java",
+      "sha256": "8f519e2f60382c11b36b05d2e7b79455c21e2443d3c122b2aea45388b831949b",
+      "bytes": 5488
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/EntityCombatLedger.java",
+      "sha256": "3699d788627f6e5406ea53f5f707db3377fb69cc2a55742a41381ea47771c9a8",
+      "bytes": 3626
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/EntityVitals.java",
+      "sha256": "4567be339a47d6123824c564d8ec7535a262ecfc9333b92eabf6f97269f68d99",
+      "bytes": 799
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/ExchangeJournal.java",
+      "sha256": "fccd6b25e1d1191e3fdf2f89453c21f140adf9279828cd3b7f65984d9dfbac5f",
+      "bytes": 2006
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/ExchangeRecovery.java",
+      "sha256": "27b87b62b233884cac5a0a5284938e5a65110c6f5a2f6575771ab92196acd45b",
+      "bytes": 21452
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/FeatureRegistry.java",
+      "sha256": "6e025b01be994d9487075cfac53ca0431e830564139f5230128ff8aa6affe6bd",
+      "bytes": 1654
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/MobWar.java",
+      "sha256": "dc4357062e6067b9df4593dd98c733eb098e5f974dbaffcd056fcb9ff1e29455",
+      "bytes": 12473
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/Nether.java",
+      "sha256": "11f446bd273c758d95d00b516d05edbe753199845c9df5fb83b543d372297db6",
+      "bytes": 20434
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/PalEntityBridge.java",
+      "sha256": "edf99b4c241101dfb52f7cb08d3b08db687088b8c3ff9e0f2447cc7179700e3b",
+      "bytes": 31793
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/PalFoodBridge.java",
+      "sha256": "8210f518c6495959eb52f53d3afc678d55e2dcf9183b4ec4aef1008b2698929e",
+      "bytes": 6214
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/Passthrough.java",
+      "sha256": "e8486622657a09c64065c81af03976d8831c7b42bd7be7a6f0e968e0f89a36c6",
+      "bytes": 3443
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/ProxyTargetGoal.java",
+      "sha256": "210e1d4d3819eddf7a33824ee4ab4d41c45c6072dfb3b54270dd7c13e9837298",
+      "bytes": 574
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/ResourceExchange.java",
+      "sha256": "ee3956fab93e34ce144d34f7bcec92e4f39c83c97c57c9b1a3359f4c217c62c6",
+      "bytes": 15509
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/TravelAckValidator.java",
+      "sha256": "cc628fe1e4dced7f0c72c1f49bd2187c68158e46e0b6542d633ff523a27a5bcf",
+      "bytes": 4247
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/TravelRebaseValidator.java",
+      "sha256": "2fec0fc3f4b35c925a3959d3a7c2b54c1681d5e747ccdafd6a19152e9d23be2c",
+      "bytes": 3201
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/WorldBridge.java",
+      "sha256": "a42b6eeee72fedb30fda685a2aab9fdf35c06b578154598fa5c990503247bd3d",
+      "bytes": 14764
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/WorldCompatibility.java",
+      "sha256": "4c49001de5a938f3ae8f7db8bd1c743ac4f487d927cebd0a178b0a8d5470e17e",
+      "bytes": 41906
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/LevelMixin.java",
+      "sha256": "77cf9e3528b7d8f2f990f381047fa04792eae01349c0f49a8ab660fb3ea2b5fb",
+      "bytes": 1769
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/MobAccessor.java",
+      "sha256": "98f6ecbbbd474013677e59899255b677a9cb52909c3ab924a39be8419f12f58e",
+      "bytes": 349
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/MobMixin.java",
+      "sha256": "3a193ce6ca5e8190422db9c78a8dd739b3dbef10af9405e33b262fd9d774849c",
+      "bytes": 871
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PalAvatarLifeMixin.java",
+      "sha256": "38ad08dcd46fb57810c8bf5cb9d8c7130bf0aab349c1844b663f31d557e36587",
+      "bytes": 1364
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PalAvatarRespawnMixin.java",
+      "sha256": "f76abdb18e6e192ff81c9c458074f202aa7a66adf323d7d4c9897a0e94d7a8ed",
+      "bytes": 1957
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PalFoodConsumeMixin.java",
+      "sha256": "f4cad3dcc244b628bb57b453011bb864518fa01fa973234feaf68c730256d4e8",
+      "bytes": 1747
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PalFoodUseMixin.java",
+      "sha256": "af2d594a0dc3ec1273a49f304a2fd21f2b90f94530e40036fe96b13ddba176f0",
+      "bytes": 1265
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PalPlayerFoodMixin.java",
+      "sha256": "d70b71c3248bfccf5060d322b59b62a9ff1f3df4578d6048a1337fc237bb28b7",
+      "bytes": 805
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PalPlayerHealthMixin.java",
+      "sha256": "7601ae78d9ed906f0dd5369ae3ac85e8108801371bcc40d86e8b2ad7b57777dd",
+      "bytes": 1162
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PlayerMixin.java",
+      "sha256": "001edd5d274b1e7eab89ab75ffa572581e5ebe3383d1d0fdfaf039ba6a49bed2",
+      "bytes": 1192
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/PortalMixin.java",
+      "sha256": "783daca02e3b1bdca7f39c202c0761e6cf466cd7829808f11de239fbf2d45a35",
+      "bytes": 1004
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/ProjectileMixin.java",
+      "sha256": "18a3fd0e25d1cf5b2c3f33b580956c9f1812ef616e3deb042b105ed917a3cc18",
+      "bytes": 1097
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/ProxyMixin.java",
+      "sha256": "90a49786dbe2e1c08b5f8daf2873d838073586e1d0b4a5aa5ae836e1afe2aaaa",
+      "bytes": 2086
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/ServerExplosionMixin.java",
+      "sha256": "6b772d4133aac710a763ba2786e14b13a2d24827e671f78435c3445da4d925fd",
+      "bytes": 1502
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/ServerPlayerMixin.java",
+      "sha256": "0497345a416368d3f4164d3e728e442fbe12f7aaac514d948baa49ab4e99809d",
+      "bytes": 1785
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/SessionLoginAccessor.java",
+      "sha256": "c71604b383983f24d29d4926f7268a4a38101846beb0271cfb9b4c193d6ed81d",
+      "bytes": 522
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/WorldInteractionGateMixin.java",
+      "sha256": "d9f31029d2eb60c2f984ff6c885e7da72dfed1fdbd6168f3f4e2a0c367cad901",
+      "bytes": 3370
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/WorldPlayerTravelMixin.java",
+      "sha256": "34a6579a70a2e0e9c7e750a487263a1d34db71a5c3e15da907f68eaee03fab70",
+      "bytes": 2206
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/mixin/WorldServerLevelMixin.java",
+      "sha256": "2901e95e3363e28ea73be955eb58a9e5939750ef53242df7836b5c1ede48c01d",
+      "bytes": 1385
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/BridgeIdentity.java",
+      "sha256": "d96819291f32b253e9ef6c52731e69b752dec0d18186c90ad17b11138bdea646",
+      "bytes": 2102
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/BridgeSessions.java",
+      "sha256": "f5eb0cc0d20447f288f685926840cd634417a48e9581628ea3ae291f63d34a74",
+      "bytes": 14153
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/GuestCredential.java",
+      "sha256": "ed0f517ed94ba2d2202ed3b5895789e19f3cab9c7844ca54ee55da0dfba1b9ad",
+      "bytes": 2796
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/IdentityBindings.java",
+      "sha256": "782dd527a4be7cccf6191603b770cba8ca36b7defd0848e2d08c916955d68120",
+      "bytes": 3440
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/SessionCrypto.java",
+      "sha256": "62e367e7a405eaf79ed700c3abc79b219035e582b6e7fc43d786718e09eef63a",
+      "bytes": 3221
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/SessionEnrollment.java",
+      "sha256": "74b0c9c922753eb0a8937c04d410eb66c037cc8c99c6bbc72be3c6686897f547",
+      "bytes": 7002
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/SessionFiles.java",
+      "sha256": "0de14840f0edc4d03f76cf446a119e96cd1cb0fff8207aab1380c00bc57f2e2e",
+      "bytes": 2513
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/SessionGrant.java",
+      "sha256": "3d77f4bb06b746c61965f70915b693a3627b193ffc5e1fd3cbd45d76f247a7b6",
+      "bytes": 4372
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/SessionHandle.java",
+      "sha256": "a8f9985bab45f4fecd47ce0d5e003e21cf3ee0a27de1bf096558ea16ef4b9c1b",
+      "bytes": 2021
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/SessionPolicy.java",
+      "sha256": "4ffb64586d1a4be9feeca316e59e351f97a49d158e4fc8185a6255d127565c72",
+      "bytes": 1487
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/SessionRegistry.java",
+      "sha256": "a3ec3027dd76bc0b720c0b1f421bfe3d065361bd43d4d43a671ecc6913ccc416",
+      "bytes": 8674
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/session/WorldPoseScope.java",
+      "sha256": "8c63230220f3a84170b88ac75d6089f9fd424cebbbe369ed1915ea4091bfe32c",
+      "bytes": 2228
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/world/WorldDeltaBuffer.java",
+      "sha256": "32057b8aa36a8f906a84cbb747b4a808495ec478a28bb90abacb55c741ace495",
+      "bytes": 1936
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/world/WorldFluidSurface.java",
+      "sha256": "ed00d4fdd3bfb39e45129ef4e6a42f326cae0f30727e6c1ddeef116bc6dd1235",
+      "bytes": 5574
+    },
+    {
+      "path": "source/src/main/java/dev/rehan/passthrough/world/WorldStateCodec.java",
+      "sha256": "f1b14ef159e96f44a57a396585b715ef69fa22703280fbcb0bb7168dbdc908ee",
+      "bytes": 10684
+    },
+    {
+      "path": "source/src/main/resources/fabric.mod.json",
+      "sha256": "6651f6221f7869a02d13d77276b2053368cf804f00098509bc160d312ce28b6c",
+      "bytes": 967
+    },
+    {
+      "path": "source/src/main/resources/passthrough.mixins.json",
+      "sha256": "9f7d6064f8a0cfcdb30211236c5c0d6645cb1f9004b00015cbe3b1b15560e64c",
+      "bytes": 630
+    },
+    {
+      "path": "source/src/test/java/dev/rehan/passthrough/session/SessionProtocolTest.java",
+      "sha256": "ff014343ea2a4d30f83e668685ca0ff779a5dd44e0c05cbbac3d8eaf8af6fa9f",
+      "bytes": 20670
+    }
+  ],
+  "production_java_sources": 100,
+  "project_class_bytes_in_source_package": 0,
+  "dependency_binaries_in_source_package": 0,
+  "public_source_path_cleanliness_checked": true,
+  "result": "BUILD-RESULT.json",
+  "private_command_receipts_not_in_public_tree": true,
+  "source_build_entry": "build_mc_10_10.py",
+  "component_prerelease": true
+}
