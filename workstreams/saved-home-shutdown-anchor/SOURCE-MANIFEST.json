@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "source_only": true,
+  "production_slots": 1,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "d1779b4f0679ecdf225fb8a8e240600745e0614d83e995ab1af81377933df7a6",
+      "bytes": 1696
+    },
+    {
+      "path": "base/client/main.lua",
+      "sha256": "b4a315c859f52aeb73d57ae3408236804824c4575f80b2a29d476f0cf90c5b74",
+      "bytes": 42936
+    },
+    {
+      "path": "checks/check_missing_anchor.lua",
+      "sha256": "f6b6bfa57d1497509c421a87df9b0093774f5f7a2f8e2f2fb6eb590112a8a8b6",
+      "bytes": 9586
+    },
+    {
+      "path": "checks/receipt.json",
+      "sha256": "c8bc1d07ce7e48d02c7169c9ffc84999a5c7408e1f960a54d6af25b42ba76274",
+      "bytes": 1134
+    },
+    {
+      "path": "construct_predicate.lua",
+      "sha256": "9749a422f0c9f4440085258677daeb87bfe7b5e7dcdc320be4611ea137e9e766",
+      "bytes": 1659
+    },
+    {
+      "path": "source/client/main.lua",
+      "sha256": "459778c062e9ad86bd5225c702f04b8eaef17aa65f0b6b8cdef8e449b1e3bd38",
+      "bytes": 44323
+    },
+    {
+      "path": "source.patch",
+      "sha256": "0a83c4b7ed93a29f7c8bff408d4729a73e5393ea627cf1e29201303a6e71fc45",
+      "bytes": 2666
+    }
+  ],
+  "source_sha256": "459778c062e9ad86bd5225c702f04b8eaef17aa65f0b6b8cdef8e449b1e3bd38",
+  "base_sha256": "b4a315c859f52aeb73d57ae3408236804824c4575f80b2a29d476f0cf90c5b74",
+  "synthetic_cases": 3,
+  "real_Game_Save_release_ACK_or_closure_apply": false,
+  "construct_predicate_executed": false,
+  "public_source_path_cleanliness_checked": true
+}

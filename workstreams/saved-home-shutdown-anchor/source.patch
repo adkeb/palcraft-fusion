@@ -1,0 +1,55 @@
+--- a/client/main.lua
++++ b/client/main.lua
+@@ -370,8 +370,11 @@
+  return true
+ end
+ local function saved_home_cleanup_ready(server_features,proof,view)
++ local slot=server_features.composition and server_features.composition.features.travel
++ local travel=slot and slot.instance
++ if not slot or(slot.phase~='disabled'and(slot.phase~='running'or not travel))then return false end
+  local source=view_state.mapping
+- if not source or source.native_overworld~=true or source.dim~='minecraft:overworld'then return false end
++ if source and(source.native_overworld~=true or source.dim~='minecraft:overworld')then return false end
+  local known,count={},0
+  local function home(ticket,mapping,uid,world_session,dim,version)
+   if not ticket then return true end
+@@ -385,9 +388,36 @@
+   if not known[ticket]then known[ticket]=true;count=count+1 end
+   return true
+  end
+- local slot=server_features.composition and server_features.composition.features.travel
+- local travel=slot and slot.instance
+- if not slot or(slot.phase~='disabled'and(slot.phase~='running'or not travel))then return false end
++ if not source or source.world_session==nil then
++  local partial=source
++  if partial and partial.origin then
++   for _,key in ipairs({'X','Y','Z'})do
++    local value=partial.origin[key]
++    if type(value)~='number'or value~=value or math.abs(value-home_origin[key])>=.001 then return false end
++   end
++  end
++  local function anchor(ticket,mapping,uid,world_session,dim,version)
++   if not ticket or not mapping or uid~=proof.host_uid or ticket.released or ticket.abandoned
++    or type(mapping.world_session)~='string'or#mapping.world_session==0
++    or(partial and partial.region_id and partial.region_id~=mapping.region_id)then return false end
++   source=mapping
++   if home(ticket,mapping,uid,world_session,dim,version)then return true end
++   source=partial;return false
++  end
++  local player=travel and travel.players[proof.host_uid]
++  local found=player and anchor(player._ticket,player.mapping,proof.host_uid,player.world_session,player.dim,player.view)
++  if not found then
++   local tx=travel and travel.pending[proof.host_uid]
++   found=tx and anchor(tx._ticket,tx.mapping,proof.host_uid,tx.world_session,tx.dim,tx.view)
++  end
++  if not found and view then
++   for _,scene in ipairs(view.recovery_scenes)do
++    local t=scene.ticket
++    if t and anchor(t,scene.mapping,scene.pal_uid,t.world_session,t.dim,t.view)then found=true;break end
++   end
++  end
++  if not found then return false end
++ end
+  if travel then
+   for uid,tx in pairs(travel.pending)do
+    if not home(tx._ticket,tx.mapping,uid,tx.world_session,tx.dim,tx.view)then return false end

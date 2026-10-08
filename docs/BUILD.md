@@ -63,3 +63,13 @@ Standalone 配置从当前唯一 `minecraft_mod` 角色读取文件名与 SHA。
 `player-standalone/launcher/install_standalone.py` 和 `player-standalone/installer/compose_standalone.py` 复用原安装器，接受自己的游戏、根目录、bottle、CrossOver 和后端参数。详见 `player-standalone/README.zh-CN.md`；公共源码树不包含它需要的游戏本体或本机生成资产。
 
 公开源码组合规格为 `player-standalone/build/public-standalone/compose-spec.json`，绑定已发布的 macOS 13 arm64 HUD。组合器要求唯一的模组、实际会话和告示牌依赖角色；本次源码子集组合与模块加载检查见 [公开入口检查](evidence/public-standalone-source-closure-check.json)。完整基础包和游戏资产由用户在本机准备。
+
+## 场景清理的针对性源码案例
+
+在仓库根目录使用 Lua 5.4，可运行已公开的三个模拟场景：
+
+```sh
+lua workstreams/saved-home-shutdown-anchor/checks/check_missing_anchor.lua palcraft workstreams/saved-home-shutdown-anchor
+```
+
+这里的 `palcraft` 参数用于定位仓库内已有 JSON 库；案例加载真实源码函数，票据和保存适配器为模拟数据，不能替代游戏内正常退出验收。

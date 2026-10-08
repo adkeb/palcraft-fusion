@@ -22,3 +22,5 @@ workstreams/queued-centre-action-observation/** -text
 workstreams/queued-centre-action-observation/source.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 
 workstreams/native-home-current-spawn/** -text
+
+workstreams/saved-home-shutdown-anchor/** -text

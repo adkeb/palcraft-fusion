@@ -1,0 +1,22 @@
+{
+  "source_sha256": "459778c062e9ad86bd5225c702f04b8eaef17aa65f0b6b8cdef8e449b1e3bd38",
+  "source_bytes": 44323,
+  "synthetic_only": true,
+  "checks": [
+    {
+      "name": "selected_Lua54_syntax",
+      "exit_code": 0,
+      "elapsed_seconds": 0.003802,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "three_missing_anchor_cases",
+      "exit_code": 0,
+      "elapsed_seconds": 0.007223,
+      "stdout": "{\"actual_Game_Save_ACK_native_release_or_closure_apply\":false,\"cases\":[\"missing_and_partial_home_anchor_validate_real_dual_view_fixture_tickets_then_original_cleanup\",\"foreign_epoch_origin_world_lease_and_explicit_nonhome_conflicts_refused_no_empty_anchor_success\",\"complete_original_source_path_preserves_predicate_and_normal_cleanup_behavior\"],\"exact_original_and_new_main_predicate_and_shutdown_functions\":true,\"existing_stop_callbacks_are_scoped_fixture_adapters\":true,\"ok\":true,\"original_fake_file_witness_fixture_only\":true,\"original_saved_scope_operator_guard_and_stop_body_byte_equal\":true,\"synthetic_only\":true,\"tests\":3}\n",
+      "stderr": ""
+    }
+  ],
+  "passed": true
+}
